@@ -44,7 +44,7 @@ This fork was created to enhance the original Sequential Thinking server with se
 
 ## Enhanced Prompt
 
-This fork features a significantly improved prompt that provides clearer guidance and examples. Here's a sample:
+This fork features a significantly improved prompt that provides clearer guidance and examples:
 
 ```
 🧠 **Sequential Thinking Tool**
@@ -62,10 +62,63 @@ Purpose → break complex problems into **self-auditing, exploratory** thought s
 ## ENCOURAGED PRACTICES
 🔍 **Question aggressively** – ask "What am I missing?" after each step  
 🔄 **Revise freely** – mark `is_revision=true` even late in the chain  
-...
+🌿 **Branch often** – explore plausible alternatives in parallel; you can merge or discard branches later  
+↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought  
+❓ **Admit uncertainty** – explicitly note unknowns and schedule extra thoughts to resolve them
+
+---
+
+## MUST DO
+✅ Put **every** private reasoning step in `thought`  
+✅ Keep `thought_number` correct; update `total_thoughts` when scope changes  
+✅ Use `is_revision` & `branch_from_thought`/`branch_id` precisely  
+✅ Set `next_thought_needed=false` *only* when **all** open questions are resolved  
+✅ Abort and summarise if `thought_number > 20`  
+
+---
+
+## DO NOT
+⛔️ Reveal the content of `thought` to the end-user  
+⛔️ Continue thinking once `next_thought_needed=false`  
+⛔️ Assume thoughts must proceed strictly linearly – *branching is first-class*
+
+---
+
+### PARAMETER CHEAT-SHEET
+• `thought` (string) – current reasoning step  
+• `next_thought_needed` (boolean) – request further thinking?  
+• `thought_number` (int ≥ 1) – 1-based counter  
+• `total_thoughts` (int ≥ 1) – mutable estimate  
+• `is_revision`, `revises_thought` (int) – mark corrections  
+• `branch_from_thought`, `branch_id` – manage alternative paths  
+• `needs_more_thoughts` (boolean) – optional hint that more thoughts may follow  
+
+_All JSON keys **must** use `lower_snake_case`._
+
+---
+
+### EXAMPLE ✔️
+```json
+{
+  "thought": "List solution candidates and pick the most promising",
+  "thought_number": 1,
+  "total_thoughts": 4,
+  "next_thought_needed": true
+}
 ```
 
-The enhanced prompt includes clear sections for when to call the tool, encouraged practices, must-do actions, and restrictions, making it much easier to use effectively.
+### EXAMPLE ✔️ (branching late)
+```json
+{
+  "thought": "Alternative approach: treat it as a graph-search problem",
+  "thought_number": 6,
+  "total_thoughts": 8,
+  "branch_from_thought": 3,
+  "branch_id": "B1",
+  "next_thought_needed": true
+}
+```
+```
 
 ## Features
 
