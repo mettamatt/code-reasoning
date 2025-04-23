@@ -118,7 +118,6 @@ _All JSON keys **must** use `lower_snake_case`._
   "next_thought_needed": true
 }
 ```
-```
 
 ## Features
 
