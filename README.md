@@ -1,6 +1,6 @@
 # Code Reasoning MCP Server
 
-An enhanced fork of the Sequential Thinking MCP server, optimized for programming tasks and complex problem-solving through a structured thinking process.
+An enhanced fork of the Sequential Thinking MCP server, optimized for programming tasks and complex problem-solving through a structured thinking process. Now with improved debugging capabilities!
 
 ## Quick Start
 
@@ -19,6 +19,16 @@ npm install -g code-reasoning
   }
 }
 
+# For debug mode with detailed logging:
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "code-reasoning",
+      "args": ["--debug"]
+    }
+  }
+}
+
 # Start Claude Desktop and enjoy enhanced sequential thinking!
 ```
 
@@ -31,6 +41,7 @@ This fork was created to enhance the original Sequential Thinking server with se
 3. **Enhanced Prompting**: Clearer, more structured guidance in the tool description
 4. **Enforcement of Best Practices**: Automatically aborts chains after 20 steps to prevent excessive recursion
 5. **Local Development**: Designed to work seamlessly with Claude Desktop for programming tasks
+6. **Advanced Debugging**: Comprehensive logging system for troubleshooting and analysis
 
 ## Key Differences from Original
 
@@ -41,6 +52,49 @@ This fork was created to enhance the original Sequential Thinking server with se
 | Tool Description | Basic                   | Enhanced markdown with examples |
 | Primary Focus    | General problem-solving | Programming/code tasks          |
 | Error Handling   | Basic                   | Improved with status codes      |
+| Debugging        | None                    | Advanced logging system         |
+
+## Enhanced Debugging Features
+
+Version 0.2.0 introduces an advanced logging system that provides detailed insights into the server's operation:
+
+- **Comprehensive Logging**: All communications between Claude Desktop and the server are logged
+- **Log Levels**: Support for ERROR, INFO, and DEBUG log levels for granular control
+- **Log Rotation**: Automatic log rotation to prevent excessive disk usage
+- **Log Directory**: Logs are stored in `~/.code-reasoning/logs/` for easy access
+- **Latest Log Symlink**: A `latest.log` symlink is created for quick access to the current log
+- **Colorized Console Output**: Log messages are color-coded in the console for better readability
+- **Protocol Event Logging**: All protocol events (initialization, errors, closing) are tracked
+- **Request Handler Instrumentation**: Detailed logging of request handling and thought processing
+
+### Accessing Logs
+
+Logs are stored in your home directory:
+
+```
+~/.code-reasoning/logs/
+```
+
+The latest log file is always available as:
+
+```
+~/.code-reasoning/logs/latest.log
+```
+
+### Command Line Options
+
+The server now supports command-line options:
+
+```
+--debug     Enable debug logging (more verbose output)
+--help, -h  Show help information
+```
+
+For example:
+
+```bash
+code-reasoning --debug
+```
 
 ## Enhanced Prompt
 
@@ -128,6 +182,7 @@ _All JSON keys **must** use `lower_snake_case`._
 - Adjust the total number of thoughts dynamically
 - Generate and verify solution hypotheses
 - Enforce a maximum of 20 thought steps to prevent excessive reasoning
+- Comprehensive logging for debugging and analysis
 
 ## Tool
 
@@ -177,10 +232,23 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
+For debug mode:
+
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "code-reasoning",
+      "args": ["--debug"]
+    }
+  }
+}
+```
+
 Location of Claude Desktop config file on macOS:
 
 ```
-~/Library/Application Support/Claude-Desktop/claude_desktop_config.json
+~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
 ### Usage with VS Code
@@ -226,7 +294,44 @@ npm run build
 npm link
 ```
 
+## Development
+
+The project now uses a src/ directory structure:
+
+```
+src/
+├── index.ts              # Main server implementation
+├── logger.ts             # Logger implementation
+└── logging-transport.ts  # Logging transport implementation
+```
+
+Build the project with:
+
+```bash
+npm run build
+```
+
+Start the server with debug logging:
+
+```bash
+npm run debug
+```
+
 ## Troubleshooting
+
+### Debugging Server Issues
+
+If you encounter issues with the server, enable debug mode to get more detailed logging:
+
+```bash
+code-reasoning --debug
+```
+
+Then check the logs at:
+
+```
+~/.code-reasoning/logs/latest.log
+```
 
 ### TypeScript Configuration Error
 
