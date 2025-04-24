@@ -9,7 +9,7 @@ An enhanced fork of the Sequential Thinking MCP server, optimized for programmin
 npm install -g code-reasoning
 
 # Configure Claude Desktop
-# Edit ~/Library/Application Support/Claude-Desktop/claude_desktop_config.json:
+# Edit ~/Library/Application Support/Claude/claude_desktop_config.json:
 {
   "mcpServers": {
     "sequential-thinking": {
@@ -34,19 +34,19 @@ This fork was created to enhance the original Sequential Thinking server with se
 
 ## Key Differences from Original
 
-| Feature | Original | Code Reasoning |
-|---------|----------|----------------|
-| Parameter Style | camelCase | snake_case |
-| Max Steps | Not enforced | Enforced (max 20) |
-| Tool Description | Basic | Enhanced markdown with examples |
-| Primary Focus | General problem-solving | Programming/code tasks |
-| Error Handling | Basic | Improved with status codes |
+| Feature          | Original                | Code Reasoning                  |
+| ---------------- | ----------------------- | ------------------------------- |
+| Parameter Style  | camelCase               | snake_case                      |
+| Max Steps        | Not enforced            | Enforced (max 20)               |
+| Tool Description | Basic                   | Enhanced markdown with examples |
+| Primary Focus    | General problem-solving | Programming/code tasks          |
+| Error Handling   | Basic                   | Improved with status codes      |
 
 ## Enhanced Prompt
 
 This fork features a significantly improved prompt that provides clearer guidance and examples:
 
-```
+````
 🧠 **Sequential Thinking Tool**
 
 Purpose → break complex problems into **self-auditing, exploratory** thought steps that can *branch*, *revise*, or *back-track* until a **single, well-supported answer** emerges.
@@ -54,44 +54,44 @@ Purpose → break complex problems into **self-auditing, exploratory** thought s
 ---
 
 ## WHEN TO CALL
-• Multi-step planning, design, debugging, or open-ended analysis  
+• Multi-step planning, design, debugging, or open-ended analysis
 • Whenever *further private reasoning* or *hypothesis testing* is required **before** replying to the user
 
 ---
 
 ## ENCOURAGED PRACTICES
-🔍 **Question aggressively** – ask "What am I missing?" after each step  
-🔄 **Revise freely** – mark `is_revision=true` even late in the chain  
-🌿 **Branch often** – explore plausible alternatives in parallel; you can merge or discard branches later  
-↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought  
+🔍 **Question aggressively** – ask "What am I missing?" after each step
+🔄 **Revise freely** – mark `is_revision=true` even late in the chain
+🌿 **Branch often** – explore plausible alternatives in parallel; you can merge or discard branches later
+↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought
 ❓ **Admit uncertainty** – explicitly note unknowns and schedule extra thoughts to resolve them
 
 ---
 
 ## MUST DO
-✅ Put **every** private reasoning step in `thought`  
-✅ Keep `thought_number` correct; update `total_thoughts` when scope changes  
-✅ Use `is_revision` & `branch_from_thought`/`branch_id` precisely  
-✅ Set `next_thought_needed=false` *only* when **all** open questions are resolved  
-✅ Abort and summarise if `thought_number > 20`  
+✅ Put **every** private reasoning step in `thought`
+✅ Keep `thought_number` correct; update `total_thoughts` when scope changes
+✅ Use `is_revision` & `branch_from_thought`/`branch_id` precisely
+✅ Set `next_thought_needed=false` *only* when **all** open questions are resolved
+✅ Abort and summarise if `thought_number > 20`
 
 ---
 
 ## DO NOT
-⛔️ Reveal the content of `thought` to the end-user  
-⛔️ Continue thinking once `next_thought_needed=false`  
+⛔️ Reveal the content of `thought` to the end-user
+⛔️ Continue thinking once `next_thought_needed=false`
 ⛔️ Assume thoughts must proceed strictly linearly – *branching is first-class*
 
 ---
 
 ### PARAMETER CHEAT-SHEET
-• `thought` (string) – current reasoning step  
-• `next_thought_needed` (boolean) – request further thinking?  
-• `thought_number` (int ≥ 1) – 1-based counter  
-• `total_thoughts` (int ≥ 1) – mutable estimate  
-• `is_revision`, `revises_thought` (int) – mark corrections  
-• `branch_from_thought`, `branch_id` – manage alternative paths  
-• `needs_more_thoughts` (boolean) – optional hint that more thoughts may follow  
+• `thought` (string) – current reasoning step
+• `next_thought_needed` (boolean) – request further thinking?
+• `thought_number` (int ≥ 1) – 1-based counter
+• `total_thoughts` (int ≥ 1) – mutable estimate
+• `is_revision`, `revises_thought` (int) – mark corrections
+• `branch_from_thought`, `branch_id` – manage alternative paths
+• `needs_more_thoughts` (boolean) – optional hint that more thoughts may follow
 
 _All JSON keys **must** use `lower_snake_case`._
 
@@ -105,9 +105,10 @@ _All JSON keys **must** use `lower_snake_case`._
   "total_thoughts": 4,
   "next_thought_needed": true
 }
-```
+````
 
 ### EXAMPLE ✔️ (branching late)
+
 ```json
 {
   "thought": "Alternative approach: treat it as a graph-search problem",
@@ -135,6 +136,7 @@ _All JSON keys **must** use `lower_snake_case`._
 Facilitates a detailed, step-by-step thinking process for programming and technical problem-solving.
 
 **Inputs:**
+
 - `thought` (string): The current thinking step
 - `next_thought_needed` (boolean): Whether another thought step is needed
 - `thought_number` (integer): Current thought number
@@ -150,6 +152,7 @@ Facilitates a detailed, step-by-step thinking process for programming and techni
 ## Usage
 
 The Code Reasoning tool is designed for:
+
 - Breaking down complex programming problems into steps
 - Algorithm design and optimization
 - Debugging and error analysis
@@ -175,6 +178,7 @@ Add this to your `claude_desktop_config.json`:
 ```
 
 Location of Claude Desktop config file on macOS:
+
 ```
 ~/Library/Application Support/Claude-Desktop/claude_desktop_config.json
 ```
@@ -227,6 +231,7 @@ npm link
 ### TypeScript Configuration Error
 
 If you encounter an error like:
+
 ```
 error TS5083: Cannot read file '/tsconfig.json'.
 ```
@@ -254,6 +259,7 @@ This is because the original tsconfig.json extends a parent configuration. Updat
 ### Parameter Naming Errors
 
 If Claude receives errors from the server, ensure all parameters use snake_case:
+
 - Use `thought_number` instead of `thoughtNumber`
 - Use `next_thought_needed` instead of `nextThoughtNeeded`
 - Use `total_thoughts` instead of `totalThoughts`
@@ -263,17 +269,20 @@ If Claude receives errors from the server, ensure all parameters use snake_case:
 This is a fork of the original Sequential Thinking server. To incorporate updates from the original while maintaining our customizations:
 
 1. Check for updates to the original repository:
+
    ```bash
    cd /path/to/original/mcp-servers
    git pull
    ```
 
 2. Compare the changes to our fork:
+
    ```bash
    diff -r /path/to/original/mcp-servers/src/sequentialthinking/ ~/Sites/code-reasoning/
    ```
 
 3. Selectively incorporate updates:
+
    - Update dependencies to match the original (especially important for SDK updates)
    - Add new features or bug fixes while maintaining our snake_case naming conventions
    - Update the tool description if improvements are made to the original
