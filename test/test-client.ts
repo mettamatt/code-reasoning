@@ -16,6 +16,9 @@
  *   npm run test:perf
  */
 
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { 
@@ -24,7 +27,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import chalk from "chalk";
 import { performance } from "perf_hooks";
-import { spawnSync } from "child_process";
 import { ThoughtData } from "../src/visualizer.js";
 import fs from "fs";
 import path from "path";
