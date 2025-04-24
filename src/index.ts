@@ -4,38 +4,30 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool,
-  JSONRPCMessage
+  Tool
 } from "@modelcontextprotocol/sdk/types.js";
 import chalk from "chalk";
 import { Logger, LogLevel } from "./logger.js";
 import { LoggingStdioServerTransport } from "./logging-transport.js";
+import { ThoughtVisualizer, ThoughtData } from "./visualizer.js";
 import { parseArgs } from "node:util";
-
-interface ThoughtData {
-  thought: string;
-  thought_number: number;
-  total_thoughts: number;
-  is_revision?: boolean;
-  revises_thought?: number;
-  branch_from_thought?: number;
-  branch_id?: string;
-  needs_more_thoughts?: boolean;
-  next_thought_needed: boolean;
-}
 
 class SequentialThinkingServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private logger: Logger;
+  private visualizer: ThoughtVisualizer | null = null;
 
-  constructor(logger: Logger) {
+  constructor(logger: Logger, visualizer: ThoughtVisualizer | null = null) {
     this.logger = logger;
-    this.logger.info('Sequential Thinking Server initialized');
+    this.visualizer = visualizer;
+    this.logger.info('Sequential Thinking Server initialized', {
+      visualizerEnabled: !!this.visualizer
+    });
   }
 
   private validateThoughtData(input: unknown): ThoughtData {
-    this.logger.debug('Validating thought data', input);
+    this.logger.debug('Validating thought data', input as Record<string, unknown>);
     
     const data = input as Record<string, unknown>;
 
@@ -162,6 +154,11 @@ class SequentialThinkingServer {
 
       const formattedThought = this.formatThought(validatedInput);
       console.error(formattedThought);
+
+      // Update visualizer if enabled
+      if (this.visualizer) {
+        this.visualizer.updateThought(validatedInput);
+      }
 
       this.logger.info('Thought processed successfully', { 
         thought_number: validatedInput.thought_number,
@@ -341,6 +338,8 @@ async function runServer() {
   const { values } = parseArgs({
     options: {
       debug: { type: "boolean", default: false },
+      visualize: { type: "boolean", default: false },
+      port: { type: "string", default: "3000" },
       help: { type: "boolean", short: "h", default: false }
     }
   });
@@ -355,8 +354,10 @@ USAGE:
   code-reasoning [OPTIONS]
 
 OPTIONS:
-  --debug       Enable debug logging
-  --help, -h    Show this help message
+  --debug                Enable debug logging
+  --visualize            Start visualization dashboard
+  --port=PORT            Set port for visualization dashboard (default: 3000)
+  --help, -h             Show this help message
 `);
     process.exit(0);
   }
@@ -366,7 +367,9 @@ OPTIONS:
   const logger = new Logger(logLevel);
   logger.info('Starting Code-Reasoning MCP Server', { 
     version: '0.2.0',
-    debugMode: values.debug 
+    debugMode: values.debug,
+    visualizerEnabled: values.visualize,
+    visualizerPort: values.port
   });
 
   // Initialize server
@@ -382,11 +385,20 @@ OPTIONS:
     }
   );
 
-  // Initialize thinking server with logger
-  const thinkingServer = new SequentialThinkingServer(logger);
+  // Initialize visualizer if enabled
+  let visualizer = null;
+  if (values.visualize) {
+    const port = parseInt(values.port, 10);
+    logger.info('Initializing thought visualizer', { port });
+    visualizer = new ThoughtVisualizer(port, logger);
+    visualizer.start();
+  }
+
+  // Initialize thinking server with logger and visualizer
+  const thinkingServer = new SequentialThinkingServer(logger, visualizer);
 
   // Set up request handlers with logging
-  server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+  server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
     logger.debug('Handling tools/list request');
     return {
       tools: [SEQUENTIAL_THINKING_TOOL],
@@ -419,6 +431,10 @@ OPTIONS:
   
   logger.info('Connecting server using LoggingStdioServerTransport');
   await server.connect(transport);
+  
+  if (values.visualize) {
+    console.error(chalk.green(`🔍 Thought visualizer dashboard running at http://localhost:${values.port}`));
+  }
   
   logger.info('Code Reasoning MCP Server running on stdio');
 }
