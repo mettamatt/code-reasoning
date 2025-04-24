@@ -42,6 +42,10 @@ npm install -g code-reasoning
 # Start Claude Desktop and enjoy enhanced sequential thinking!
 ```
 
+For detailed usage examples, see [EXAMPLES.md](./EXAMPLES.md).
+
+For comprehensive configuration options, see [CONFIGURATION.md](./CONFIGURATION.md).
+
 ## Why This Fork?
 
 This fork was created to enhance the original Sequential Thinking server with several key improvements:
@@ -409,11 +413,20 @@ npm link
 
 ## Development
 
-The project now uses a src/ directory structure:
+The project provides comprehensive documentation across multiple files:
+
+- **[README.md](./README.md)**: Main documentation and overview
+- **[EXAMPLES.md](./EXAMPLES.md)**: Detailed usage examples
+- **[CONFIGURATION.md](./CONFIGURATION.md)**: Comprehensive configuration options
+- **[TEST.md](./TEST.md)**: Testing framework documentation
+- **[DEBUGGING_PLAN.md](./DEBUGGING_PLAN.md)**: The original debugging implementation plan
+
+The project uses a clear entry point and implementation separation:
 
 ```
+index.ts                  # Entry point that delegates to the server implementation
 src/
-├── index.ts              # Main server implementation
+├── server.ts             # Main server implementation with debugging features
 ├── logger.ts             # Logger implementation
 ├── logging-transport.ts  # Logging transport implementation
 └── visualizer.ts         # Thought visualizer implementation
@@ -426,6 +439,13 @@ public/
 ├── dashboard.html        # Main dashboard HTML
 ├── styles.css            # Dashboard CSS
 └── script.js             # Dashboard JavaScript
+```
+
+Test directory for the testing framework:
+
+```
+test/
+└── test-client.ts        # Test client implementation
 ```
 
 Build the project with:
