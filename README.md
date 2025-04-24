@@ -65,6 +65,7 @@ This fork was created to enhance the original Sequential Thinking server with se
 | Error Handling   | Basic                   | Improved with status codes      |
 | Debugging        | None                    | Advanced logging system         |
 | Visualization    | None                    | Interactive dashboard           |
+| Testing          | None                    | Comprehensive test framework    |
 
 ## Enhanced Debugging Features
 
@@ -444,6 +445,53 @@ Start the server with visualization:
 ```bash
 npm run visualize
 ```
+
+## Testing Framework
+
+Version 0.2.0 introduces a comprehensive testing framework to verify the functionality, reliability, and performance of the sequential thinking capabilities:
+
+- **Test Client**: Simulates Claude Desktop with various thought scenarios
+- **Test Scenarios**: Pre-defined scenarios to test different aspects of the server
+- **Error Handling**: Tests to verify proper error responses
+- **Performance Benchmarking**: Measures response times and throughput
+- **Result Reporting**: Comprehensive test results with success/failure metrics
+- **Result Storage**: Option to save test results for later analysis
+
+### Running Tests
+
+To run all test scenarios:
+
+```bash
+npm run test
+```
+
+To run specific test scenarios:
+
+```bash
+npm run test:basic      # Run only basic thought flow tests
+npm run test:branch     # Run only thought branching tests
+npm run test:revision   # Run only thought revision tests
+npm run test:error      # Run only error handling tests
+npm run test:perf       # Run only performance tests
+```
+
+To run tests with additional options:
+
+```bash
+# Run with verbose output
+npm run test -- --verbose
+
+# Run with visualization dashboard
+npm run test -- --visualize
+
+# Save test results to file
+npm run test -- --save-results
+
+# Set custom timeout (in milliseconds)
+npm run test -- --timeout=60000
+```
+
+For detailed information about the testing framework, see [TEST.md](./TEST.md).
 
 ## Troubleshooting
 
