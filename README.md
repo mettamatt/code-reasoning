@@ -29,6 +29,16 @@ npm install -g code-reasoning
   }
 }
 
+# For visualization dashboard:
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "code-reasoning",
+      "args": ["--visualize"]
+    }
+  }
+}
+
 # Start Claude Desktop and enjoy enhanced sequential thinking!
 ```
 
@@ -42,6 +52,7 @@ This fork was created to enhance the original Sequential Thinking server with se
 4. **Enforcement of Best Practices**: Automatically aborts chains after 20 steps to prevent excessive recursion
 5. **Local Development**: Designed to work seamlessly with Claude Desktop for programming tasks
 6. **Advanced Debugging**: Comprehensive logging system for troubleshooting and analysis
+7. **Thought Visualization**: Interactive dashboard for monitoring thought processes in real-time
 
 ## Key Differences from Original
 
@@ -53,6 +64,7 @@ This fork was created to enhance the original Sequential Thinking server with se
 | Primary Focus    | General problem-solving | Programming/code tasks          |
 | Error Handling   | Basic                   | Improved with status codes      |
 | Debugging        | None                    | Advanced logging system         |
+| Visualization    | None                    | Interactive dashboard           |
 
 ## Enhanced Debugging Features
 
@@ -81,19 +93,77 @@ The latest log file is always available as:
 ~/.code-reasoning/logs/latest.log
 ```
 
-### Command Line Options
+## Thought Process Visualization
 
-The server now supports command-line options:
+Version 0.2.0 also introduces a powerful visualization dashboard for monitoring thought processes in real-time:
+
+- **Interactive Dashboard**: Web-based UI to visualize thought chains and branches
+- **Real-time Updates**: Live updates via WebSocket as thoughts are processed
+- **Thought History**: Complete history of all thoughts with their content
+- **Branch Visualization**: Visual representation of thought branches and revisions
+- **Graph Display**: Interactive graph showing thought sequences and relationships
+- **Detailed View**: Comprehensive view of each individual thought
+- **Statistics**: Real-time metrics on thought patterns and chains
+
+### Using the Visualization Dashboard
+
+To start the server with the visualization dashboard:
+
+```bash
+code-reasoning --visualize
+```
+
+Or using npm scripts:
+
+```bash
+npm run visualize
+```
+
+This will start the server with debugging enabled and the visualization dashboard running on the default port (3000). You can access the dashboard at:
 
 ```
---debug     Enable debug logging (more verbose output)
---help, -h  Show help information
+http://localhost:3000
+```
+
+### Customizing the Dashboard Port
+
+You can specify a custom port for the dashboard:
+
+```bash
+code-reasoning --visualize --port=8080
+```
+
+Or using npm scripts:
+
+```bash
+npm run visualize:port 8080
+```
+
+### Dashboard Features
+
+The visualization dashboard provides:
+
+1. **Thought List**: A chronological list of all thoughts with their numbers and content previews
+2. **Thought Graph**: A visual representation of thoughts and their relationships
+3. **Thought Details**: Detailed view of the selected thought with its full content
+4. **Statistics**: Real-time statistics on total thoughts, branches, revisions, and completed chains
+5. **WebSocket Status**: Indicator showing the connection status to the server
+
+### Command Line Options
+
+The server now supports the following command-line options:
+
+```
+--debug           Enable debug logging (more verbose output)
+--visualize       Start the visualization dashboard
+--port=PORT       Set the port for the visualization dashboard (default: 3000)
+--help, -h        Show help information
 ```
 
 For example:
 
 ```bash
-code-reasoning --debug
+code-reasoning --debug --visualize --port=8080
 ```
 
 ## Enhanced Prompt
@@ -183,6 +253,7 @@ _All JSON keys **must** use `lower_snake_case`._
 - Generate and verify solution hypotheses
 - Enforce a maximum of 20 thought steps to prevent excessive reasoning
 - Comprehensive logging for debugging and analysis
+- Interactive visualization dashboard for thought monitoring
 
 ## Tool
 
@@ -245,6 +316,32 @@ For debug mode:
 }
 ```
 
+For visualization dashboard:
+
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "code-reasoning",
+      "args": ["--visualize"]
+    }
+  }
+}
+```
+
+For both debug mode and visualization with custom port:
+
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "code-reasoning",
+      "args": ["--debug", "--visualize", "--port=8080"]
+    }
+  }
+}
+```
+
 Location of Claude Desktop config file on macOS:
 
 ```
@@ -264,6 +361,21 @@ Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace
       "sequential-thinking": {
         "command": "code-reasoning",
         "args": []
+      }
+    }
+  }
+}
+```
+
+For visualization dashboard:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "sequential-thinking": {
+        "command": "code-reasoning",
+        "args": ["--visualize"]
       }
     }
   }
@@ -302,7 +414,17 @@ The project now uses a src/ directory structure:
 src/
 ├── index.ts              # Main server implementation
 ├── logger.ts             # Logger implementation
-└── logging-transport.ts  # Logging transport implementation
+├── logging-transport.ts  # Logging transport implementation
+└── visualizer.ts         # Thought visualizer implementation
+```
+
+Public directory for the visualization dashboard:
+
+```
+public/
+├── dashboard.html        # Main dashboard HTML
+├── styles.css            # Dashboard CSS
+└── script.js             # Dashboard JavaScript
 ```
 
 Build the project with:
@@ -317,7 +439,24 @@ Start the server with debug logging:
 npm run debug
 ```
 
+Start the server with visualization:
+
+```bash
+npm run visualize
+```
+
 ## Troubleshooting
+
+### Visualization Issues
+
+If you have trouble accessing the visualization dashboard:
+
+1. Ensure the server is running with the `--visualize` flag
+2. Check that the specified port (default: 3000) is not in use by another application
+3. Access the dashboard at `http://localhost:3000` (or your custom port)
+4. Check the console for any WebSocket connection errors
+
+If you see a "WebSocket disconnected" message, the server might not be running or might be inaccessible. Refresh the page after ensuring the server is running.
 
 ### Debugging Server Issues
 
