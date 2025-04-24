@@ -10,7 +10,6 @@ import chalk from "chalk";
 import { Logger, LogLevel } from "./logger.js";
 import { LoggingStdioServerTransport } from "./logging-transport.js";
 import { ThoughtVisualizer, ThoughtData } from "./visualizer.js";
-import { parseArgs } from "node:util";
 
 class SequentialThinkingServer {
   private thoughtHistory: ThoughtData[] = [];
@@ -333,16 +332,19 @@ _All JSON keys **must** use \`lower_snake_case\`._
   },
 };
 
-async function runServer() {
-  // Parse command line arguments
-  const { values } = parseArgs({
-    options: {
-      debug: { type: "boolean", default: false },
-      visualize: { type: "boolean", default: false },
-      port: { type: "string", default: "3000" },
-      help: { type: "boolean", short: "h", default: false }
-    }
-  });
+export async function runServer(options: {
+  debug?: boolean;
+  visualize?: boolean;
+  port?: string;
+  help?: boolean;
+} = {}) {
+  // Default values if not provided
+  const values = {
+    debug: options.debug ?? false,
+    visualize: options.visualize ?? false,
+    port: options.port ?? "3000",
+    help: options.help ?? false
+  };
 
   if (values.help) {
     console.error(`
@@ -439,7 +441,4 @@ OPTIONS:
   logger.info('Code Reasoning MCP Server running on stdio');
 }
 
-runServer().catch((error) => {
-  console.error("Fatal error running server:", error);
-  process.exit(1);
-});
+// No direct invocation needed as this is now imported and called from the root index.ts
