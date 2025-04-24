@@ -40,7 +40,7 @@ export class LoggingStdioServerTransport extends StdioServerTransport {
   }
   
   // Sanitize message for logging (truncate large content)
-  private sanitizeMessage(message: JSONRPCMessage): any {
+  private sanitizeMessage(message: JSONRPCMessage): Record<string, unknown> {
     // Create a deep copy
     const sanitized = JSON.parse(JSON.stringify(message));
     

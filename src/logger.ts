@@ -73,23 +73,23 @@ export class Logger {
     }
   }
   
-  debug(message: string, data?: any) {
+  debug(message: string, data?: Record<string, unknown>) {
     if (this.logLevel >= LogLevel.DEBUG) {
       this.log('DEBUG', message, data, chalk.cyan);
     }
   }
   
-  info(message: string, data?: any) {
+  info(message: string, data?: Record<string, unknown>) {
     if (this.logLevel >= LogLevel.INFO) {
       this.log('INFO', message, data, chalk.blue);
     }
   }
   
-  error(message: string, data?: any) {
+  error(message: string, data?: Record<string, unknown>) {
     this.log('ERROR', message, data, chalk.red);
   }
   
-  private log(level: string, message: string, data?: any, colorFn: Function = (s: string) => s) {
+  private log(level: string, message: string, data?: Record<string, unknown>, colorFn: (s: string) => string = (s: string) => s) {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${level}: ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}`;
     
