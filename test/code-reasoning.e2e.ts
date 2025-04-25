@@ -128,10 +128,30 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { ChildProcess, spawn } from 'child_process';
 
-// Get current file directory
+// Find project root by looking for package.json
+function findProjectRoot(startDir: string): string {
+  let currentDir = startDir;
+  
+  // Walk up the directory tree until we find package.json
+  while (currentDir !== path.parse(currentDir).root) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+  
+  // If we reach the filesystem root without finding package.json,
+  // fall back to the original calculation
+  return path.join(startDir, '..');
+}
+
+// Get current file directory and find project root
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.join(__dirname, '..');
+const projectRoot = findProjectRoot(__dirname);
+
+// Log the detected project root for debugging
+console.error(`Detected project root: ${projectRoot}`);
 
 // Create log directories
 const logsDir = path.join(projectRoot, 'logs');
@@ -386,8 +406,16 @@ async function createSocketConnection(): Promise<ChildProcess> {
   return new Promise<ChildProcess>((resolve, reject) => {
     // Start the server
     log('Starting server process...');
+    
+    // Check if the index.js file exists
+    const indexJsPath = path.join(projectRoot, 'dist/index.js');
+    if (!fs.existsSync(indexJsPath)) {
+      throw new Error(`Server entry point not found at ${indexJsPath}`);
+    }
+    
+    log(`Using server entry point: ${indexJsPath}`);
     const serverProcess = spawn('node', [
-      path.join(projectRoot, 'dist/index.js'),
+      indexJsPath,
       '--debug'
     ], {
       stdio: 'pipe',
