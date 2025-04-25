@@ -11,12 +11,7 @@ This document provides detailed information about all configuration options avai
   - [VS Code Integration](#vs-code-integration)
 - [Component Configuration](#component-configuration)
   - [Logger Configuration](#logger-configuration)
-  - [Visualization Dashboard Configuration](#visualization-dashboard-configuration)
   - [Testing Configuration](#testing-configuration)
-- [Advanced Configuration](#advanced-configuration)
-  - [Custom CSS for Dashboard](#custom-css-for-dashboard)
-  - [Custom Scripts for Dashboard](#custom-scripts-for-dashboard)
-  - [Performance Tuning](#performance-tuning)
 
 ## Command-Line Options
 
@@ -25,8 +20,6 @@ The Code-Reasoning MCP Server supports the following command-line options:
 | Option | Description | Default | Example |
 |--------|-------------|---------|---------|
 | `--debug` | Enable debug logging with more verbose output | `false` | `code-reasoning --debug` |
-| `--visualize` | Start the visualization dashboard | `false` | `code-reasoning --visualize` |
-| `--port=PORT` | Set the port for the visualization dashboard | `3000` | `code-reasoning --visualize --port=8080` |
 | `--help`, `-h` | Show help information | - | `code-reasoning --help` |
 
 ### Usage Examples
@@ -41,21 +34,6 @@ Debug mode:
 code-reasoning --debug
 ```
 
-Visualization dashboard:
-```bash
-code-reasoning --visualize
-```
-
-Custom port for dashboard:
-```bash
-code-reasoning --visualize --port=8080
-```
-
-Debug mode with visualization dashboard:
-```bash
-code-reasoning --debug --visualize
-```
-
 Help information:
 ```bash
 code-reasoning --help
@@ -68,8 +46,6 @@ The Code-Reasoning MCP Server supports the following environment variables:
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | `CODE_REASONING_DEBUG` | Enable debug logging | `false` | `CODE_REASONING_DEBUG=true code-reasoning` |
-| `CODE_REASONING_VISUALIZE` | Enable visualization dashboard | `false` | `CODE_REASONING_VISUALIZE=true code-reasoning` |
-| `CODE_REASONING_PORT` | Set port for visualization dashboard | `3000` | `CODE_REASONING_PORT=8080 code-reasoning` |
 | `CODE_REASONING_LOG_DIR` | Set custom log directory | `~/.code-reasoning/logs` | `CODE_REASONING_LOG_DIR=/var/log/code-reasoning code-reasoning` |
 | `CODE_REASONING_MAX_LOG_FILES` | Maximum number of log files to keep | `10` | `CODE_REASONING_MAX_LOG_FILES=20 code-reasoning` |
 
@@ -98,9 +74,9 @@ Claude Desktop uses a configuration file to manage MCP server settings. This fil
 ```json
 {
   "mcpServers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
-      "args": ["--debug", "--visualize", "--port=8080"]
+      "args": ["--debug"]
     }
   }
 }
@@ -130,9 +106,9 @@ VS Code integration can be configured in two ways:
 {
   "mcp": {
     "servers": {
-      "sequential-thinking": {
+      "code-reasoning": {
         "command": "code-reasoning",
-        "args": ["--debug", "--visualize"]
+        "args": ["--debug"]
       }
     }
   }
@@ -144,13 +120,15 @@ VS Code integration can be configured in two ways:
 ```json
 {
   "servers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
-      "args": ["--debug", "--visualize"]
+      "args": ["--debug"]
     }
   }
 }
 ```
+
+
 
 #### Available Options
 
@@ -205,59 +183,37 @@ export class Logger {
 }
 ```
 
-### Visualization Dashboard Configuration
-
-The Visualization Dashboard can be configured using command-line options or by modifying the `src/visualizer.ts` file.
-
-#### Command-Line Options
-
-| Option | Description | Default | Example |
-|--------|-------------|---------|---------|
-| `--visualize` | Enable visualization dashboard | `false` | `code-reasoning --visualize` |
-| `--port=PORT` | Set dashboard port | `3000` | `code-reasoning --visualize --port=8080` |
-
-#### Customizing Dashboard Files
-
-The dashboard HTML, CSS, and JavaScript files are generated automatically if they don't exist. You can customize them by modifying the files in the `public` directory:
-
-- `public/dashboard.html`: Main dashboard HTML
-- `public/styles.css`: Dashboard CSS
-- `public/script.js`: Dashboard JavaScript
-
 ### Testing Configuration
 
-The testing framework can be configured using command-line options when running tests.
+The testing framework uses the Integrated Test Runner which manages both server and client processes automatically and handles all the communication efficiently.
 
-#### Important: Stdio Considerations
+#### Integrated Test Runner
 
-The test client uses `StdioClientTransport` from the MCP SDK to communicate with the server, which captures stdin/stdout for the client-server communication. As a result, test output may not be visible when running tests directly in the terminal.
+The Integrated Test Runner solves the visibility issues with StdioClientTransport and properly handles JSON-RPC protocol requirements. With this approach, you don't need to worry about managing separate terminals or dealing with communication challenges.
 
-For proper test execution and visibility, you have these options:
+For most testing needs, use these simple commands:
 
-1. **Run server and test client in separate terminals**:
-   ```bash
-   # Terminal 1: Start the server
-   npm run debug
-   
-   # Terminal 2: Run the tests
-   npm run test
-   ```
+```bash
+# Run basic tests
+npm test
 
-2. **Use visualization dashboard**:
-   ```bash
-   # Terminal 1: Start server with visualization
-   npm run visualize
-   
-   # Terminal 2: Run tests with visualization
-   npm run test -- --visualize
-   
-   # Access dashboard at http://localhost:3000
-   ```
-   
-3. **Check logs after testing**:
-   ```bash
-   npm run test && cat ~/.code-reasoning/logs/latest.log
-   ```
+# Run with verbose output
+npm run test:verbose
+
+# Run specific test scenarios
+npm run test:basic
+npm run test:branch
+npm run test:revision
+npm run test:error
+npm run test:perf
+```
+
+The Integrated Test Runner:
+1. Starts the server automatically
+2. Runs the test client connecting to that server
+3. Captures all communication between them
+4. Logs everything to dedicated files
+5. Provides a clear summary of test results
 
 #### Test Command-Line Options
 
@@ -265,7 +221,6 @@ For proper test execution and visibility, you have these options:
 |--------|-------------|---------|---------|
 | `--verbose`, `-v` | Show detailed output for each test | `false` | `npm run test -- --verbose` |
 | `--save-results`, `-s` | Save test results to JSON file | `false` | `npm run test -- --save-results` |
-| `--visualize` | Start server with visualization | `false` | `npm run test -- --visualize` |
 | `--debug` | Start server in debug mode | `false` | `npm run test -- --debug` |
 | `--timeout=MILLISECONDS` | Set test timeout | `30000` | `npm run test -- --timeout=60000` |
 
@@ -292,244 +247,8 @@ Run performance tests with a longer timeout:
 npm run test:perf -- --timeout=60000
 ```
 
-Run all tests with visualization and save results:
+Run all tests with debug mode and save results:
 ```bash
-npm run test -- --visualize --save-results
+npm run test -- --debug --save-results
 ```
 
-## Advanced Configuration
-
-### Custom CSS for Dashboard
-
-You can customize the appearance of the visualization dashboard by editing the `public/styles.css` file. Here's an example of custom styles:
-
-```css
-/* Example custom styles for the dashboard */
-
-/* Change the main background color */
-body {
-  background-color: #f0f5ff;
-}
-
-/* Customize the header */
-header {
-  background-color: #2c3e50;
-  color: white;
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-/* Style the thought cards */
-.thought-card {
-  border-left: 5px solid #3498db;
-  background-color: white;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
-  transition: transform 0.2s;
-}
-
-/* Add hover effect to thought cards */
-.thought-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Style branch indicators */
-.branch-indicator {
-  background-color: #27ae60;
-  color: white;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.8rem;
-}
-
-/* Style revision indicators */
-.revision-indicator {
-  background-color: #e74c3c;
-  color: white;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.8rem;
-}
-```
-
-### Custom Scripts for Dashboard
-
-You can enhance the visualization dashboard functionality by editing the `public/script.js` file. Here's an example of adding custom features:
-
-```javascript
-// Example custom functionality for the dashboard
-
-// Add keyboard shortcuts
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'n') {
-    // Navigate to next thought
-    showNextThought();
-  } else if (event.key === 'p') {
-    // Navigate to previous thought
-    showPreviousThought();
-  } else if (event.key === 'f') {
-    // Toggle fullscreen mode
-    toggleFullscreen();
-  }
-});
-
-// Add fullscreen toggle functionality
-function toggleFullscreen() {
-  const dashboard = document.getElementById('dashboard');
-  
-  if (!document.fullscreenElement) {
-    dashboard.requestFullscreen().catch(err => {
-      console.error(`Error attempting to enable fullscreen: ${err.message}`);
-    });
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-// Add thought navigation functions
-let currentThoughtIndex = 0;
-
-function showNextThought() {
-  if (currentThoughtIndex < thoughtsData.length - 1) {
-    currentThoughtIndex++;
-    selectThought(thoughtsData[currentThoughtIndex].thought_number);
-  }
-}
-
-function showPreviousThought() {
-  if (currentThoughtIndex > 0) {
-    currentThoughtIndex--;
-    selectThought(thoughtsData[currentThoughtIndex].thought_number);
-  }
-}
-
-// Add export functionality
-document.getElementById('export-btn').addEventListener('click', () => {
-  const data = {
-    thoughts: thoughtsData,
-    branches: branchesData,
-    stats: statsData,
-    timestamp: new Date().toISOString()
-  };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `thought-data-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
-```
-
-### Performance Tuning
-
-For improved performance in high-load scenarios, you can modify the following settings:
-
-#### WebSocket Behavior
-
-Edit `src/visualizer.ts` to customize WebSocket behavior:
-
-```typescript
-// Example modifications for WebSocket performance tuning
-
-private setupWebSocket() {
-  // Increase heartbeat interval (default is often 30 seconds)
-  this.wss = new WebSocket.Server({ 
-    server: this.server,
-    // Add WebSocket server options
-    clientTracking: true,
-    perMessageDeflate: true,
-    maxPayload: 5 * 1024 * 1024, // 5MB max message size
-    pingInterval: 60000, // 1 minute ping interval
-    pingTimeout: 30000 // 30 second ping timeout
-  });
-  
-  // Add ping/pong for keeping connections alive
-  const interval = setInterval(() => {
-    this.wss.clients.forEach((ws) => {
-      if ((ws as any).isAlive === false) {
-        return ws.terminate();
-      }
-      
-      (ws as any).isAlive = false;
-      ws.ping();
-    });
-  }, 60000);
-  
-  this.wss.on('connection', (ws) => {
-    (ws as any).isAlive = true;
-    
-    ws.on('pong', () => {
-      (ws as any).isAlive = true;
-    });
-    
-    // Rest of connection handler...
-  });
-  
-  this.wss.on('close', () => {
-    clearInterval(interval);
-  });
-}
-```
-
-#### Throttling Updates
-
-For high-throughput scenarios, you can add throttling to reduce the frequency of updates:
-
-```typescript
-// Example throttling for high-throughput scenarios
-
-// Add this property to ThoughtVisualizer class
-private lastBroadcastTime: number = 0;
-private updateQueue: ThoughtData[] = [];
-private broadcastThrottleMs: number = 100; // Minimum ms between broadcasts
-
-public updateThought(thought: ThoughtData): void {
-  // Add to history and branches as before
-  this.thoughtHistory.push(thought);
-  
-  if (thought.branch_from_thought && thought.branch_id) {
-    if (!this.branches[thought.branch_id]) {
-      this.branches[thought.branch_id] = [];
-    }
-    this.branches[thought.branch_id].push(thought);
-  }
-  
-  // Add to update queue instead of broadcasting immediately
-  this.updateQueue.push(thought);
-  
-  // Check if we should broadcast now or wait
-  const now = Date.now();
-  if (now - this.lastBroadcastTime >= this.broadcastThrottleMs) {
-    this.broadcastUpdates();
-  } else if (this.updateQueue.length === 1) {
-    // Schedule broadcast
-    setTimeout(() => this.broadcastUpdates(), 
-      this.broadcastThrottleMs - (now - this.lastBroadcastTime));
-  }
-}
-
-private broadcastUpdates(): void {
-  if (this.updateQueue.length === 0) return;
-  
-  // Broadcast all accumulated updates
-  this.broadcast({
-    type: 'update',
-    data: {
-      thoughts: this.thoughtHistory,
-      branches: this.branches,
-      recentUpdates: [...this.updateQueue],
-      stats: this.getStats()
-    }
-  });
-  
-  // Reset queue and update timestamp
-  this.updateQueue = [];
-  this.lastBroadcastTime = Date.now();
-}
-```

@@ -2,16 +2,18 @@
 
 This file provides guidance to Claude when working with code in this repository.
 
+## Naming Convention Note
+
+This project was originally forked from the Sequential Thinking MCP Server but has been renamed to Code Reasoning MCP Server to better reflect its specialized focus on programming tasks. The tool has been renamed from "sequentialthinking" to "code-reasoning" for consistency. All configuration must use "code-reasoning" as the key - the "sequential-thinking" configuration key is not supported. The class previously named "SequentialThinkingServer" has been renamed to "CodeReasoningServer" for consistency.
+
 ## Build/Test/Lint Commands
 - Build: `npm run build` 
-- Start: `npm run start`, `npm run debug`, `npm run visualize`
+- Start: `npm run start`, `npm run debug`
+=======
 - Test: 
-  - For best results, run server and tests in separate terminals:
-    - Terminal 1: `npm run debug` (start server)
-    - Terminal 2: `npm run test` (run tests)
-  - All tests: `npm run test`
+  - All tests: `npm run test` (uses integrated test runner)
   - Single Test: `npm run test:basic`, `npm run test:branch`, `npm run test:revision`, `npm run test:error`, `npm run test:perf`
-  - Output may not be visible directly in terminal due to StdioClientTransport (see docs/testing.md)
+  - Verbose output: `npm run test:verbose`
 
 ## Code Style Guidelines
 - **Parameters**: snake_case (e.g., `thought_number`, not `thoughtNumber`)
@@ -27,4 +29,3 @@ Always run `npm run lint` before committing changes.
 - Detailed examples: [docs/examples.md](./docs/examples.md)
 - Configuration options: [docs/configuration.md](./docs/configuration.md)
 - Testing framework: [docs/testing.md](./docs/testing.md)
-- Development history: [docs/development-history.md](./docs/development-history.md)

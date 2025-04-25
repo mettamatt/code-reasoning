@@ -4,7 +4,31 @@ This document describes the testing framework for the Code-Reasoning MCP Server,
 
 ## Overview
 
-The testing framework simulates Claude Desktop by creating an MCP client that connects to the sequential thinking server and sends various thought patterns to test different aspects of the server's functionality. It includes comprehensive test scenarios, error handling tests, and performance benchmarking.
+The testing framework uses the integrated test runner to connect to the sequential thinking server and send various thought patterns to test different aspects of the server's functionality. It includes comprehensive test scenarios, error handling tests, and performance benchmarking.
+
+### Why This Approach Works
+
+The Integrated Test Runner solves two key issues:
+
+1. **StdioClientTransport Limitations**: The standard test client uses StdioClientTransport which captures stdout for JSON-RPC communication, making normal console output invisible.
+
+2. **JSON-RPC Protocol Compliance**: The runner properly handles JSON-RPC notifications (messages without an ID field), which don't receive responses according to the protocol.
+
+### Important Note
+
+The Integrated Test Runner is the only supported testing approach for Code-Reasoning. The alternative approaches that previously existed have been removed to streamline the testing process and ensure consistent results.
+
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Run basic test scenario with integrated runner |
+| `npm run test:basic` | Run basic test scenario |
+| `npm run test:branch` | Run branching test scenario |
+| `npm run test:revision` | Run revision test scenario |
+| `npm run test:error` | Run error handling test scenario |
+| `npm run test:perf` | Run performance test scenario |
+| `npm run test:verbose` | Run with verbose output |
 
 ## Test Scenarios
 
@@ -54,41 +78,40 @@ Tests performance with a long sequence of thoughts. This measures the server's a
 - Project dependencies installed (`npm install`)
 - Project built (`npm run build`)
 
-### Important: Test Client and Server Communication
+### Testing with the Integrated Test Runner
 
-The test client uses StdioClientTransport from the MCP SDK which captures standard input/output for communication with the server. **Because of this, test output may not be visible in the terminal when running tests directly.**
+The project includes an integrated test runner that solves the visibility issues with StdioClientTransport. This solution manages both server and client processes automatically, logs all communication to dedicated files, and provides clear test result summaries.
 
-For proper test execution and visibility, you have these options:
+For most testing needs, use these simple commands:
 
-#### Option 1: Run server and test client in separate terminals
 ```bash
-# Terminal 1: Start the server
-npm run debug
+# Run basic tests
+npm test
 
-# Terminal 2: Run the tests
-npm run test
+# Run with verbose output
+npm run test:verbose
+
+# Run specific test scenarios
+npm run test:basic
+npm run test:branch
+npm run test:revision
+npm run test:error
+npm run test:perf
 ```
 
-#### Option 2: Use visualization dashboard
-```bash
-# Terminal 1: Start server with visualization
-npm run visualize
+The integrated test runner:
+1. Starts the server automatically
+2. Runs the test client connecting to that server
+3. Captures all communication between them
+4. Logs everything to dedicated files
+5. Provides a clear summary of test results
 
-# Terminal 2: Run tests with visualization option
-npm run test -- --visualize
-
-# Then open http://localhost:3000 in your browser
-```
-
-#### Option 3: Check log files
-```bash
-# Run tests and then check the logs
-npm run test && cat ./logs/latest.log
-```
+You don't need to worry about managing separate terminals or dealing with StdioClientTransport limitations.
 
 ### Running Specific Test Scenarios
 
 ```bash
+# These commands use the integrated test runner
 npm run test:basic      # Run only basic thought flow tests
 npm run test:branch     # Run only thought branching tests
 npm run test:revision   # Run only thought revision tests
@@ -98,24 +121,25 @@ npm run test:perf       # Run only performance tests
 
 ### Options
 
-You can add options to any test command:
+You can use these options with the integrated test runner:
 
 ```bash
 # Run with verbose output
-npm run test -- --verbose
+npm run test:verbose
 
-# Run with visualization dashboard 
-npm run test -- --visualize
-
-# Save test results to file
-npm run test -- --save-results
-
-# Set custom timeout (in milliseconds)
-npm run test -- --timeout=60000
-
-# Run specific scenario with options
-npm run test -- branch --verbose --visualize
+# Run a specific scenario with verbose output
+node test/integrated-test-runner.js basic --verbose
 ```
+
+### What to Expect
+
+When you run tests with the Integrated Test Runner:
+
+1. Server and client processes will start automatically
+2. Test progress will be displayed in the console
+3. Detailed logs will be created in:
+   - `logs/custom-test-{timestamp}.log` - Test execution logs
+   - `test-results/custom-result-{timestamp}.json` - Test results in JSON format
 
 ## Test Results
 
@@ -148,15 +172,15 @@ When run with the `--save-results` option, test results are saved to:
 
 To add a new test scenario:
 
-1. Open `test/test-client.ts`
+1. Open `test/integrated-test-runner.js`
 2. Add a new entry to the `testScenarios` object with the format:
 
-```typescript
+```javascript
 newScenario: {
   name: "New scenario name",
   description: "Description of what this scenario tests",
   thoughts: [
-    // Array of thought objects that follow the ThoughtData interface
+    // Array of thought objects
     {
       thought: "First thought in the scenario",
       thought_number: 1,
@@ -173,7 +197,7 @@ newScenario: {
 3. Optionally add a new npm script in `package.json` to run just this scenario:
 
 ```json
-"test:newscenario": "node dist/test/test-client.js newscenario"
+"test:newscenario": "node test/integrated-test-runner.js newscenario"
 ```
 
 ### Customizing Performance Tests
@@ -191,46 +215,29 @@ For more advanced performance testing, you can:
 
 ### Common Issues
 
-- **No visible test output**: This is expected behavior due to StdioClientTransport capturing stdio for MCP communication. See the section "Important: Test Client and Server Communication" above for solutions.
-- **Timeout errors**: Increase the timeout using `--timeout=60000` (or higher value)
-- **Connection failures**: Ensure the server path is correct and the server can start properly
-- **Unexpected errors**: Run with `--verbose` to see detailed error information
-- **Dashboard unavailable**: Make sure port 3000 is free or specify a different port
+- **JSON-RPC protocol errors**: These can occur if modifications are made to the communication protocol. The integrated test runner properly handles JSON-RPC notifications.
+- **Connection failures**: Ensure the server path is correct and the server can start properly.
+- **Unexpected errors**: Run with `--verbose` to see detailed error information.
+=======
 
 ### Debugging
 
-For deeper debugging:
+For debugging test issues:
 
-1. Run the server and test client in separate terminals:
+1. Check the detailed log files:
    ```bash
-   # Terminal 1
-   npm run debug
+   # View the client logs
+   cat logs/custom-test-*.log
    
-   # Terminal 2
-   npm run test
+   # View the test results
+   cat test-results/custom-result-*.json
    ```
 
-2. Check log files for detailed information:
-   ```bash
-   cat ./logs/latest.log
-   ```
+=======
 
-3. Use the visualization dashboard to monitor thought processing:
+3. Run with verbose output for more detailed information:
    ```bash
-   # Terminal 1
-   npm run visualize
-   
-   # Terminal 2
-   npm run test -- --visualize
-   
-   # Browser
-   open http://localhost:3000
-   ```
-
-4. Save test results to a file for analysis:
-   ```bash
-   npm run test -- --save-results
-   cat ./test-results/test-results-*.json
+   npm run test:verbose
    ```
 
 ## Maintenance

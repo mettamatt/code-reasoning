@@ -13,7 +13,6 @@ This document provides detailed usage examples for the Code-Reasoning MCP Server
   - [VS Code Integration](#vs-code-integration)
 - [Debugging Examples](#debugging-examples)
   - [Using Logging](#using-logging)
-  - [Using Visualization Dashboard](#using-visualization-dashboard)
 - [Example Config Files](#example-config-files)
 
 ## Basic Usage Examples
@@ -234,7 +233,7 @@ This example demonstrates how to use thought revision to correct errors in reaso
 
 ### Claude Desktop Integration
 
-To use the code-reasoning server with Claude Desktop, you'll need to configure Claude Desktop to use the server for sequential thinking.
+To use the code-reasoning server with Claude Desktop, you'll need to configure Claude Desktop to use the server.
 
 #### Example Configuration (Basic)
 
@@ -242,7 +241,7 @@ To use the code-reasoning server with Claude Desktop, you'll need to configure C
 // claude_desktop_config.json
 {
   "mcpServers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
       "args": []
     }
@@ -256,13 +255,15 @@ To use the code-reasoning server with Claude Desktop, you'll need to configure C
 // claude_desktop_config.json
 {
   "mcpServers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
-      "args": ["--debug", "--visualize", "--port=8080"]
+      "args": ["--debug"]
     }
   }
 }
 ```
+
+
 
 #### Example Prompt for Claude
 
@@ -270,6 +271,12 @@ When using Claude Desktop with the code-reasoning server, you can use the sequen
 
 ```
 Please help me design a simple REST API for a todo application. Use sequential-thinking to break down the design process into steps.
+```
+
+Or more specifically for code-related tasks:
+
+```
+Please analyze this algorithm implementation and identify any bugs or inefficiencies. Use sequential-thinking to break down your analysis step by step.
 ```
 
 ### VS Code Integration
@@ -283,9 +290,9 @@ For VS Code integration, you can configure the MCP server in your VS Code settin
 {
   "mcp": {
     "servers": {
-      "sequential-thinking": {
+      "code-reasoning": {
         "command": "code-reasoning",
-        "args": ["--debug", "--visualize"]
+        "args": ["--debug"]
       }
     }
   }
@@ -335,30 +342,7 @@ code-reasoning --debug
 }
 ```
 
-### Using Visualization Dashboard
 
-To enable the visualization dashboard, use the `--visualize` flag:
-
-```bash
-code-reasoning --visualize
-```
-
-Then open your browser to http://localhost:3000 to see the dashboard.
-
-#### Example Dashboard Interaction
-
-1. Start the server with visualization:
-   ```bash
-   code-reasoning --visualize --port=8080
-   ```
-
-2. Access the dashboard at http://localhost:8080
-
-3. The dashboard will show real-time updates as thoughts are processed, including:
-   - Thought list with content previews
-   - Interactive graph of thought relationships
-   - Detailed view of selected thoughts
-   - Statistics and metrics
 
 ## Example Config Files
 
@@ -367,9 +351,9 @@ Then open your browser to http://localhost:3000 to see the dashboard.
 ```json
 {
   "mcpServers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
-      "args": ["--debug", "--visualize"]
+      "args": ["--debug"]
     },
     "another-server": {
       "command": "another-command",
@@ -391,9 +375,9 @@ Then open your browser to http://localhost:3000 to see the dashboard.
   "editor.fontSize": 14,
   "mcp": {
     "servers": {
-      "sequential-thinking": {
+      "code-reasoning": {
         "command": "code-reasoning",
-        "args": ["--debug", "--visualize", "--port=8080"]
+        "args": ["--debug"]
       }
     }
   }
@@ -405,9 +389,9 @@ Then open your browser to http://localhost:3000 to see the dashboard.
 ```json
 {
   "servers": {
-    "sequential-thinking": {
+    "code-reasoning": {
       "command": "code-reasoning",
-      "args": ["--visualize"]
+      "args": ["--debug"]
     }
   }
 }
