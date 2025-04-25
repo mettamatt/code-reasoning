@@ -83,7 +83,7 @@ npm run test -- --visualize
 #### Option 3: Check log files
 ```bash
 # Run tests and then check the logs
-npm run test && cat ~/.code-reasoning/logs/latest.log
+npm run test && cat ./logs/latest.log
 ```
 
 ### Running Specific Test Scenarios
@@ -139,7 +139,7 @@ The test client outputs detailed results for each test scenario:
 
 When run with the `--save-results` option, test results are saved to:
 ```
-~/.code-reasoning/test-results/test-results-[TIMESTAMP].json
+./test-results/test-results-[TIMESTAMP].json
 ```
 
 ## Extending the Test Framework
@@ -212,7 +212,7 @@ For deeper debugging:
 
 2. Check log files for detailed information:
    ```bash
-   cat ~/.code-reasoning/logs/latest.log
+   cat ./logs/latest.log
    ```
 
 3. Use the visualization dashboard to monitor thought processing:
@@ -230,7 +230,7 @@ For deeper debugging:
 4. Save test results to a file for analysis:
    ```bash
    npm run test -- --save-results
-   cat ~/.code-reasoning/test-results/test-results-*.json
+   cat ./test-results/test-results-*.json
    ```
 
 ## Maintenance
