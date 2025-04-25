@@ -228,6 +228,37 @@ The dashboard HTML, CSS, and JavaScript files are generated automatically if the
 
 The testing framework can be configured using command-line options when running tests.
 
+#### Important: Stdio Considerations
+
+The test client uses `StdioClientTransport` from the MCP SDK to communicate with the server, which captures stdin/stdout for the client-server communication. As a result, test output may not be visible when running tests directly in the terminal.
+
+For proper test execution and visibility, you have these options:
+
+1. **Run server and test client in separate terminals**:
+   ```bash
+   # Terminal 1: Start the server
+   npm run debug
+   
+   # Terminal 2: Run the tests
+   npm run test
+   ```
+
+2. **Use visualization dashboard**:
+   ```bash
+   # Terminal 1: Start server with visualization
+   npm run visualize
+   
+   # Terminal 2: Run tests with visualization
+   npm run test -- --visualize
+   
+   # Access dashboard at http://localhost:3000
+   ```
+   
+3. **Check logs after testing**:
+   ```bash
+   npm run test && cat ~/.code-reasoning/logs/latest.log
+   ```
+
 #### Test Command-Line Options
 
 | Option | Description | Default | Example |

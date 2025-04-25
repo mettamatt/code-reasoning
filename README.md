@@ -159,6 +159,7 @@ Configure in your VS Code settings:
 - For visualization issues, ensure the correct port is available
 - For debugging, use the `--debug` flag and check logs at `~/.code-reasoning/logs/latest.log`
 - For parameter errors, ensure snake_case format (e.g., `thought_number`, not `thoughtNumber`)
+- **Testing**: When running tests, output may not be visible in terminal due to StdioClientTransport. Run server and tests in separate terminals or use visualization. See [Testing Documentation](./docs/testing.md#important-test-client-and-server-communication) for details.
 
 ## License
 

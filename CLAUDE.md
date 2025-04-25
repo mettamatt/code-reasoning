@@ -5,8 +5,13 @@ This file provides guidance to Claude when working with code in this repository.
 ## Build/Test/Lint Commands
 - Build: `npm run build` 
 - Start: `npm run start`, `npm run debug`, `npm run visualize`
-- Test: `npm run test` (all tests)
-- Single Test: `npm run test:basic`, `npm run test:branch`, `npm run test:revision`, `npm run test:error`, `npm run test:perf`
+- Test: 
+  - For best results, run server and tests in separate terminals:
+    - Terminal 1: `npm run debug` (start server)
+    - Terminal 2: `npm run test` (run tests)
+  - All tests: `npm run test`
+  - Single Test: `npm run test:basic`, `npm run test:branch`, `npm run test:revision`, `npm run test:error`, `npm run test:perf`
+  - Output may not be visible directly in terminal due to StdioClientTransport (see docs/testing.md)
 
 ## Code Style Guidelines
 - **Parameters**: snake_case (e.g., `thought_number`, not `thoughtNumber`)

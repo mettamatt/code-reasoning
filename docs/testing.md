@@ -54,10 +54,36 @@ Tests performance with a long sequence of thoughts. This measures the server's a
 - Project dependencies installed (`npm install`)
 - Project built (`npm run build`)
 
-### Running All Tests
+### Important: Test Client and Server Communication
 
+The test client uses StdioClientTransport from the MCP SDK which captures standard input/output for communication with the server. **Because of this, test output may not be visible in the terminal when running tests directly.**
+
+For proper test execution and visibility, you have these options:
+
+#### Option 1: Run server and test client in separate terminals
 ```bash
+# Terminal 1: Start the server
+npm run debug
+
+# Terminal 2: Run the tests
 npm run test
+```
+
+#### Option 2: Use visualization dashboard
+```bash
+# Terminal 1: Start server with visualization
+npm run visualize
+
+# Terminal 2: Run tests with visualization option
+npm run test -- --visualize
+
+# Then open http://localhost:3000 in your browser
+```
+
+#### Option 3: Check log files
+```bash
+# Run tests and then check the logs
+npm run test && cat ~/.code-reasoning/logs/latest.log
 ```
 
 ### Running Specific Test Scenarios
@@ -78,7 +104,7 @@ You can add options to any test command:
 # Run with verbose output
 npm run test -- --verbose
 
-# Run with visualization dashboard
+# Run with visualization dashboard 
 npm run test -- --visualize
 
 # Save test results to file
@@ -165,6 +191,7 @@ For more advanced performance testing, you can:
 
 ### Common Issues
 
+- **No visible test output**: This is expected behavior due to StdioClientTransport capturing stdio for MCP communication. See the section "Important: Test Client and Server Communication" above for solutions.
 - **Timeout errors**: Increase the timeout using `--timeout=60000` (or higher value)
 - **Connection failures**: Ensure the server path is correct and the server can start properly
 - **Unexpected errors**: Run with `--verbose` to see detailed error information
@@ -174,10 +201,37 @@ For more advanced performance testing, you can:
 
 For deeper debugging:
 
-1. Run the server in debug mode: `npm run debug`
-2. Run tests with visualization: `npm run test -- --visualize`
-3. Check the logs in `~/.code-reasoning/logs/`
-4. Use the visualization dashboard to analyze thought processing
+1. Run the server and test client in separate terminals:
+   ```bash
+   # Terminal 1
+   npm run debug
+   
+   # Terminal 2
+   npm run test
+   ```
+
+2. Check log files for detailed information:
+   ```bash
+   cat ~/.code-reasoning/logs/latest.log
+   ```
+
+3. Use the visualization dashboard to monitor thought processing:
+   ```bash
+   # Terminal 1
+   npm run visualize
+   
+   # Terminal 2
+   npm run test -- --visualize
+   
+   # Browser
+   open http://localhost:3000
+   ```
+
+4. Save test results to a file for analysis:
+   ```bash
+   npm run test -- --save-results
+   cat ~/.code-reasoning/test-results/test-results-*.json
+   ```
 
 ## Maintenance
 
