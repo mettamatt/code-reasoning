@@ -9,21 +9,30 @@ Code Reasoning MCP Server enhances Claude's sequential thinking capabilities wit
 ## Quick Start
 
 ```bash
-# Install globally
-npm install -g code-reasoning
-
 # Configure Claude Desktop
 # Edit ~/Library/Application Support/Claude/claude_desktop_config.json:
 {
   "mcpServers": {
     "sequential-thinking": {
-      "command": "code-reasoning",
-      "args": []
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mettamatt/code-reasoning"
+      ]
     }
   }
 }
 
 # Start Claude Desktop and use with "sequential-thinking" in your prompts
+```
+
+### Alternative: Global Installation
+
+If you prefer to install globally instead of using npx:
+
+```bash
+# Install globally (after publishing with scope)
+npm install -g @mettamatt/code-reasoning
 ```
 
 ## Key Features
@@ -40,12 +49,14 @@ npm install -g code-reasoning
 
 ## Installation
 
+### Installation Options
+
 ```bash
-# Install globally
-npm install -g code-reasoning
+# Install globally (after publishing)
+npm install -g @mettamatt/code-reasoning
 
 # Or install from source
-git clone https://github.com/yourusername/code-reasoning.git
+git clone https://github.com/mettamatt/code-reasoning.git
 cd code-reasoning
 npm install
 npm run build
@@ -83,6 +94,7 @@ Full documentation is available in the docs directory:
 
 - [Usage Examples](./docs/examples.md): Detailed examples of using sequential thinking
 - [Configuration Guide](./docs/configuration.md): Complete configuration options
+- [Publishing Guide](./docs/publishing.md): Version management and npm publishing
 - [Testing Framework](./docs/testing.md): Information about the testing system
 - [Development History](./docs/development-history.md): Background on the debugging implementation
 
@@ -109,8 +121,13 @@ Configure in `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "sequential-thinking": {
-      "command": "code-reasoning",
-      "args": ["--debug", "--visualize"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mettamatt/code-reasoning",
+        "--debug",
+        "--visualize"
+      ]
     }
   }
 }
@@ -125,8 +142,12 @@ Configure in your VS Code settings:
   "mcp": {
     "servers": {
       "sequential-thinking": {
-        "command": "code-reasoning",
-        "args": ["--visualize"]
+        "command": "npx",
+        "args": [
+          "-y",
+          "@mettamatt/code-reasoning",
+          "--visualize"
+        ]
       }
     }
   }
