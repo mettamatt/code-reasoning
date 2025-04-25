@@ -1,10 +1,14 @@
 {
-  "name": "code-reasoning",
+  "name": "@mettamatt/code-reasoning",
   "version": "0.2.0",
   "description": "Enhanced MCP server for sequential thinking focused on programming tasks with improved debugging",
   "license": "MIT",
-  "author": "Your Name",
+  "author": "Matt Westgate <mavatar@gmail.com>",
   "homepage": "https://modelcontextprotocol.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mettamatt/code-reasoning.git"
+  },
   "type": "module",
   "bin": {
     "code-reasoning": "dist/index.js"
