@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server that enhances Claude's ability to solve complex programming tasks through structured, step-by-step thinking.
 
+<a href="https://glama.ai/mcp/servers/@mettamatt/code-reasoning">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@mettamatt/code-reasoning/badge" alt="Code Reasoning Server MCP server" />
+</a>
+
 ## What Is This?
 
 Code Reasoning is a tool that helps Claude break down complex programming problems into manageable steps using sequential thinking methodology. It enables:
