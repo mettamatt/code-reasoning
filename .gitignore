@@ -30,3 +30,7 @@ dist/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Runtime logs and test results
+logs/
+test-results/
