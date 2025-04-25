@@ -5,17 +5,18 @@ import { parseArgs } from "node:util";
 /**
  * Code-Reasoning MCP Server Entry Point
  * 
- * This is a simple entry point that delegates to the main server implementation
- * in src/server.ts. It parses command line arguments and passes them to the
- * server implementation.
+ * This is the entry point for the Code-Reasoning MCP Server, which uses sequential thinking
+ * methodology to help solve programming problems step by step. It delegates to the main 
+ * server implementation in src/server.ts after parsing command line arguments.
+ * 
+ * Note: The server registers the "code-reasoning" tool, specializing in programming tasks
+ * but is now referred to as "code-reasoning" in configuration and documentation.
  */
 
 // Parse command line arguments
 const { values } = parseArgs({
   options: {
     debug: { type: "boolean", default: false },
-    visualize: { type: "boolean", default: false },
-    port: { type: "string", default: "3000" },
     help: { type: "boolean", short: "h", default: false }
   }
 });
