@@ -23,7 +23,9 @@ export class Logger {
   }
   
   private setupLogFile() {
-    const logDir = path.join(os.homedir(), '.code-reasoning', 'logs');
+    // Use project directory instead of home directory
+    const projectRoot = process.cwd();
+    const logDir = path.join(projectRoot, 'logs');
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }

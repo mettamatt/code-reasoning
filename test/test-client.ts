@@ -575,7 +575,9 @@ async function runTests() {
       // Save results if requested
       if (options.saveResults) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const resultsDir = path.join(os.homedir(), '.code-reasoning', 'test-results');
+        // Use project directory instead of home directory
+        const projectRoot = process.cwd();
+        const resultsDir = path.join(projectRoot, 'test-results');
         
         if (!fs.existsSync(resultsDir)) {
           fs.mkdirSync(resultsDir, { recursive: true });
