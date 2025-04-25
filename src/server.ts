@@ -9,20 +9,27 @@ import {
 import chalk from "chalk";
 import { Logger, LogLevel } from "./logger.js";
 import { LoggingStdioServerTransport } from "./logging-transport.js";
-import { ThoughtVisualizer, ThoughtData } from "./visualizer.js";
+// ThoughtData interface definition
+export interface ThoughtData {
+  thought: string;
+  thought_number: number;
+  total_thoughts: number;
+  is_revision?: boolean;
+  revises_thought?: number;
+  branch_from_thought?: number;
+  branch_id?: string;
+  needs_more_thoughts?: boolean;
+  next_thought_needed: boolean;
+}
 
-class SequentialThinkingServer {
+class CodeReasoningServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private logger: Logger;
-  private visualizer: ThoughtVisualizer | null = null;
 
-  constructor(logger: Logger, visualizer: ThoughtVisualizer | null = null) {
+  constructor(logger: Logger) {
     this.logger = logger;
-    this.visualizer = visualizer;
-    this.logger.info('Sequential Thinking Server initialized', {
-      visualizerEnabled: !!this.visualizer
-    });
+    this.logger.info('Code Reasoning Server initialized');
   }
 
   private validateThoughtData(input: unknown): ThoughtData {
@@ -154,10 +161,7 @@ class SequentialThinkingServer {
       const formattedThought = this.formatThought(validatedInput);
       console.error(formattedThought);
 
-      // Update visualizer if enabled
-      if (this.visualizer) {
-        this.visualizer.updateThought(validatedInput);
-      }
+      // Format and log the thought
 
       this.logger.info('Thought processed successfully', { 
         thought_number: validatedInput.thought_number,
@@ -209,10 +213,10 @@ class SequentialThinkingServer {
   }
 }
 
-const SEQUENTIAL_THINKING_TOOL: Tool = {
-  name: "sequentialthinking",
+const CODE_REASONING_TOOL: Tool = {
+  name: "code-reasoning",
   description: `
-🧠 **Sequential Thinking Tool**
+🧠 **Code Reasoning Tool** (using sequential thinking)
 
 Purpose → break complex problems into **self-auditing, exploratory** thought steps that can *branch*, *revise*, or *back-track* until a **single, well-supported answer** emerges.
 
@@ -334,15 +338,11 @@ _All JSON keys **must** use \`lower_snake_case\`._
 
 export async function runServer(options: {
   debug?: boolean;
-  visualize?: boolean;
-  port?: string;
   help?: boolean;
 } = {}) {
   // Default values if not provided
   const values = {
     debug: options.debug ?? false,
-    visualize: options.visualize ?? false,
-    port: options.port ?? "3000",
     help: options.help ?? false
   };
 
@@ -350,16 +350,20 @@ export async function runServer(options: {
     console.error(`
 Code-Reasoning MCP Server v0.2.0
 
-A sequential thinking server optimized for programming tasks.
+A specialized server that uses sequential thinking methodology to solve programming problems.
 
 USAGE:
   code-reasoning [OPTIONS]
 
 OPTIONS:
   --debug                Enable debug logging
-  --visualize            Start visualization dashboard
-  --port=PORT            Set port for visualization dashboard (default: 3000)
+
   --help, -h             Show this help message
+
+NOTE:
+  This server registers the "code-reasoning" tool that must be configured 
+  as "code-reasoning" in MCP configurations.
+  The "sequential-thinking" configuration key is not supported.
 `);
     process.exit(0);
   }
@@ -369,9 +373,7 @@ OPTIONS:
   const logger = new Logger(logLevel);
   logger.info('Starting Code-Reasoning MCP Server', { 
     version: '0.2.0',
-    debugMode: values.debug,
-    visualizerEnabled: values.visualize,
-    visualizerPort: values.port
+    debugMode: values.debug
   });
 
   // Initialize server
@@ -387,23 +389,14 @@ OPTIONS:
     }
   );
 
-  // Initialize visualizer if enabled
-  let visualizer = null;
-  if (values.visualize) {
-    const port = parseInt(values.port, 10);
-    logger.info('Initializing thought visualizer', { port });
-    visualizer = new ThoughtVisualizer(port, logger);
-    visualizer.start();
-  }
-
-  // Initialize thinking server with logger and visualizer
-  const thinkingServer = new SequentialThinkingServer(logger, visualizer);
+  // Initialize code reasoning server with logger
+  const reasoningServer = new CodeReasoningServer(logger);
 
   // Set up request handlers with logging
   server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
     logger.debug('Handling tools/list request');
     return {
-      tools: [SEQUENTIAL_THINKING_TOOL],
+      tools: [CODE_REASONING_TOOL],
     };
   });
 
@@ -412,8 +405,8 @@ OPTIONS:
       tool: request.params.name 
     });
 
-    if (request.params.name === "sequentialthinking") {
-      return thinkingServer.processThought(request.params.arguments);
+    if (request.params.name === "code-reasoning") {
+      return reasoningServer.processThought(request.params.arguments);
     }
 
     logger.error('Unknown tool requested', { tool: request.params.name });
@@ -434,9 +427,7 @@ OPTIONS:
   logger.info('Connecting server using LoggingStdioServerTransport');
   await server.connect(transport);
   
-  if (values.visualize) {
-    console.error(chalk.green(`🔍 Thought visualizer dashboard running at http://localhost:${values.port}`));
-  }
+
   
   logger.info('Code Reasoning MCP Server running on stdio');
 }

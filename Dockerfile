@@ -1,13 +1,12 @@
 FROM node:22.12-alpine AS builder
 
-COPY src/sequentialthinking /app
-COPY tsconfig.json /tsconfig.json
+COPY package.json package-lock.json tsconfig.json /app/
+COPY src /app/src
 
 WORKDIR /app
 
 RUN --mount=type=cache,target=/root/.npm npm install
-
-RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --omit-dev
+RUN npm run build
 
 FROM node:22-alpine AS release
 
