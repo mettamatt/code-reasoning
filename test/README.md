@@ -68,7 +68,7 @@ The integrated test runner provides:
 
 ## Prompt Effectiveness Evaluation
 
-The `prompt-evaluation` directory contains tools to evaluate the effectiveness of the SEQUENTIAL_THINKING_TOOL prompt itself - not just whether the code works, but how well the prompt guides models to use sequential thinking effectively.
+The `prompt-evaluation` directory contains tools to evaluate the effectiveness of the CODE_REASONING_TOOL prompt using the Anthropic API. The system measures how well Claude understands and follows the guidance in the prompt when solving complex programming problems.
 
 ### What It Measures
 
@@ -84,25 +84,24 @@ This evaluation system measures:
 
 The evaluation process:
 
-1. Present specialized test scenarios to a model
-2. Capture the model's reasoning chain
-3. Evaluate how well the model followed the prompt's guidance
-4. Compare effectiveness across different models or prompt variations
+1. Select test scenarios that target specific aspects of the prompt
+2. Send these scenarios to Claude via the Anthropic API
+3. Extract and analyze Claude's responses
+4. Evaluate how well Claude followed the prompt's guidance
+5. Generate reports comparing different models or prompt variations
 
-### How to Use
+### API-Based Evaluation
 
 ```bash
 cd ~/Sites/code-reasoning
-node dist/test/prompt-evaluation/evaluator.js
+npm run evaluate-api
 ```
 
-See the detailed README in the `prompt-evaluation` directory for step-by-step instructions.
+For viewing scenarios and generating reports:
 
-### Privacy-Friendly Approach
+```bash
+cd ~/Sites/code-reasoning
+npm run evaluate-prompt
+```
 
-This evaluation system respects privacy:
-
-- No automatic tracking or analytics
-- All evaluations are manual and explicit
-- Data is stored locally on your machine
-- You control what gets recorded and evaluated
+See the detailed README in the `prompt-evaluation` directory for complete instructions on using the API integration.
