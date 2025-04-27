@@ -50,6 +50,7 @@ node test/code-reasoning.e2e.js [scenario] [options]
 ```
 
 **Options:**
+
 - `basic` - Run basic tests (default)
 - `branch` - Run branching tests
 - `revision` - Run revision tests
@@ -94,14 +95,14 @@ The evaluation process:
 
 ```bash
 cd ~/Sites/code-reasoning
-npm run evaluate-api
+npm run eval:api
 ```
 
 For viewing scenarios and generating reports:
 
 ```bash
 cd ~/Sites/code-reasoning
-npm run evaluate-prompt
+npm run eval:prompt
 ```
 
 See the detailed README in the `prompt-evaluation` directory for complete instructions on using the API integration.

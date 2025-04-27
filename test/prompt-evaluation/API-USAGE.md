@@ -17,6 +17,7 @@ You'll need an Anthropic API key to use this tool. If you don't already have one
 There are two ways to set up your API key:
 
 **Option 1: Using a .env file (recommended)**
+
 ```
 # Create a .env file in the test/prompt-evaluation directory
 ANTHROPIC_API_KEY=your_api_key_here
@@ -33,12 +34,13 @@ The tool will prompt you for your API key if it's not found in the environment v
 ### Running the API Evaluator
 
 ```bash
-npm run evaluate-api
+npm run eval:api
 ```
 
 ### API Evaluation Process
 
 1. **Model Selection**: You'll be prompted to select a Claude model:
+
    - claude-3-7-sonnet-20250219 (most advanced)
    - claude-3-5-sonnet-20241022 (powerful and balanced)
    - claude-3-5-haiku-20241022 (fast and efficient)
@@ -50,11 +52,13 @@ npm run evaluate-api
 3. **Evaluation Information**: Enter your name as evaluator and a prompt variation label (e.g., "baseline")
 
 4. **API Processing**: The system will:
+
    - Send the scenario to the Anthropic API
    - Parse Claude's response to extract the thought chain
    - Save the raw response for reference
 
 5. **Manual Evaluation**: You'll be guided through evaluating Claude's performance:
+
    - Score each criterion based on the thought chain
    - Add notes explaining your scores
    - Provide overall comments on the evaluation
@@ -83,14 +87,17 @@ The API integration:
 ## Troubleshooting
 
 **API Key Issues**
+
 - Check that your API key is correct and has not expired
 - Make sure you have sufficient credits in your Anthropic account
 
 **No Thoughts Extracted**
+
 - This can happen if Claude doesn't follow the format correctly
 - Try using a different Claude model
 - Check the raw response saved in the prompt-evaluations/responses directory
 
 **Error Response from API**
+
 - The specific error will be displayed in the console
 - Common issues include rate limiting or invalid API keys

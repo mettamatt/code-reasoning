@@ -35,11 +35,13 @@ The scenarios are designed to test different aspects of the sequential thinking 
 ### Setup
 
 1. **Install Dependencies**:
+
    ```bash
    npm install
    ```
 
 2. **Build the Project**:
+
    ```bash
    npm run build
    ```
@@ -51,10 +53,11 @@ The scenarios are designed to test different aspects of the sequential thinking 
 ### Running API-Based Evaluations
 
 ```bash
-npm run evaluate-api
+npm run eval:api
 ```
 
 This will:
+
 1. Load your Anthropic API key (or prompt you to enter one)
 2. Let you choose a Claude model to use
 3. Allow you to select test scenarios to evaluate
@@ -68,10 +71,11 @@ This will:
 If you just want to view scenarios or generate reports from previous evaluations:
 
 ```bash
-npm run evaluate-prompt
+npm run eval:prompt
 ```
 
 This simplified tool provides:
+
 1. A way to browse and view test scenarios
 2. The ability to generate reports from previous evaluations
 
@@ -89,7 +93,7 @@ When using the API evaluator, the workflow is:
 
 Here's a complete workflow example:
 
-1. Run the evaluator: `npm run evaluate-api`
+1. Run the evaluator: `npm run eval:api`
 2. Enter your API key or have it loaded from `.env`
 3. Select "claude-3-7-sonnet-20250219" as the model
 4. Choose to run a specific scenario, such as "Algorithm Selection Problem"
