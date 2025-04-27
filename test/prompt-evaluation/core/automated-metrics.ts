@@ -130,6 +130,31 @@ function validateThoughtNumbering(thoughtChain: ThoughtData[]): ValidationResult
     }
   });
 
+  // Check for multiple termination signals
+  const terminatingThoughts = thoughtChain.filter(t => t.next_thought_needed === false);
+  if (terminatingThoughts.length > 1) {
+    // We need to be careful about branches here - it's okay for each branch to have a termination
+    // Let's group by branch_id (null/undefined for main chain)
+    const byBranch = new Map<string | null, ThoughtData[]>();
+    
+    terminatingThoughts.forEach(t => {
+      const branchKey = t.branch_id || null;
+      if (!byBranch.has(branchKey)) {
+        byBranch.set(branchKey, []);
+      }
+      byBranch.get(branchKey)!.push(t);
+    });
+    
+    // Check each branch (including main chain) for multiple terminations
+    byBranch.forEach((thoughts, branchKey) => {
+      if (thoughts.length > 1) {
+        // Multiple terminations in the same branch (or main chain)
+        const branchDesc = branchKey ? `branch ${branchKey}` : 'main chain';
+        errors.push(`Multiple termination signals (${thoughts.length} occurrences of next_thought_needed=false) in ${branchDesc}`);
+      }
+    });
+  }
+
   return { isValid: errors.length === 0, errors, warnings };
 }
 
