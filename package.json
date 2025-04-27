@@ -39,8 +39,10 @@
     "test:validate": "run-s validate test",
     "test:verbose": "node dist/test/code-reasoning.e2e.js --verbose",
     "test:all": "node dist/test/code-reasoning.e2e.js all",
+    "test:extraction": "node dist/test/prompt-evaluation/extraction-test.js",
     "eval:prompt": "node dist/test/prompt-evaluation/evaluator.js",
-    "eval:api": "node dist/test/prompt-evaluation/api-evaluator.js"
+    "eval:api": "node dist/test/prompt-evaluation/api-evaluator.js",
+    "eval:simple": "node dist/test/prompt-evaluation/simple-evaluator.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.5.0",
