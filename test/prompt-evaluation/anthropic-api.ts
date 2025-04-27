@@ -29,20 +29,52 @@ interface EvaluationResponse {
   error?: string;
 }
 
-// Get CODE_REASONING_TOOL description from server.ts
+// Get CODE_REASONING_TOOL description from server.ts or server.js
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const serverPath = path.join(__dirname, '../../src/server.ts');
-let toolDescription = '';
 
-try {
-  const serverContent = fs.readFileSync(serverPath, 'utf8');
-  const match = serverContent.match(/description: `([\s\S]+?)`,\s+inputSchema/);
-  if (match && match[1]) {
-    toolDescription = match[1].trim();
+// Find the tool description from the server file in various possible locations
+let toolDescription = '';
+const possiblePaths = [
+  // When running from TypeScript source
+  path.join(__dirname, '../../src/server.ts'),
+  // When running from compiled JavaScript
+  path.join(__dirname, '../../src/server.js'),
+  // Common compiled paths
+  path.join(__dirname, '../../../dist/src/server.js'),
+  // Absolute paths from project root
+  path.resolve(process.cwd(), 'src/server.ts'),
+  path.resolve(process.cwd(), 'dist/src/server.js')
+];
+
+// Try each possible path until we find the server file
+let serverContent = '';
+for (const serverPath of possiblePaths) {
+  try {
+    if (fs.existsSync(serverPath)) {
+      serverContent = fs.readFileSync(serverPath, 'utf8');
+      // Found a valid file, no need to check others
+      break;
+    }
+  } catch (error) {
+    // Silently continue to the next path
   }
-} catch (error) {
-  console.warn('Could not read tool description from server file.');
+}
+
+// Extract the tool description if we found a server file
+if (serverContent) {
+  try {
+    const match = serverContent.match(/description: `([\s\S]+?)`/);
+    if (match && match[1]) {
+      toolDescription = match[1].trim();
+    } else {
+      console.warn('Could not extract tool description from server file.');
+    }
+  } catch (error) {
+    console.warn('Error processing server file:', error instanceof Error ? error.message : String(error));
+  }
+} else {
+  console.warn('Could not find server file in any of the expected locations.');
 }
 
 // Create prompt with sequential thinking instructions
