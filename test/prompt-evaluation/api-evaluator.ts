@@ -28,19 +28,25 @@ if (!fs.existsSync(responsesDir)) {
   fs.mkdirSync(responsesDir, { recursive: true });
 }
 
-// Load environment variables
+// Load environment variables using utility function
 async function loadEnv() {
   try {
-    const envPath = path.join(__dirname, '.env');
-
-    if (fs.existsSync(envPath)) {
+    // Import findFile from utils
+    const { findFile } = await import('./core/utils.js');
+    
+    // Find .env file
+    const envPath = findFile('.env');
+    
+    if (envPath) {
       const { config } = await import('dotenv');
       config({ path: envPath });
       return true;
     }
+    
+    console.warn('Could not find .env file in any of the expected locations');
     return false;
   } catch (error) {
-    console.log('Could not load .env file');
+    console.warn('Error loading .env file');
     return false;
   }
 }
