@@ -1,25 +1,25 @@
 /**
  * Anthropic API integration for prompt evaluation
  */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { ThoughtData } from './core/index.js';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { ThoughtData } from "./core/index.js";
 
 // Get CODE_REASONING_TOOL description from server.ts
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const serverPath = path.join(__dirname, '../../src/server.ts');
-let toolDescription = '';
+const serverPath = path.join(__dirname, "../../src/server.ts");
+let toolDescription = "";
 
 try {
-  const serverContent = fs.readFileSync(serverPath, 'utf8');
+  const serverContent = fs.readFileSync(serverPath, "utf8");
   const match = serverContent.match(/description: `([\s\S]+?)`,\s+inputSchema/);
   if (match && match[1]) {
     toolDescription = match[1].trim();
   }
 } catch (error) {
-  console.warn('Could not read tool description from server file.');
+  console.warn("Could not read tool description from server file.");
 }
 
 // Create prompt with sequential thinking instructions
@@ -42,32 +42,32 @@ For each thought, output a valid JSON object with the specified properties.
 // Extract thought records from response
 function extractThoughtRecords(responseText: string): ThoughtData[] {
   const thoughtRecords: ThoughtData[] = [];
-  
+
   // Try multiple patterns to find JSON objects
   const patterns = [
     // Standard JSON objects
     /{[\s\S]*?"thought"[\s\S]*?"thought_number"[\s\S]*?"total_thoughts"[\s\S]*?"next_thought_needed"[\s\S]*?}/g,
     // JSON inside code blocks
-    /```(?:json)?\s*({[\s\S]*?"thought"[\s\S]*?"thought_number"[\s\S]*?"total_thoughts"[\s\S]*?"next_thought_needed"[\s\S]*?})\s*```/g
+    /```(?:json)?\s*({[\s\S]*?"thought"[\s\S]*?"thought_number"[\s\S]*?"total_thoughts"[\s\S]*?"next_thought_needed"[\s\S]*?})\s*```/g,
   ];
-  
+
   for (const pattern of patterns) {
     const matches = responseText.match(pattern) || [];
     for (const match of matches) {
       try {
         // Extract the JSON part if it's in a code block
-        const jsonText = match.startsWith('```') 
-          ? match.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1')
+        const jsonText = match.startsWith("```")
+          ? match.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1")
           : match;
-        
+
         const data = JSON.parse(jsonText);
-        
+
         // Validate required fields
         if (
-          typeof data.thought === 'string' &&
-          typeof data.thought_number === 'number' &&
-          typeof data.total_thoughts === 'number' &&
-          typeof data.next_thought_needed === 'boolean'
+          typeof data.thought === "string" &&
+          typeof data.thought_number === "number" &&
+          typeof data.total_thoughts === "number" &&
+          typeof data.next_thought_needed === "boolean"
         ) {
           thoughtRecords.push({
             thought: data.thought,
@@ -78,15 +78,15 @@ function extractThoughtRecords(responseText: string): ThoughtData[] {
             revises_thought: data.revises_thought,
             branch_from_thought: data.branch_from_thought,
             branch_id: data.branch_id,
-            needs_more_thoughts: data.needs_more_thoughts
+            needs_more_thoughts: data.needs_more_thoughts,
           });
         }
       } catch (error) {
-        console.warn('Failed to parse thought record:', match);
+        console.warn("Failed to parse thought record:", match);
       }
     }
   }
-  
+
   // Sort by thought_number
   thoughtRecords.sort((a, b) => a.thought_number - b.thought_number);
   return thoughtRecords;
@@ -101,50 +101,49 @@ interface ApiOptions {
 
 // Send scenario to Claude and extract thought chain
 export async function evaluateWithAPI(
-  apiKey: string, 
-  scenario: string, 
+  apiKey: string,
+  scenario: string,
   options: ApiOptions = {}
 ) {
-  const model = options.model || 'claude-3-7-sonnet-20250219';
-  const maxTokens = options.maxTokens || 4000;
-  const temperature = options.temperature || 0.3;
-  
+  const model = options.model || "claude-3-7-sonnet-20250219";
+  const maxTokens = options.maxTokens || 8000;
+  const temperature = options.temperature || 0.7;
+
   try {
     // Dynamic import of Anthropic SDK
-    const { Anthropic } = await import('@anthropic-ai/sdk');
-    
+    const { Anthropic } = await import("@anthropic-ai/sdk");
+
     const client = new Anthropic({ apiKey });
-    
+
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
       temperature,
-      system: "You solve complex problems by breaking them down into logical steps using sequential thinking.",
-      messages: [
-        { role: 'user', content: createPrompt(scenario) }
-      ]
+      system:
+        "You solve complex problems by breaking them down into logical steps using sequential thinking.",
+      messages: [{ role: "user", content: createPrompt(scenario) }],
     });
-    
+
     // Safely extract text from response
-    let responseText = '';
+    let responseText = "";
     if (response.content && response.content.length > 0) {
       const content = response.content[0];
-      if ('text' in content) {
+      if ("text" in content) {
         responseText = content.text;
       }
     }
-    
+
     const thoughtChain = extractThoughtRecords(responseText);
-    
+
     return {
       success: true,
       thoughtChain,
-      rawResponse: responseText
+      rawResponse: responseText,
     };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

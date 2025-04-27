@@ -60,8 +60,8 @@ async function getApiKey() {
       try {
         let envContent = `ANTHROPIC_API_KEY=${apiKey}\n`;
         envContent += 'CLAUDE_MODEL=claude-3-7-sonnet-20250219\n';
-        envContent += 'MAX_TOKENS=4000\n';
-        envContent += 'TEMPERATURE=0.3\n';
+        envContent += 'MAX_TOKENS=8000\n';
+        envContent += 'TEMPERATURE=0.7\n';
         
         fs.writeFileSync(path.join(__dirname, '.env'), envContent);
         console.log('API key saved to .env file');
@@ -135,8 +135,8 @@ export async function runApiEvaluation() {
         scenario.problem, 
         {
           model,
-          maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
-          temperature: parseFloat(process.env.TEMPERATURE || '0.3')
+          maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
+          temperature: parseFloat(process.env.TEMPERATURE || '0.7')
         }
       );
       

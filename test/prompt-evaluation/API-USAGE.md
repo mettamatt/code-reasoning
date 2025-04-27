@@ -21,8 +21,8 @@ There are two ways to set up your API key:
 # Create a .env file in the test/prompt-evaluation directory
 ANTHROPIC_API_KEY=your_api_key_here
 CLAUDE_MODEL=claude-3-7-sonnet-20250219
-MAX_TOKENS=4000
-TEMPERATURE=0.3
+MAX_TOKENS=8000
+TEMPERATURE=0.7
 ```
 
 **Option 2: Enter manually**
@@ -66,8 +66,8 @@ npm run evaluate-api
 You can customize the API behavior in the .env file:
 
 - `CLAUDE_MODEL`: Which Claude model to use (defaults to claude-3-7-sonnet-20250219)
-- `MAX_TOKENS`: Maximum output tokens for Claude's response (defaults to 4000)
-- `TEMPERATURE`: Temperature setting for Claude's response (defaults to 0.3)
+- `MAX_TOKENS`: Maximum output tokens for Claude's response (defaults to 8000)
+- `TEMPERATURE`: Temperature setting for Claude's response (defaults to 0.7)
 
 ## How It Works
 
