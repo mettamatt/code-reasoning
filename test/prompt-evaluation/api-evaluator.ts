@@ -6,6 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import {
   promptUser,
+  promptUserWithNumericDefault,
+  promptUserWithYesNoDefault,
   selectFromList,
   PROMPT_TEST_SCENARIOS,
   PromptScenario,
@@ -62,7 +64,7 @@ async function getApiKey() {
       throw new Error('API key is required');
     }
 
-    const saveKey = (await promptUser('Save API key to .env file? (y/n): ')).toLowerCase() === 'y';
+    const saveKey = await promptUserWithYesNoDefault('Save API key to .env file?', true); // Default to yes
 
     if (saveKey) {
       try {
@@ -162,15 +164,21 @@ export async function runApiEvaluation() {
       'claude-3-opus-20240229',
       'claude-3-haiku-20240307',
     ];
+    
+    // Find the default model's index
+    const defaultModel = process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219';
+    let defaultIndex = modelOptions.findIndex(m => m === defaultModel);
+    if (defaultIndex === -1) defaultIndex = 0; // Default to first option if not found
 
     const model = await selectFromList(
       modelOptions,
       m => m,
-      `Select Claude model (default: ${process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219'}):`
+      `Select Claude model (default: ${defaultModel}):`,
+      defaultIndex
     );
 
     // Select scenarios
-    const runAllScenarios = (await promptUser('Run all scenarios? (y/n): ')).toLowerCase() === 'y';
+    const runAllScenarios = await promptUserWithYesNoDefault('Run all scenarios?', true); // Default to yes
 
     const scenariosToRun = runAllScenarios
       ? PROMPT_TEST_SCENARIOS
@@ -187,34 +195,38 @@ export async function runApiEvaluation() {
     let maxConcurrent = 1;
 
     if (runAllScenarios) {
-      const useBatch =
-        (
-          await promptUser('Use parallel processing for batch evaluation? (y/n): ')
-        ).toLowerCase() === 'y';
+      const useBatch = await promptUserWithYesNoDefault('Use parallel processing for batch evaluation?', true); // Default to yes
       if (useBatch) {
         parallelProcessing = true;
-        const concurrentInput = await promptUser('Max concurrent evaluations (1-5, default 2): ');
-        maxConcurrent = parseInt(concurrentInput) || 2;
-        maxConcurrent = Math.min(5, Math.max(1, maxConcurrent)); // Clamp between 1-5
+        maxConcurrent = await promptUserWithNumericDefault(
+          'Max concurrent evaluations (1-5, default 2)',
+          2, // default value
+          1, // min value
+          5  // max value
+        );
       }
     }
 
     // Advanced options for evaluation
-    const retryInput = await promptUser(
-      'Number of retry attempts for API failures (0-5, default 2): '
+    const retryCount = await promptUserWithNumericDefault(
+      'Number of retry attempts for API failures (0-5, default 2)',
+      2, // default value
+      0, // min value
+      5  // max value
     );
-    const retryCount = parseInt(retryInput) || 2;
-    const clampedRetryCount = Math.min(5, Math.max(0, retryCount));
 
-    const forceAutomated =
-      (await promptUser('Force complete evaluation even if API fails? (y/n): ')).toLowerCase() ===
-      'y';
+    const forceAutomated = await promptUserWithYesNoDefault('Force complete evaluation even if API fails?', false); // Default to no
 
     // Set evaluator name to 'automated' by default
     const evaluator = 'automated';
 
+    // Brief explanation of prompt variations
+    console.log("\nPrompt variation: A label for the prompt approach you're testing (e.g., 'baseline', 'enhanced', 'cot')");
+    console.log("This is used in filenames and reports to help compare different prompt strategies.");
+    
+    // Original simple input approach
     const promptVariation = await promptUser(
-      'Prompt variation (e.g., "baseline", "enhanced", etc.): '
+      'Prompt variation (e.g., "baseline", "enhanced", "cot", etc.): '
     );
 
     // Set evaluation options
@@ -224,7 +236,7 @@ export async function runApiEvaluation() {
       maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
       temperature: parseFloat(process.env.TEMPERATURE || '0.2'), // Lower temperature for consistent evaluation
       promptVariation,
-      retryCount: clampedRetryCount,
+      retryCount,
       forceAutomated,
     };
 
@@ -295,8 +307,7 @@ export async function runApiEvaluation() {
 
     // Generate report option
     if (scenariosToRun.length > 1 && successCount > 1) {
-      const genReport =
-        (await promptUser('Generate comparison report? (y/n): ')).toLowerCase() === 'y';
+      const genReport = await promptUserWithYesNoDefault('Generate comparison report?', true); // Default to yes
       if (genReport) {
         generateReport();
       }
