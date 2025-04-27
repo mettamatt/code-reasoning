@@ -97,21 +97,109 @@ export function promptUser(question: string): Promise<string> {
 }
 
 /**
+ * Prompt user for numeric input with a default value
+ * @param question The prompt to display
+ * @param defaultValue The default value to use if input is empty
+ * @param min Optional minimum allowed value
+ * @param max Optional maximum allowed value
+ * @returns The parsed number (or default if input was empty)
+ */
+export async function promptUserWithNumericDefault(
+  question: string,
+  defaultValue: number,
+  min?: number,
+  max?: number
+): Promise<number> {
+  // Add instructions about pressing Enter for default
+  const fullPrompt = `${question} (press Enter for default): `;
+  
+  // Get user input
+  const input = await promptUser(fullPrompt);
+  
+  // If input is empty, return the default
+  if (input.trim() === '') {
+    return defaultValue;
+  }
+  
+  // Parse and validate the input
+  const parsedValue = parseInt(input);
+  
+  // Apply min/max constraints if provided
+  if (!isNaN(parsedValue)) {
+    let value = parsedValue;
+    if (min !== undefined) value = Math.max(min, value);
+    if (max !== undefined) value = Math.min(max, value);
+    return value;
+  }
+  
+  // If parsing failed, return the default
+  console.log(`Invalid input. Using default value of ${defaultValue}.`);
+  return defaultValue;
+}
+
+/**
+ * Prompt user for yes/no input with a default value
+ * @param question The prompt to display
+ * @param defaultValue The default boolean value (true for yes, false for no)
+ * @returns A boolean based on user input or the default
+ */
+export async function promptUserWithYesNoDefault(
+  question: string,
+  defaultValue: boolean
+): Promise<boolean> {
+  // Format the default value display
+  const defaultDisplay = defaultValue ? 'Y/n' : 'y/N';
+  
+  // Add instructions about pressing Enter for default
+  const fullPrompt = `${question} (${defaultDisplay}, press Enter for default): `;
+  
+  // Get user input
+  const input = await promptUser(fullPrompt);
+  const trimmedInput = input.trim().toLowerCase();
+  
+  // If input is empty, return the default
+  if (trimmedInput === '') {
+    return defaultValue;
+  }
+  
+  // Check valid yes inputs
+  if (trimmedInput === 'y' || trimmedInput === 'yes') {
+    return true;
+  }
+  
+  // Check valid no inputs
+  if (trimmedInput === 'n' || trimmedInput === 'no') {
+    return false;
+  }
+  
+  // If input is invalid, notify user and return default
+  console.log(`Invalid input. Using default value of ${defaultValue ? 'yes' : 'no'}.`);
+  return defaultValue;
+}
+
+/**
  * Display a numbered list of options and get selection
  */
 export async function selectFromList<T>(
   items: T[],
   getLabel: (item: T) => string,
-  promptText: string
+  promptText: string,
+  defaultIndex: number = 0
 ): Promise<T> {
   console.log('\n' + promptText);
   items.forEach((item, index) => {
-    console.log(`${index + 1}. ${getLabel(item)}`);
+    const isDefault = index === defaultIndex;
+    console.log(`${index + 1}. ${getLabel(item)}${isDefault ? ' (default)' : ''}`);
   });
 
   let selection: number;
   do {
-    const input = await promptUser('Enter selection number: ');
+    const input = await promptUser('Enter selection number (or press Enter for default): ');
+    if (input.trim() === '') {
+      // Use default if input is empty
+      selection = defaultIndex;
+      break;
+    }
     selection = parseInt(input) - 1;
     if (isNaN(selection) || selection < 0 || selection >= items.length) {
       console.log('Invalid selection. Please try again.');
