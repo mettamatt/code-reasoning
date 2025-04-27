@@ -97,7 +97,8 @@ async function processSingleScenario(
   evaluationOptions: EvaluationOptions,
   evaluator: string,
   progressLabel: string,
-  includeScenarioGuidance: boolean
+  includeScenarioGuidance: boolean,
+  disablePostProcessing: boolean
 ): Promise<boolean> {
   try {
     console.log(`\n[${progressLabel}]: ${scenario.name}`);
@@ -113,7 +114,8 @@ async function processSingleScenario(
         maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
         temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
       },
-      includeScenarioGuidance
+      includeScenarioGuidance,
+      disablePostProcessing
     );
 
     if (!response.success || !response.thoughtChain) {
@@ -234,6 +236,12 @@ export async function runApiEvaluation() {
       'Include scenario-specific guidance? (No = core prompt only, emulates real user experience)',
       false
     ); // Default to no (core prompt only)
+    
+    // Ask whether to disable automatic parameter fixing
+    const disablePostProcessing = await promptUserWithYesNoDefault(
+      'Disable automatic parameter fixing? (Recommended for core prompt testing)',
+      true
+    ); // Default to yes for accurate testing
 
     // Set evaluator name to 'automated' by default
     const evaluator = 'automated';
@@ -289,7 +297,8 @@ export async function runApiEvaluation() {
               evaluationOptions,
               evaluator,
               `Batch ${Math.floor(i / maxConcurrent) + 1}, Scenario ${index + 1}/${batch.length}`,
-              includeScenarioGuidance
+              includeScenarioGuidance,
+              disablePostProcessing
             );
           } catch (error: unknown) {
             console.error(
@@ -313,7 +322,8 @@ export async function runApiEvaluation() {
           evaluationOptions,
           evaluator,
           `Scenario ${i + 1}/${scenariosToRun.length}`,
-          includeScenarioGuidance
+          includeScenarioGuidance,
+          disablePostProcessing
         );
 
         if (success) successCount++;

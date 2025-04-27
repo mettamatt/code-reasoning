@@ -52,6 +52,32 @@ export async function evaluateThoughtChain(
     objectiveMetrics.validationResults.errors.forEach(err => console.log(`- ${err}`));
   }
 
+  // Check for automatic failure conditions based on target skill
+  let autoFailure = false;
+  let autoFailureReason = '';
+
+  if (scenario.targetSkill === 'revision' && objectiveMetrics.structureMetrics.revisionCount === 0) {
+    autoFailure = true;
+    autoFailureReason = 'AUTOMATIC FAILURE: Revision test requires use of is_revision parameter';
+    console.log(`\n${autoFailureReason}`);
+  }
+  else if (scenario.targetSkill === 'branching' && objectiveMetrics.structureMetrics.branchCount === 0) {
+    autoFailure = true;
+    autoFailureReason = 'AUTOMATIC FAILURE: Branching test requires use of branch_id parameter';
+    console.log(`\n${autoFailureReason}`);
+  }
+  else if (scenario.targetSkill === 'multiple' && 
+           objectiveMetrics.structureMetrics.branchCount === 0 && 
+           objectiveMetrics.structureMetrics.revisionCount === 0) {
+    autoFailure = true;
+    autoFailureReason = 'AUTOMATIC FAILURE: Multiple skills test requires use of both branch_id and is_revision parameters';
+    console.log(`\n${autoFailureReason}`);
+  }
+
+  if (autoFailure) {
+    return createFailureEvaluation(scenario, thoughts, objectiveMetrics, options, autoFailureReason);
+  }
+
   // Run API-based evaluation
   console.log('\nSending to Anthropic API for evaluation...');
   const apiEvaluation = await evaluateThoughtChainWithAPI(apiKey, scenario, thoughts, {
@@ -90,7 +116,16 @@ export async function evaluateThoughtChain(
     };
   });
 
-  // Create the evaluation result
+  // Calculate weighted scores - 70% parameter usage, 30% content quality
+  const apiScore = apiEvaluation.evaluation.percentageScore;
+  const parameterScore = objectiveMetrics.parameterUsageScore;
+  const adjustedPercentage = Math.round((apiScore * 0.3) + (parameterScore * 0.7));
+  
+  // Adjust total score based on the weighted percentage
+  const maxPossible = apiEvaluation.evaluation.maxPossibleScore;
+  const adjustedTotal = Math.round((adjustedPercentage / 100) * maxPossible);
+
+  // Create the evaluation result with adjusted scores
   const evaluation: ScenarioEvaluation = {
     scenarioId: scenario.id,
     scenarioName: scenario.name,
@@ -100,15 +135,17 @@ export async function evaluateThoughtChain(
     date: new Date().toISOString(),
     thoughtChain: thoughts,
     scores,
-    totalScore: apiEvaluation.evaluation.totalScore,
-    maxPossibleScore: apiEvaluation.evaluation.maxPossibleScore,
-    percentageScore: apiEvaluation.evaluation.percentageScore,
-    comments: apiEvaluation.evaluation.overallComments,
+    totalScore: adjustedTotal,
+    maxPossibleScore: maxPossible,
+    percentageScore: adjustedPercentage,
+    comments: `${apiEvaluation.evaluation.overallComments}\n\nParameter usage score: ${parameterScore}/100\nContent quality score: ${apiScore}%\nFinal weighted score (30% content, 70% parameters): ${adjustedPercentage}%`,
     objectiveMetrics,
   };
 
   console.log('\nAutomated evaluation complete.');
-  console.log(`Overall score: ${evaluation.percentageScore}%`);
+  console.log(`Content quality score: ${apiScore}%`);
+  console.log(`Parameter usage score: ${parameterScore}%`);
+  console.log(`Final weighted score (30% content, 70% parameters): ${adjustedPercentage}%`);
 
   return evaluation;
 }
@@ -145,6 +182,42 @@ function createPlaceholderEvaluation(
     maxPossibleScore: scenario.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0),
     percentageScore: 0,
     comments: `Automated evaluation failed with error: ${errorMessage}. Only objective metrics available.`,
+    objectiveMetrics,
+  };
+}
+
+/**
+ * Function for creating an automatic failure evaluation when critical parameters are missing
+ */
+function createFailureEvaluation(
+  scenario: PromptScenario,
+  thoughts: ThoughtData[],
+  objectiveMetrics: ObjectiveMetrics,
+  options: EvaluationOptions,
+  reason: string
+): ScenarioEvaluation {
+  // Create scores with all zeros due to automatic failure
+  const scores: EvaluationScore[] = scenario.evaluationCriteria.map(criterion => ({
+    criterionId: criterion.criterion.toLowerCase().replace(/\s+/g, '-'),
+    criterion: criterion.criterion,
+    score: 0,
+    maxScore: criterion.maxScore,
+    justification: reason,
+  }));
+
+  return {
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    evaluator: 'automated',
+    modelId: options.model || 'claude-3-7-sonnet-20250219',
+    promptVariation: options.promptVariation || 'baseline',
+    date: new Date().toISOString(),
+    thoughtChain: thoughts,
+    scores,
+    totalScore: 0,
+    maxPossibleScore: scenario.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0),
+    percentageScore: 0,
+    comments: reason,
     objectiveMetrics,
   };
 }

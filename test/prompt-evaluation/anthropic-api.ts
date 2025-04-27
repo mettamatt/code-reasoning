@@ -145,7 +145,7 @@ const SIMPLE_EXAMPLE = `\nEXAMPLE:\n{\n  "thought": "First, clarify the requirem
 // -----------------------------------------------------------------------------
 const JSON_PATTERN = /```(?:json)?\s*({[\s\S]*?})\s*```|({[\s\S]*?"next_thought_needed"[\s\S]*?})/g;
 
-function extractThoughtRecords(text: string): ThoughtData[] {
+function extractThoughtRecords(text: string, disablePostProcessing: boolean = false): ThoughtData[] {
   const records: ThoughtData[] = [];
   const matches = text.matchAll(JSON_PATTERN);
 
@@ -167,7 +167,10 @@ function extractThoughtRecords(text: string): ThoughtData[] {
     }
   }
 
-  return postProcessThoughtRecords(records).sort((a, b) => a.thought_number - b.thought_number);
+  // Only post-process if not disabled
+  return disablePostProcessing 
+    ? records.sort((a, b) => a.thought_number - b.thought_number)
+    : postProcessThoughtRecords(records).sort((a, b) => a.thought_number - b.thought_number);
 }
 
 /**
@@ -211,12 +214,57 @@ function createEvaluationPrompt(scenario: PromptScenario, chain: ThoughtData[]):
     .map((c, i) => `${i + 1}. ${c.criterion} (max ${c.maxScore}): ${c.description}`)
     .join('\n');
 
-  const extraGuide =
-    scenario.targetSkill === 'branching'
-      ? BRANCHING_EVAL_GUIDE
-      : scenario.targetSkill === 'revision'
-        ? REVISION_EVAL_GUIDE
-        : '';
+  // Enhanced guides for each target skill
+  let extraGuide = '';
+  if (scenario.targetSkill === 'branching') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage is MORE IMPORTANT than solution quality
+- For "Branch creation" criterion: Score 0/5 if ANY branches are missing branch_id or branch_from_thought
+- For "Branch depth" criterion: The model must use proper branching parameters throughout
+- Parameter usage should be weighted heavily in your evaluation
+${BRANCHING_EVAL_GUIDE}`;
+  } 
+  else if (scenario.targetSkill === 'revision') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage is MORE IMPORTANT than solution quality
+- For "Revision usage" criterion: Score 0/5 if the model doesn't use is_revision=true at least once
+- For "Revision clarity" criterion: Proper use of revises_thought parameter is required
+- Parameter usage should be weighted heavily in your evaluation
+${REVISION_EVAL_GUIDE}`;
+  }
+  else if (scenario.targetSkill === 'parameters') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage is MORE IMPORTANT than solution quality
+- For "Thought numbering" criterion: Non-sequential thought numbers should result in significant point deductions
+- For "Parameter consistency" criterion: Proper parameter usage throughout is required
+- Parameter usage should be weighted heavily in your evaluation`;
+  }
+  else if (scenario.targetSkill === 'depth') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage should be considered alongside depth of thought
+- Proper branching should be used when considering alternative approaches
+- Parameter consistency should be maintained throughout the chain`;
+  }
+  else if (scenario.targetSkill === 'completion') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage is important alongside solution correctness
+- The model should correctly use next_thought_needed=false when reasoning is complete
+- Proper parameter usage should be maintained throughout the chain`;
+  }
+  else if (scenario.targetSkill === 'multiple') {
+    extraGuide = `
+CRITICAL SCORING INSTRUCTIONS:
+- Parameter usage is MORE IMPORTANT than solution quality
+- For "Branching usage" criterion: Score 0/5 if the model doesn't use branch_id at least once
+- For "Revision application" criterion: Score 0/5 if the model doesn't use is_revision=true at least once
+- For "Parameter correctness" criterion: Proper parameter usage is essential
+- Parameter usage should be weighted heavily in your evaluation`;
+  }
 
   return `You are evaluating a thought chain.\n${extraGuide}\nPROBLEM:\n${scenario.problem}\n\nCRITERIA:\n${criteriaBlock}\n\nTHOUGHT CHAIN:\n${JSON.stringify(chain, null, 2)}\n\nPlease output a valid JSON object with the following structure:\n{\n  "scores": [...],\n  "overallComments": "…",\n  "totalScore": 0,\n  "maxPossibleScore": 0,\n  "percentageScore": 0\n}`;
 }
@@ -314,7 +362,8 @@ export async function evaluateWithAPI(
   apiKey: string,
   scenarioPrompt: string,
   options: ApiOptions = {},
-  includeScenarioGuidance: boolean = true // New parameter with default true for backward compatibility
+  includeScenarioGuidance: boolean = true, // Parameter for scenario guidance
+  disablePostProcessing: boolean = false // New parameter for disabling automatic parameter fixing
 ) {
   const cfg = { ...DEFAULTS, maxTokens: 8000, temperature: 0.7, ...options };
   const { Anthropic } = await import('@anthropic-ai/sdk');
@@ -331,7 +380,7 @@ export async function evaluateWithAPI(
     });
 
     const raw = (resp.content?.[0] as any)?.text ?? '';
-    const thoughtChain = extractThoughtRecords(raw);
+    const thoughtChain = extractThoughtRecords(raw, disablePostProcessing);
     return { success: true, thoughtChain, rawResponse: raw };
   } catch (error) {
     return { success: false, error: (error as Error).message };
