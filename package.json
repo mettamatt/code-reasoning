@@ -30,6 +30,7 @@
     "validate": "run-s format lint:fix build",
     "prepare": "npm run build",
     "pretest": "tsc",
+    "reset:evaluations": "rm -rf prompt-evaluations && mkdir -p prompt-evaluations/responses prompt-evaluations/thought-chains prompt-evaluations/results",
     "test": "node dist/test/code-reasoning.e2e.js basic",
     "test:basic": "node dist/test/code-reasoning.e2e.js basic",
     "test:branch": "node dist/test/code-reasoning.e2e.js branch",
