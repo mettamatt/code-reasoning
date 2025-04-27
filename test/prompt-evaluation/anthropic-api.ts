@@ -105,7 +105,7 @@ export async function evaluateWithAPI(
   scenario: string, 
   options: ApiOptions = {}
 ) {
-  const model = options.model || 'claude-3-sonnet-20240229';
+  const model = options.model || 'claude-3-7-sonnet-20250219';
   const maxTokens = options.maxTokens || 4000;
   const temperature = options.temperature || 0.3;
   

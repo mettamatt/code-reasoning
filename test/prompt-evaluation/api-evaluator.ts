@@ -59,7 +59,7 @@ async function getApiKey() {
     if (saveKey) {
       try {
         let envContent = `ANTHROPIC_API_KEY=${apiKey}\n`;
-        envContent += 'CLAUDE_MODEL=claude-3-sonnet-20240229\n';
+        envContent += 'CLAUDE_MODEL=claude-3-7-sonnet-20250219\n';
         envContent += 'MAX_TOKENS=4000\n';
         envContent += 'TEMPERATURE=0.3\n';
         
@@ -92,15 +92,17 @@ export async function runApiEvaluation() {
     
     // Select Claude model
     const modelOptions = [
+      'claude-3-7-sonnet-20250219',
+      'claude-3-5-sonnet-20241022',
+      'claude-3-5-haiku-20241022',
       'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
       'claude-3-haiku-20240307'
     ];
     
     const model = await selectFromList(
       modelOptions,
       (m) => m,
-      `Select Claude model (default: ${process.env.CLAUDE_MODEL || 'claude-3-sonnet-20240229'}):`
+      `Select Claude model (default: ${process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219'}):`
     );
     
     // Select scenarios

@@ -20,7 +20,7 @@ There are two ways to set up your API key:
 ```
 # Create a .env file in the test/prompt-evaluation directory
 ANTHROPIC_API_KEY=your_api_key_here
-CLAUDE_MODEL=claude-3-sonnet-20240229
+CLAUDE_MODEL=claude-3-7-sonnet-20250219
 MAX_TOKENS=4000
 TEMPERATURE=0.3
 ```
@@ -39,8 +39,10 @@ npm run evaluate-api
 ### API Evaluation Process
 
 1. **Model Selection**: You'll be prompted to select a Claude model:
-   - claude-3-opus-20240229 (most powerful, slower)
-   - claude-3-sonnet-20240229 (balanced)
+   - claude-3-7-sonnet-20250219 (most advanced)
+   - claude-3-5-sonnet-20241022 (powerful and balanced)
+   - claude-3-5-haiku-20241022 (fast and efficient)
+   - claude-3-opus-20240229 (powerful, slower)
    - claude-3-haiku-20240307 (fastest)
 
 2. **Scenario Selection**: Choose to run all scenarios or select a specific one
@@ -63,7 +65,7 @@ npm run evaluate-api
 
 You can customize the API behavior in the .env file:
 
-- `CLAUDE_MODEL`: Which Claude model to use (defaults to claude-3-sonnet-20240229)
+- `CLAUDE_MODEL`: Which Claude model to use (defaults to claude-3-7-sonnet-20250219)
 - `MAX_TOKENS`: Maximum output tokens for Claude's response (defaults to 4000)
 - `TEMPERATURE`: Temperature setting for Claude's response (defaults to 0.3)
 

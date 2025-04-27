@@ -91,7 +91,7 @@ Here's a complete workflow example:
 
 1. Run the evaluator: `npm run evaluate-api`
 2. Enter your API key or have it loaded from `.env`
-3. Select "claude-3-sonnet-20240229" as the model
+3. Select "claude-3-7-sonnet-20250219" as the model
 4. Choose to run a specific scenario, such as "Algorithm Selection Problem"
 5. Provide your name as the evaluator and a prompt variation name (e.g., "baseline")
 6. Wait while the system sends the scenario to Claude and processes the response
