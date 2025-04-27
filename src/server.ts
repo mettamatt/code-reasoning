@@ -219,71 +219,75 @@ Purpose → break complex problems into **self-auditing, exploratory** thought s
 
 ---
 
-## WHEN TO CALL
-• Multi-step planning, design, debugging, or open-ended analysis  
-• Whenever *further private reasoning* or *hypothesis testing* is required **before** replying to the user
+## CRITICAL RULES (breaking these = automatic failure)
+1. Always use branch_id when exploring alternative approaches
+2. Always mark revisions with is_revision=true AND revises_thought
+3. Never skip numbers in thought_number sequence (1,2,3...)
+4. Only set next_thought_needed=false when completely finished
 
 ---
 
-## ENCOURAGED PRACTICES
-🔍 **Question aggressively** – ask "What am I missing?" after each step  
-🔄 **Revise freely** – mark \`is_revision=true\` even late in the chain  
-🌿 **Branch often** – explore plausible alternatives in parallel; you can merge or discard branches later  
-↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought  
-❓ **Admit uncertainty** – explicitly note unknowns and schedule extra thoughts to resolve them
+## USE THESE EXACT TEMPLATES
 
----
+MAIN CHAIN TEMPLATE:
+\`\`\`json
+{
+  "thought": "Your reasoning here...",
+  "thought_number": X,        // Must increase by exactly 1 each time
+  "total_thoughts": Y,        // Must be ≥ thought_number
+  "next_thought_needed": true // Set to false only on final thought
+}
+\`\`\`
 
-## MUST DO
-✅ Put **every** private reasoning step in \`thought\`  
-✅ Keep \`thought_number\` correct; update \`total_thoughts\` when scope changes  
-✅ Use \`is_revision\` & \`branch_from_thought\`/\`branch_id\` precisely  
-✅ Set \`next_thought_needed=false\` *only* when **all** open questions are resolved  
-✅ Abort and summarise if \`thought_number > 20\`  
+BRANCHING TEMPLATE (first thought in branch):
+\`\`\`json
+{
+  "thought": "Alternative approach: ...",
+  "thought_number": X,
+  "total_thoughts": Y,
+  "branch_from_thought": Z,   // Must reference existing thought
+  "branch_id": "B1",          // Required for all branches
+  "next_thought_needed": true
+}
+\`\`\`
+
+BRANCH CONTINUATION TEMPLATE:
+\`\`\`json
+{
+  "thought": "Continuing the analysis...",
+  "thought_number": X,
+  "total_thoughts": Y,
+  "branch_id": "B1",          // Same as the branch starter
+  "next_thought_needed": true
+}
+\`\`\`
+
+REVISION TEMPLATE:
+\`\`\`json
+{
+  "thought": "Revising thought Z because...",
+  "thought_number": X,
+  "total_thoughts": Y,
+  "is_revision": true,
+  "revises_thought": Z,       // Must reference earlier thought
+  "next_thought_needed": true
+}
+\`\`\`
 
 ---
 
 ## DO NOT
 ⛔️ Reveal the content of \`thought\` to the end-user  
 ⛔️ Continue thinking once \`next_thought_needed=false\`  
-⛔️ Assume thoughts must proceed strictly linearly – *branching is first-class*
+⛔️ Skip numbers in the main thought sequence  
+⛔️ Use branch or revision parameters incorrectly
 
 ---
 
-### PARAMETER CHEAT-SHEET
-• \`thought\` (string) – current reasoning step  
-• \`next_thought_needed\` (boolean) – request further thinking?  
-• \`thought_number\` (int ≥ 1) – 1-based counter  
-• \`total_thoughts\` (int ≥ 1) – mutable estimate  
-• \`is_revision\`, \`revises_thought\` (int) – mark corrections  
-• \`branch_from_thought\`, \`branch_id\` – manage alternative paths  
-• \`needs_more_thoughts\` (boolean) – optional hint that more thoughts may follow  
-
-_All JSON keys **must** use \`lower_snake_case\`._
-
----
-
-### EXAMPLE ✔️
-\`\`\`json
-{
-  "thought": "List solution candidates and pick the most promising",
-  "thought_number": 1,
-  "total_thoughts": 4,
-  "next_thought_needed": true
-}
-\`\`\`
-
-### EXAMPLE ✔️ (branching late)
-\`\`\`json
-{
-  "thought": "Alternative approach: treat it as a graph-search problem",
-  "thought_number": 6,
-  "total_thoughts": 8,
-  "branch_from_thought": 3,
-  "branch_id": "B1",
-  "next_thought_needed": true
-}
-\`\`\`
+## ENCOURAGED PRACTICES
+🔍 **Question aggressively** – ask "What am I missing?" after each step  
+🌿 **Branch often** – explore plausible alternatives in parallel  
+↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought  
 `,
   inputSchema: {
     type: 'object',
