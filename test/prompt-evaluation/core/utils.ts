@@ -14,12 +14,66 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-// Directory setup
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.join(__dirname, '../../..');
+/**
+ * Find the project root by looking for package.json
+ * @returns The path to the project root
+ */
+function findProjectRoot(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  
+  // Define possible project root paths in order of preference
+  const possibleRoots = [
+    path.join(__dirname, '../../..'),  // From source in test/prompt-evaluation/core
+    path.join(__dirname, '../../../..'),  // From compiled in dist/test/prompt-evaluation/core
+    process.cwd()  // Fallback to current working directory
+  ];
+  
+  // Check each path for package.json to identify project root
+  for (const root of possibleRoots) {
+    if (fs.existsSync(path.join(root, 'package.json'))) {
+      return root;
+    }
+  }
+  
+  // Fallback to current working directory if no root found
+  console.warn('Could not find project root with package.json, using current directory.');
+  return process.cwd();
+}
 
-// Create evaluation directories
+/**
+ * Tries to find a file by checking multiple possible locations
+ * @param filename The name of the file to find
+ * @param possiblePaths Array of paths to check, or default paths will be used
+ * @returns The full path to the file if found, or null if not found
+ */
+export function findFile(filename: string, possiblePaths?: string[]): string | null {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const projectRoot = findProjectRoot();
+  
+  // If no paths provided, use default paths
+  const pathsToCheck = possiblePaths || [
+    path.join(__dirname, filename),                     // Current directory
+    path.join(__dirname, '..', filename),               // Parent directory
+    path.join(projectRoot, 'test/prompt-evaluation', filename),  // From project root
+    path.join(projectRoot, filename)                    // Project root
+  ];
+  
+  // Try each path
+  for (const pathToCheck of pathsToCheck) {
+    if (fs.existsSync(pathToCheck)) {
+      return pathToCheck;
+    }
+  }
+  
+  return null;
+}
+
+// Set up directories based on project root
+const projectRoot = findProjectRoot();
+
+// Create evaluation directories with explicit paths
 const evaluationsDir = path.join(projectRoot, 'prompt-evaluations');
 if (!fs.existsSync(evaluationsDir)) {
   fs.mkdirSync(evaluationsDir, { recursive: true });
