@@ -18,11 +18,16 @@
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/*.js dist/**/*.js",
+    "clean": "rm -rf dist",
+    "clean:build": "npm run clean && npm run build",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "debug": "node dist/index.js --debug",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
+    "validate": "run-s format lint:fix build",
     "prepare": "npm run build",
     "pretest": "tsc",
     "test": "node dist/test/code-reasoning.e2e.js basic",
@@ -31,10 +36,11 @@
     "test:revision": "node dist/test/code-reasoning.e2e.js revision",
     "test:error": "node dist/test/code-reasoning.e2e.js error",
     "test:perf": "node dist/test/code-reasoning.e2e.js perf",
+    "test:validate": "run-s validate test",
     "test:verbose": "node dist/test/code-reasoning.e2e.js --verbose",
     "test:all": "node dist/test/code-reasoning.e2e.js all",
-    "evaluate-prompt": "node dist/test/prompt-evaluation/evaluator.js",
-    "evaluate-api": "node dist/test/prompt-evaluation/api-evaluator.js"
+    "eval:prompt": "node dist/test/prompt-evaluation/evaluator.js",
+    "eval:api": "node dist/test/prompt-evaluation/api-evaluator.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.5.0",
@@ -47,6 +53,10 @@
     "@typescript-eslint/parser": "^7.0.0",
     "dotenv": "^16.5.0",
     "eslint": "^8.56.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.3",
     "typescript": "^5.3.3"
   }
 }
