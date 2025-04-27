@@ -96,7 +96,8 @@ async function processSingleScenario(
   model: string,
   evaluationOptions: EvaluationOptions,
   evaluator: string,
-  progressLabel: string
+  progressLabel: string,
+  includeScenarioGuidance: boolean
 ): Promise<boolean> {
   try {
     console.log(`\n[${progressLabel}]: ${scenario.name}`);
@@ -104,11 +105,16 @@ async function processSingleScenario(
     // Send to API
     console.log('Sending to Anthropic API...');
 
-    const response = await evaluateWithAPI(apiKey, scenario.problem, {
-      model,
-      maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
-      temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
-    });
+    const response = await evaluateWithAPI(
+      apiKey,
+      scenario.problem,
+      {
+        model,
+        maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
+        temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
+      },
+      includeScenarioGuidance
+    );
 
     if (!response.success || !response.thoughtChain) {
       console.log(`Error evaluating scenario: ${response.error || 'Unknown error'}`);
@@ -223,6 +229,12 @@ export async function runApiEvaluation() {
       false
     ); // Default to no
 
+    // Ask whether to include scenario-specific guidance
+    const includeScenarioGuidance = await promptUserWithYesNoDefault(
+      'Include scenario-specific guidance? (No = core prompt only, emulates real user experience)',
+      false
+    ); // Default to no (core prompt only)
+
     // Set evaluator name to 'automated' by default
     const evaluator = 'automated';
 
@@ -234,10 +246,12 @@ export async function runApiEvaluation() {
       'This is used in filenames and reports to help compare different prompt strategies.'
     );
 
-    // Original simple input approach
-    const promptVariation = await promptUser(
-      'Prompt variation (e.g., "baseline", "enhanced", "cot", etc.): '
-    );
+    // Prompt variation input with suggestion based on guidance setting
+    const defaultVariation = includeScenarioGuidance ? 'with-guidance' : 'core-only';
+    const promptVariation =
+      (await promptUser(
+        `Prompt variation (e.g., "${defaultVariation}", "baseline", "enhanced", etc.): `
+      )) || defaultVariation;
 
     // Set evaluation options
     const evaluationOptions: EvaluationOptions = {
@@ -274,7 +288,8 @@ export async function runApiEvaluation() {
               model,
               evaluationOptions,
               evaluator,
-              `Batch ${Math.floor(i / maxConcurrent) + 1}, Scenario ${index + 1}/${batch.length}`
+              `Batch ${Math.floor(i / maxConcurrent) + 1}, Scenario ${index + 1}/${batch.length}`,
+              includeScenarioGuidance
             );
           } catch (error: unknown) {
             console.error(
@@ -297,7 +312,8 @@ export async function runApiEvaluation() {
           model,
           evaluationOptions,
           evaluator,
-          `Scenario ${i + 1}/${scenariosToRun.length}`
+          `Scenario ${i + 1}/${scenariosToRun.length}`,
+          includeScenarioGuidance
         );
 
         if (success) successCount++;
