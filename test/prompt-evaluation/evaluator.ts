@@ -41,9 +41,11 @@ async function mainMenu(): Promise<void> {
         break;
       }
 
-      case '2':
-        generateReport();
+      case '2': {
+        const useVerbose = await promptUser('Include verbose details in a collapsible section? (y/n): ');
+        await generateReport({ verbose: useVerbose.toLowerCase() === 'y' });
         break;
+      }
 
       case '3':
         running = false;
