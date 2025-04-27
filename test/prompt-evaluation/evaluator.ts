@@ -1,9 +1,9 @@
 /**
- * Simplified Prompt Effectiveness Evaluator
+ * Supplementary Prompt Effectiveness Evaluator
  *
- * This tool has been updated to focus on scenario display
- * and report generation only. For API-based evaluation,
- * use the api-evaluator.ts module instead.
+ * This tool allows viewing test scenarios and generating reports
+ * from evaluations that were run using the automated evaluation system.
+ * For running evaluations, use the api-evaluator.ts module instead.
  */
 
 import { fileURLToPath } from 'url';
@@ -62,10 +62,8 @@ async function mainMenu(): Promise<void> {
 const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMainModule) {
   console.log('Starting Prompt Effectiveness Evaluator...');
-  console.log(
-    '\nNOTE: This is a simplified version for displaying scenarios and generating reports.'
-  );
-  console.log('For API-based evaluation, use: npm run eval:api\n');
+  console.log('\nNOTE: This tool is for viewing scenarios and generating reports only.');
+  console.log('For running automated evaluations, use: npm run eval:api\n');
 
   mainMenu().catch(error => {
     console.error('An error occurred:', error);

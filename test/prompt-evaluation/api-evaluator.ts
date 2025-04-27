@@ -8,11 +8,13 @@ import {
   promptUser,
   selectFromList,
   PROMPT_TEST_SCENARIOS,
+  PromptScenario,
   evaluateThoughtChain,
   saveEvaluation,
   generateReport,
   getPaths,
   closeReadline,
+  EvaluationOptions,
 } from './core/index.js';
 import { evaluateWithAPI } from './anthropic-api.js';
 
@@ -79,9 +81,65 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Helper function to process a single scenario
+async function processSingleScenario(
+  scenario: PromptScenario,
+  apiKey: string,
+  model: string,
+  evaluationOptions: EvaluationOptions,
+  evaluator: string,
+  progressLabel: string
+): Promise<boolean> {
+  try {
+    console.log(`\n[${progressLabel}]: ${scenario.name}`);
+
+    // Send to API
+    console.log('Sending to Anthropic API...');
+
+    const response = await evaluateWithAPI(apiKey, scenario.problem, {
+      model,
+      maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
+      temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
+    });
+
+    if (!response.success || !response.thoughtChain) {
+      console.log(`Error evaluating scenario: ${response.error || 'Unknown error'}`);
+      return false;
+    }
+
+    // Save raw response
+    if (response.rawResponse) {
+      const filename = `${scenario.id}-${model.replace(/:/g, '-')}-${Date.now()}.txt`;
+      const filePath = path.join(responsesDir, filename);
+      fs.writeFileSync(filePath, response.rawResponse);
+      console.log(`Raw response saved to ${filePath}`);
+    }
+
+    console.log(`Received ${response.thoughtChain.length} thoughts from Claude`);
+
+    // Evaluate the response
+    console.log('Evaluating response...');
+    const evaluation = await evaluateThoughtChain(
+      scenario,
+      response.thoughtChain,
+      evaluationOptions
+    );
+
+    // Set the evaluator name
+    evaluation.evaluator = evaluator;
+
+    // Save evaluation
+    saveEvaluation(evaluation);
+    return true;
+  } catch (error) {
+    console.error(`Error processing scenario ${scenario.name}:`, error);
+    return false;
+  }
+}
+
 // Main function
 export async function runApiEvaluation() {
-  console.log('\n===== ANTHROPIC API PROMPT EVALUATION =====');
+  console.log('\n===== AUTOMATED PROMPT EVALUATION SYSTEM =====');
 
   try {
     // Load environment variables
@@ -118,61 +176,110 @@ export async function runApiEvaluation() {
           ),
         ];
 
-    // Get evaluator name and prompt variation
-    const evaluator = await promptUser('Evaluator name: ');
+    // Batch processing options (only ask if running multiple scenarios)
+    let parallelProcessing = false;
+    let maxConcurrent = 1;
+
+    if (runAllScenarios) {
+      const useBatch =
+        (
+          await promptUser('Use parallel processing for batch evaluation? (y/n): ')
+        ).toLowerCase() === 'y';
+      if (useBatch) {
+        parallelProcessing = true;
+        const concurrentInput = await promptUser('Max concurrent evaluations (1-5, default 2): ');
+        maxConcurrent = parseInt(concurrentInput) || 2;
+        maxConcurrent = Math.min(5, Math.max(1, maxConcurrent)); // Clamp between 1-5
+      }
+    }
+
+    // Advanced options for evaluation
+    const retryInput = await promptUser(
+      'Number of retry attempts for API failures (0-5, default 2): '
+    );
+    const retryCount = parseInt(retryInput) || 2;
+    const clampedRetryCount = Math.min(5, Math.max(0, retryCount));
+
+    const forceAutomated =
+      (await promptUser('Force complete evaluation even if API fails? (y/n): ')).toLowerCase() ===
+      'y';
+
+    // Set evaluator name to 'automated' by default
+    const evaluator = 'automated';
+
     const promptVariation = await promptUser(
       'Prompt variation (e.g., "baseline", "enhanced", etc.): '
     );
 
-    // Run each scenario
+    // Set evaluation options
+    const evaluationOptions: EvaluationOptions = {
+      apiKey,
+      model,
+      maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
+      temperature: parseFloat(process.env.TEMPERATURE || '0.2'), // Lower temperature for consistent evaluation
+      promptVariation,
+      retryCount: clampedRetryCount,
+      forceAutomated,
+    };
+
+    // Run scenarios (either in sequence or parallel)
     let successCount = 0;
 
-    for (let i = 0; i < scenariosToRun.length; i++) {
-      const scenario = scenariosToRun[i];
-      console.log(`\nRunning scenario ${i + 1} of ${scenariosToRun.length}: ${scenario.name}`);
+    if (parallelProcessing) {
+      // Parallel processing for automated batch evaluation
+      console.log(
+        `\nRunning ${scenariosToRun.length} scenarios in parallel (max ${maxConcurrent} concurrent)...`
+      );
 
-      // Send to API
-      console.log('Sending to Anthropic API...');
+      // Process in batches with maxConcurrent size
+      for (let i = 0; i < scenariosToRun.length; i += maxConcurrent) {
+        const batch = scenariosToRun.slice(i, i + maxConcurrent);
+        console.log(
+          `\nProcessing batch ${Math.floor(i / maxConcurrent) + 1}/${Math.ceil(scenariosToRun.length / maxConcurrent)}`
+        );
 
-      const response = await evaluateWithAPI(apiKey, scenario.problem, {
-        model,
-        maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
-        temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
-      });
+        const batchPromises = batch.map(async (scenario, index) => {
+          try {
+            return await processSingleScenario(
+              scenario,
+              apiKey,
+              model,
+              evaluationOptions,
+              evaluator,
+              `Batch ${Math.floor(i / maxConcurrent) + 1}, Scenario ${index + 1}/${batch.length}`
+            );
+          } catch (error: unknown) {
+            console.error(
+              `Error processing scenario ${scenario.name}: ${error instanceof Error ? error.message : String(error)}`
+            );
+            return false;
+          }
+        });
 
-      if (!response.success || !response.thoughtChain) {
-        console.log(`Error evaluating scenario: ${response.error || 'Unknown error'}`);
-        continue;
+        const batchResults = await Promise.all(batchPromises);
+        successCount += batchResults.filter(result => result).length;
       }
+    } else {
+      // Sequential processing (original approach)
+      for (let i = 0; i < scenariosToRun.length; i++) {
+        const scenario = scenariosToRun[i];
+        const success = await processSingleScenario(
+          scenario,
+          apiKey,
+          model,
+          evaluationOptions,
+          evaluator,
+          `Scenario ${i + 1}/${scenariosToRun.length}`
+        );
 
-      // Save raw response
-      if (response.rawResponse) {
-        const filename = `${scenario.id}-${model.replace(/:/g, '-')}-${Date.now()}.txt`;
-        const filePath = path.join(responsesDir, filename);
-        fs.writeFileSync(filePath, response.rawResponse);
-        console.log(`Raw response saved to ${filePath}`);
-      }
+        if (success) successCount++;
 
-      console.log(`Received ${response.thoughtChain.length} thoughts from Claude`);
-
-      // Evaluate the response
-      console.log('Evaluating response...');
-      const evaluation = await evaluateThoughtChain(scenario, response.thoughtChain);
-
-      // Update with model info
-      evaluation.modelId = model;
-      evaluation.promptVariation = promptVariation;
-      evaluation.evaluator = evaluator;
-
-      // Save evaluation
-      saveEvaluation(evaluation);
-      successCount++;
-
-      // Add delay between API calls
-      if (i < scenariosToRun.length - 1) {
-        const delayMs = 1000; // 1 second
-        console.log(`Waiting ${delayMs / 1000}s before next scenario...`);
-        await delay(delayMs);
+        // Add delay between API calls
+        if (i < scenariosToRun.length - 1) {
+          const delayMs = 1000; // 1 second
+          console.log(`Waiting ${delayMs / 1000}s before next scenario...`);
+          await delay(delayMs);
+        }
       }
     }
 
