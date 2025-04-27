@@ -1,8 +1,8 @@
 /**
- * Core types for prompt evaluation
+ * Core types for prompt evaluation - Pass/Fail System
  */
 
-import { PROMPT_TEST_SCENARIOS, PromptScenario } from '../scenarios.js';
+import { PROMPT_TEST_SCENARIOS } from '../scenarios.js';
 
 // Record for a single thought in a reasoning chain
 export interface ThoughtData {
@@ -17,13 +17,64 @@ export interface ThoughtData {
   needs_more_thoughts?: boolean;
 }
 
+// New pass/fail result type
+export type TestStatus = 'PASS' | 'FAIL';
+
+// Check result for specific test criteria
+export interface CheckResult {
+  name: string;
+  passed: boolean;
+  details?: string;
+}
+
+// Overall test result for a scenario
+export interface TestResult {
+  scenarioId: string;
+  scenarioName: string;
+  status: TestStatus;
+  checks: CheckResult[];
+  failureMessage?: string; // Primary failure reason if failed
+  thoughtChain: ThoughtData[];
+  date: string;
+  modelId: string;
+  promptVariation: string;
+}
+
+// Standard templates to guide the model
+export interface ThoughtTemplates {
+  mainChain: string;
+  branching: string;
+  revision: string;
+  continuation: string; // For subsequent thoughts in branches
+}
+
+// Extension to PromptScenario interface
+export interface PromptScenarioWithChecks extends PromptScenario {
+  requiredTemplates: ('mainChain' | 'branching' | 'revision')[];
+  requiredChecks: string[]; // List of check IDs that must pass
+}
+
+// Replace the current ValidationResult with more direct checks
+export interface ValidationChecks {
+  hasRequiredParameters: boolean;
+  hasSequentialNumbering: boolean;
+  hasBranchingWhenRequired: boolean;
+  hasRevisionWhenRequired: boolean;
+  hasProperTermination: boolean;
+  [key: string]: boolean; // Allow for additional scenario-specific checks
+}
+
 /**
- * Result of validation checks on thought chain parameters
+ * Options for evaluation process
  */
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
+export interface EvaluationOptions {
+  apiKey?: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  promptVariation?: string;
+  retryCount?: number; // Number of retry attempts for API failures
+  forceAutomated?: boolean; // Force complete even with invalid API response
 }
 
 /**
@@ -43,54 +94,8 @@ export interface StructureMetrics {
   }[];
 }
 
-/**
- * Combined objective metrics for a thought chain
- */
-export interface ObjectiveMetrics {
-  structureMetrics: StructureMetrics;
-  validationResults: ValidationResult;
-  parameterUsageScore: number; // 0-100 score for parameter correctness
-}
-
-// Score for a specific evaluation criterion
-export interface EvaluationScore {
-  criterionId: string;
-  criterion: string;
-  score: number;
-  maxScore: number;
-  notes?: string; // Now optional
-  justification?: string; // Added for automated evaluation
-}
-
-// Complete evaluation for a scenario
-export interface ScenarioEvaluation {
-  scenarioId: string;
-  scenarioName: string;
-  evaluator: string;
-  modelId: string;
-  promptVariation: string;
-  date: string;
-  thoughtChain: ThoughtData[];
-  scores: EvaluationScore[];
-  totalScore: number;
-  maxPossibleScore: number;
-  percentageScore: number;
-  comments: string;
-  objectiveMetrics: ObjectiveMetrics; // Objective metrics for the evaluation
-}
-
-/**
- * Options for evaluation process
- */
-export interface EvaluationOptions {
-  apiKey?: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-  promptVariation?: string;
-  retryCount?: number; // Number of retry attempts for API failures
-  forceAutomated?: boolean; // Force complete even with invalid API response
-}
+// Import PromptScenario from the scenarios file
+import { PromptScenario } from '../scenarios.js';
 
 // Re-export scenarios
 export { PROMPT_TEST_SCENARIOS, PromptScenario };

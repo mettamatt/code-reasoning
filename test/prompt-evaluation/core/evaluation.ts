@@ -1,295 +1,188 @@
 /**
- * Core evaluation functions for prompt assessment
+ * Core evaluation functions for prompt assessment - Pass/Fail System
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import {
   PromptScenario,
-  ScenarioEvaluation,
   ThoughtData,
-  EvaluationScore,
+  TestResult,
+  CheckResult,
+  TestStatus,
   EvaluationOptions,
-  ObjectiveMetrics,
-  PROMPT_TEST_SCENARIOS,
 } from './types.js';
-import { getPaths, getMainFailureReason } from './utils.js';
-import { evaluateThoughtChainWithAPI } from '../anthropic-api.js';
-import { getObjectiveMetrics } from './automated-metrics.js';
+import { getPaths } from './utils.js';
+import {
+  validateThoughtChain,
+  calculateStructureMetrics,
+  getFailureDetail,
+  getRequiredChecks,
+} from './automated-metrics.js';
 
 /**
- * Evaluate a thought chain against a scenario using automated evaluation
+ * Evaluate a thought chain against a scenario using pass/fail approach
  */
 export async function evaluateThoughtChain(
   scenario: PromptScenario,
   thoughts: ThoughtData[],
   options: EvaluationOptions = {}
-): Promise<ScenarioEvaluation> {
-  // Get API key
-  const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('API key is required for automated evaluation');
-  }
+): Promise<TestResult> {
+  console.log('\n----- PASS/FAIL EVALUATION -----');
 
-  console.log('\n----- AUTOMATED EVALUATION -----');
+  // Run validation checks
+  const validationChecks = validateThoughtChain(thoughts, scenario);
 
-  // Get objective metrics
-  console.log('Calculating objective metrics...');
-  const objectiveMetrics = getObjectiveMetrics(thoughts);
-
-  // Log some basic metrics
+  // Calculate structure metrics for informational purposes
+  const structureMetrics = calculateStructureMetrics(thoughts);
   console.log('\nThought Chain Analysis:');
-  console.log(`- Total thoughts: ${objectiveMetrics.structureMetrics.totalThoughts}`);
-  console.log(
-    `- Uses revisions: ${objectiveMetrics.structureMetrics.revisionCount > 0 ? 'Yes' : 'No'}`
-  );
-  console.log(`- Number of branches: ${objectiveMetrics.structureMetrics.branchCount}`);
-  console.log(`- Completion status: ${objectiveMetrics.structureMetrics.completionStatus}`);
-  console.log(`- Parameter usage score: ${objectiveMetrics.parameterUsageScore}/100`);
+  console.log(`- Total thoughts: ${structureMetrics.totalThoughts}`);
+  console.log(`- Uses revisions: ${structureMetrics.revisionCount > 0 ? 'Yes' : 'No'}`);
+  console.log(`- Number of branches: ${structureMetrics.branchCount}`);
+  console.log(`- Completion status: ${structureMetrics.completionStatus}`);
 
-  if (objectiveMetrics.validationResults.errors.length > 0) {
-    console.log('\nValidation errors:');
-    objectiveMetrics.validationResults.errors.forEach(err => console.log(`- ${err}`));
-  }
+  // Prepare check results
+  const checks: CheckResult[] = Object.entries(validationChecks).map(([name, passed]) => ({
+    name,
+    passed,
+    details: passed ? undefined : getFailureDetail(name, thoughts, scenario),
+  }));
 
-  // Check for automatic failure conditions based on target skill
-  let autoFailure = false;
-  let autoFailureReason = '';
-
-  if (
-    scenario.targetSkill === 'revision' &&
-    objectiveMetrics.structureMetrics.revisionCount === 0
-  ) {
-    autoFailure = true;
-    autoFailureReason = 'AUTOMATIC FAILURE: Revision test requires use of is_revision parameter';
-    console.log(`\n${autoFailureReason}`);
-  } else if (
-    scenario.targetSkill === 'branching' &&
-    objectiveMetrics.structureMetrics.branchCount === 0
-  ) {
-    autoFailure = true;
-    autoFailureReason = 'AUTOMATIC FAILURE: Branching test requires use of branch_id parameter';
-    console.log(`\n${autoFailureReason}`);
-  } else if (
-    scenario.targetSkill === 'multiple' &&
-    objectiveMetrics.structureMetrics.branchCount === 0 &&
-    objectiveMetrics.structureMetrics.revisionCount === 0
-  ) {
-    autoFailure = true;
-    autoFailureReason =
-      'AUTOMATIC FAILURE: Multiple skills test requires use of both branch_id and is_revision parameters';
-    console.log(`\n${autoFailureReason}`);
-  } else if (
-    scenario.targetSkill === 'parameters' &&
-    objectiveMetrics.validationResults.errors.length > 0
-  ) {
-    autoFailure = true;
-    autoFailureReason = 'AUTOMATIC FAILURE: Parameters test requires no validation errors';
-    console.log(`\n${autoFailureReason}`);
-  }
-
-  if (autoFailure) {
-    return createFailureEvaluation(
-      scenario,
-      thoughts,
-      objectiveMetrics,
-      options,
-      autoFailureReason
-    );
-  }
-
-  // Run API-based evaluation
-  console.log('\nSending to Anthropic API for evaluation...');
-  const apiEvaluation = await evaluateThoughtChainWithAPI(apiKey, scenario, thoughts, {
-    model: options.model,
-    maxTokens: options.maxTokens,
-    temperature: options.temperature,
-    retryCount: options.retryCount || 2,
-  });
-
-  if (!apiEvaluation.success || !apiEvaluation.evaluation) {
-    const errorMsg = `API evaluation failed: ${apiEvaluation.error || 'Unknown error'}`;
-    console.error(errorMsg);
-
-    if (!options.forceAutomated) {
-      throw new Error(errorMsg);
-    } else {
-      console.log('Continuing with objective metrics only due to forceAutomated option');
-      // Create a placeholder evaluation with just objective metrics
-      return createPlaceholderEvaluation(scenario, thoughts, objectiveMetrics, options, errorMsg);
+  // Log check results
+  console.log('\nValidation Checks:');
+  checks.forEach(check => {
+    const status = check.passed ? '✅ PASS' : '❌ FAIL';
+    console.log(`- ${check.name}: ${status}`);
+    if (!check.passed && check.details) {
+      console.log(`  Reason: ${check.details}`);
     }
-  }
-
-  // Convert API evaluation to ScenarioEvaluation format
-  const scores: EvaluationScore[] = apiEvaluation.evaluation.scores.map(score => {
-    // Find the matching criterion
-    const criterion = scenario.evaluationCriteria.find(
-      c => c.criterion.toLowerCase().replace(/\s+/g, '-') === score.criterionId
-    );
-
-    return {
-      criterionId: score.criterionId,
-      criterion: criterion?.criterion || score.criterionId,
-      score: score.score,
-      maxScore: score.maxScore,
-      justification: score.justification,
-    };
   });
 
-  // Calculate weighted scores - 70% parameter usage, 30% content quality
-  const apiScore = apiEvaluation.evaluation.percentageScore;
-  const parameterScore = objectiveMetrics.parameterUsageScore;
-  const adjustedPercentage = Math.round(apiScore * 0.3 + parameterScore * 0.7);
+  // Determine overall status
+  const requiredChecks = getRequiredChecks(scenario);
+  const allRequiredPassed = requiredChecks.every(checkName => {
+    const found = validationChecks[checkName];
+    return found === true;
+  });
 
-  // Adjust total score based on the weighted percentage
-  const maxPossible = apiEvaluation.evaluation.maxPossibleScore;
-  const adjustedTotal = Math.round((adjustedPercentage / 100) * maxPossible);
+  // Find primary failure message if failed
+  let failureMessage: string | undefined;
+  if (!allRequiredPassed) {
+    const failedCheck = checks.find(check => !check.passed && requiredChecks.includes(check.name));
+    failureMessage = failedCheck
+      ? `${failedCheck.name}: ${failedCheck.details}`
+      : 'Failed required checks';
+  }
 
-  // Create the evaluation result with adjusted scores
-  const evaluation: ScenarioEvaluation = {
-    scenarioId: scenario.id,
-    scenarioName: scenario.name,
-    evaluator: 'automated',
-    modelId: options.model || 'claude-3-7-sonnet-20250219',
-    promptVariation: options.promptVariation || 'baseline',
-    date: new Date().toISOString(),
-    thoughtChain: thoughts,
-    scores,
-    totalScore: adjustedTotal,
-    maxPossibleScore: maxPossible,
-    percentageScore: adjustedPercentage,
-    comments: `${apiEvaluation.evaluation.overallComments}\n\nParameter usage score: ${parameterScore}/100\nContent quality score: ${apiScore}%\nFinal weighted score (30% content, 70% parameters): ${adjustedPercentage}%`,
-    objectiveMetrics,
-  };
-
-  console.log('\nAutomated evaluation complete.');
-  console.log(`Content quality score: ${apiScore}%`);
-  console.log(`Parameter usage score: ${parameterScore}%`);
-  console.log(`Final weighted score (30% content, 70% parameters): ${adjustedPercentage}%`);
-
-  return evaluation;
-}
-
-/**
- * Helper function for creating a placeholder evaluation when API fails
- */
-function createPlaceholderEvaluation(
-  scenario: PromptScenario,
-  thoughts: ThoughtData[],
-  objectiveMetrics: ObjectiveMetrics,
-  options: EvaluationOptions,
-  errorMessage: string
-): ScenarioEvaluation {
-  // Create placeholder scores based on objectives only
-  const scores: EvaluationScore[] = scenario.evaluationCriteria.map(criterion => ({
-    criterionId: criterion.criterion.toLowerCase().replace(/\s+/g, '-'),
-    criterion: criterion.criterion,
-    score: 0, // Zero score due to API failure
-    maxScore: criterion.maxScore,
-    justification: 'API evaluation failed',
-  }));
+  const status: TestStatus = allRequiredPassed ? 'PASS' : 'FAIL';
+  console.log(`\nOverall Status: ${status === 'PASS' ? '✅ PASS' : '❌ FAIL'}`);
+  if (failureMessage) {
+    console.log(`Failure Reason: ${failureMessage}`);
+  }
 
   return {
     scenarioId: scenario.id,
     scenarioName: scenario.name,
-    evaluator: 'automated-fallback',
+    status,
+    checks,
+    failureMessage,
+    thoughtChain: thoughts,
+    date: new Date().toISOString(),
     modelId: options.model || 'claude-3-7-sonnet-20250219',
     promptVariation: options.promptVariation || 'baseline',
-    date: new Date().toISOString(),
-    thoughtChain: thoughts,
-    scores,
-    totalScore: 0,
-    maxPossibleScore: scenario.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0),
-    percentageScore: 0,
-    comments: `Automated evaluation failed with error: ${errorMessage}. Only objective metrics available.`,
-    objectiveMetrics,
   };
 }
 
 /**
- * Function for creating an automatic failure evaluation when critical parameters are missing
+ * Save a test result to file
  */
-function createFailureEvaluation(
-  scenario: PromptScenario,
-  thoughts: ThoughtData[],
-  objectiveMetrics: ObjectiveMetrics,
-  options: EvaluationOptions,
-  reason: string
-): ScenarioEvaluation {
-  // Create scores with all zeros due to automatic failure
-  const scores: EvaluationScore[] = scenario.evaluationCriteria.map(criterion => ({
-    criterionId: criterion.criterion.toLowerCase().replace(/\s+/g, '-'),
-    criterion: criterion.criterion,
-    score: 0,
-    maxScore: criterion.maxScore,
-    justification: reason,
-  }));
+export function saveTestResult(result: TestResult): void {
+  const { resultsDir } = getPaths();
 
-  return {
-    scenarioId: scenario.id,
-    scenarioName: scenario.name,
-    evaluator: 'automated',
-    modelId: options.model || 'claude-3-7-sonnet-20250219',
-    promptVariation: options.promptVariation || 'baseline',
-    date: new Date().toISOString(),
-    thoughtChain: thoughts,
-    scores,
-    totalScore: 0,
-    maxPossibleScore: scenario.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0),
-    percentageScore: 0,
-    comments: reason,
-    objectiveMetrics,
-  };
+  // Create a descriptive filename
+  const filename = `${result.scenarioId}-${result.status.toLowerCase()}-${result.modelId.replace(/:/g, '-')}-${result.promptVariation.replace(/\s+/g, '-')}-${Date.now()}.json`;
+  const filePath = path.join(resultsDir, filename);
+
+  // Save the complete test result to file
+  fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
+  console.log(`\nTest result saved to ${filePath}`);
 }
 
 /**
- * Produce a markdown file summarising ALL stored evaluations in **one table**:
- *
- * | Scenario | Score | Main Failure Reason |
- *
- * If `verbose=true`, the original long report is appended inside a `<details>` block so it
- * does not clutter the default view.
+ * Generate a simple pass/fail report for all tests
  */
-export async function generateReport({ verbose = false }: { verbose?: boolean } = {}): Promise<void> {
+export async function generateReport(): Promise<void> {
   const { evaluationsDir, resultsDir } = getPaths();
 
-  // ── 1 · Gather evaluation JSON files ───────────────────────────────────────────
+  // Read test results
   const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
-  if (!files.length) {
-    console.log('No evaluations found. Run some evaluations first.');
+  if (files.length === 0) {
+    console.log('No test results found. Run some evaluations first.');
     return;
   }
 
-  const evals: ScenarioEvaluation[] = files.map(f =>
-    JSON.parse(fs.readFileSync(path.join(resultsDir, f), 'utf8'))
-  );
+  const results: TestResult[] = [];
 
-  // ── 2 · Build concise markdown ────────────────────────────────────────────────
-  let md = '# Prompt-Evaluation Summary\n\n';
-  md += `Generated: ${new Date().toISOString()}\n\n`;
-  md += '| Scenario | Score | Main Failure Reason |\n';
-  md += '|----------|-------|----------------------|\n';
-
-  let total = 0;
-  evals.forEach(e => {
-    total += e.percentageScore;
-    md += `| ${e.scenarioName} | ${e.percentageScore}% | ${getMainFailureReason(e)} |\n`;
-  });
-
-  const avg = Math.round(total / evals.length);
-  md = `**Overall average:** ${avg}%\n\n` + md;
-
-  // ── 3 · Optionally append the verbose narrative under a collapsible section ───
-  if (verbose) {
-    // Re-use the old implementation by lazy-loading to avoid circular import
-    const { generateVerboseReport } = await import('./verbose-report.js');
-    md += '\n<details><summary>Full breakdown</summary>\n\n';
-    md += generateVerboseReport(evals); // returns a big markdown string
-    md += '\n</details>\n';
+  // Try to parse each file as a TestResult
+  for (const file of files) {
+    try {
+      const content = fs.readFileSync(path.join(resultsDir, file), 'utf8');
+      const parsed = JSON.parse(content);
+      // Basic validation to check if it's a TestResult
+      if (parsed.status && parsed.checks && Array.isArray(parsed.checks)) {
+        results.push(parsed);
+      }
+    } catch (error) {
+      console.warn(`Skipped file ${file}: not a valid TestResult`);
+    }
   }
 
-  // ── 4 · Persist to disk ───────────────────────────────────────────────────────
-  const outFile = path.join(evaluationsDir, `prompt-summary-${Date.now()}.md`);
-  fs.writeFileSync(outFile, md);
-  console.log(`Report written to ${outFile}`);
+  if (results.length === 0) {
+    console.log('No valid test results found.');
+    return;
+  }
+
+  // Generate markdown report
+  let md = '# Code Reasoning Tool - Pass/Fail Report\n\n';
+  md += `Generated: ${new Date().toISOString()}\n\n`;
+
+  // Count pass/fail
+  const passed = results.filter(r => r.status === 'PASS').length;
+  const failed = results.filter(r => r.status === 'FAIL').length;
+
+  md += `**Summary**: ${passed} passed, ${failed} failed (${Math.round((passed / results.length) * 100)}% pass rate)\n\n`;
+
+  // Summary table
+  md += '| Scenario | Status | Failure Reason |\n';
+  md += '|----------|--------|----------------|\n';
+
+  results.forEach(result => {
+    const statusEmoji = result.status === 'PASS' ? '✅' : '❌';
+    md += `| ${result.scenarioName} | ${statusEmoji} ${result.status} | ${result.failureMessage || '-'} |\n`;
+  });
+
+  // Append detailed results
+  md += '\n## Detailed Results\n\n';
+
+  results.forEach(result => {
+    md += `### ${result.scenarioName}: ${result.status === 'PASS' ? '✅' : '❌'} ${result.status}\n\n`;
+
+    if (result.status === 'FAIL') {
+      md += `**Failure reason:** ${result.failureMessage}\n\n`;
+    }
+
+    md += '| Check | Status | Details |\n';
+    md += '|-------|--------|--------|\n';
+
+    result.checks.forEach(check => {
+      md += `| ${check.name} | ${check.passed ? '✅ PASS' : '❌ FAIL'} | ${check.details || '-'} |\n`;
+    });
+
+    md += '\n';
+  });
+
+  // Write report
+  const reportPath = path.join(evaluationsDir, `pass-fail-report-${Date.now()}.md`);
+  fs.writeFileSync(reportPath, md);
+  console.log(`Report generated: ${reportPath}`);
 }

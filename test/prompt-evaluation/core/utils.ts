@@ -6,7 +6,7 @@ import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { PromptScenario, ScenarioEvaluation } from './types.js';
+import { PromptScenario, TestResult } from './types.js';
 
 // Create readline interface for CLI
 const rl = readline.createInterface({
@@ -237,18 +237,7 @@ export function closeReadline(): void {
   rl.close();
 }
 
-/**
- * Save an evaluation to file
- */
-export function saveEvaluation(evaluation: ScenarioEvaluation): void {
-  // Create a descriptive filename
-  const filename = `${evaluation.scenarioId}-auto-${evaluation.modelId}-${evaluation.promptVariation.replace(/\s+/g, '-')}-${Date.now()}.json`;
-  const filePath = path.join(resultsDir, filename);
-
-  // Save the complete evaluation (including thought chain) in one file
-  fs.writeFileSync(filePath, JSON.stringify(evaluation, null, 2));
-  console.log(`\nEvaluation saved to ${filePath}`);
-}
+// No longer needed - replaced by saveTestResult in evaluation.ts
 
 /**
  * Get directory paths
@@ -262,30 +251,12 @@ export function getPaths() {
 }
 
 /**
- * Extract ONE succinct reason a scenario “failed” (or nearly failed).
- *
- * Priority order (first match wins):
- *   1. An explicit “AUTOMATIC FAILURE …” line in `comments`
- *   2. The first validation error (parameter / numbering / branching …)
- *   3. A heading that starts with “### <Category> (Priority)” in `comments`
- *   4. Fallback em-dash (no critical issues)
- *
- * This keeps the final markdown table short but actionable.
+ * Get a formatted status message for a test result
  */
-export function getMainFailureReason(e: ScenarioEvaluation): string {
-  // 1 · Automatic failure explicitly reported by the pipeline
-  if (e.percentageScore === 0 && e.comments?.startsWith('AUTOMATIC FAILURE')) {
-    return e.comments.split('\n')[0]; // first line is clear enough
+export function getFormattedStatus(result: TestResult): string {
+  if (result.status === 'PASS') {
+    return `✅ PASS`;
+  } else {
+    return `❌ FAIL: ${result.failureMessage || 'Check failed'}`;
   }
-
-  // 2 · The most specific validation error
-  const errs = e.objectiveMetrics.validationResults.errors;
-  if (errs.length) return errs[0];
-
-  // 3 · A category heading produced by the old verbose report
-  const headingMatch = e.comments?.match(/^### (.+?) \(/m);
-  if (headingMatch) return headingMatch[1];
-
-  // 4 · Nothing obviously wrong
-  return '—';
 }

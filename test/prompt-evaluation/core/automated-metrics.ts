@@ -1,268 +1,208 @@
 /**
- * Automated metrics for prompt evaluation
+ * Automated pass/fail metrics for prompt evaluation
  *
- * This module implements objective metrics for thought chain evaluation,
- * calculating scores based on structural properties and parameter usage.
+ * This module implements simple boolean checks for thought chain evaluation,
+ * replacing the older percentage-based system with direct pass/fail criteria.
  */
 
-import { ThoughtData, ValidationResult, StructureMetrics, ObjectiveMetrics } from './types.js';
+import { ThoughtData, ValidationChecks, StructureMetrics, PromptScenario } from './types.js';
 
 /**
- * Main validation function - combines results from all validation checks
+ * Main validation function - performs pass/fail checks
  */
-export function validateParameters(thoughtChain: ThoughtData[]): ValidationResult {
-  const results: ValidationResult[] = [
-    validateRequiredFields(thoughtChain),
-    validateThoughtNumbering(thoughtChain),
-    validateRevisions(thoughtChain),
-    validateBranches(thoughtChain),
-  ];
-
-  // Combine validation results
+export function validateThoughtChain(
+  thoughtChain: ThoughtData[],
+  scenario: PromptScenario
+): ValidationChecks {
+  // Implement simple, direct checks that return boolean results
   return {
-    isValid: results.every(r => r.isValid),
-    errors: results.flatMap(r => r.errors),
-    warnings: results.flatMap(r => r.warnings),
+    // Base checks for all scenarios
+    hasRequiredParameters: checkRequiredParameters(thoughtChain),
+    hasSequentialNumbering: checkSequentialNumbering(thoughtChain),
+    hasProperTermination: checkProperTermination(thoughtChain),
+
+    // Conditional checks based on scenario type
+    hasBranchingWhenRequired:
+      scenario.targetSkill === 'branching' ? checkBranching(thoughtChain) : true,
+
+    hasRevisionWhenRequired:
+      scenario.targetSkill === 'revision' ? checkRevision(thoughtChain) : true,
+
+    // Additional checks for specific skills
+    hasMultipleSkills:
+      scenario.targetSkill === 'multiple' ? checkMultipleSkills(thoughtChain) : true,
+
+    hasDepth:
+      scenario.targetSkill === 'depth'
+        ? checkThoughtDepth(thoughtChain, scenario.expectedThoughtsMin)
+        : true,
+
+    hasProperCompletion:
+      scenario.targetSkill === 'completion' ? checkCompletion(thoughtChain) : true,
   };
 }
 
 /**
- * Validates that all thoughts have required fields
+ * Check for required parameters in all thoughts
  */
-function validateRequiredFields(thoughtChain: ThoughtData[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  thoughtChain.forEach((thought, index) => {
-    // Check required fields
-    if (thought.thought === undefined) {
-      errors.push(`Thought #${index + 1} missing required field: thought`);
-    }
-
-    if (thought.thought_number === undefined) {
-      errors.push(`Thought #${index + 1} missing required field: thought_number`);
-    }
-
-    if (thought.total_thoughts === undefined) {
-      errors.push(`Thought #${index + 1} missing required field: total_thoughts`);
-    }
-
-    if (thought.next_thought_needed === undefined) {
-      errors.push(`Thought #${index + 1} missing required field: next_thought_needed`);
-    }
-
-    // Check for empty thought content
-    if (thought.thought && thought.thought.trim().length === 0) {
-      warnings.push(`Thought #${index + 1} has empty thought content`);
-    }
-
-    // Check for unusually short thought content
-    if (thought.thought && thought.thought.length < 20) {
-      warnings.push(
-        `Thought #${index + 1} has very short content (${thought.thought.length} chars)`
-      );
-    }
-  });
-
-  return { isValid: errors.length === 0, errors, warnings };
+function checkRequiredParameters(thoughtChain: ThoughtData[]): boolean {
+  // Return true only if ALL thoughts have the required parameters
+  return thoughtChain.every(
+    thought =>
+      thought.thought !== undefined &&
+      thought.thought_number !== undefined &&
+      thought.total_thoughts !== undefined &&
+      thought.next_thought_needed !== undefined &&
+      thought.thought.trim().length > 0
+  );
 }
 
 /**
- * Validates thought numbering sequence and consistency
+ * Check for sequential numbering in the main chain
  */
-function validateThoughtNumbering(thoughtChain: ThoughtData[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+function checkSequentialNumbering(thoughtChain: ThoughtData[]): boolean {
+  if (thoughtChain.length === 0) return true;
 
-  if (thoughtChain.length === 0) {
-    return { isValid: true, errors, warnings };
-  }
+  // First thought should be 1
+  if (thoughtChain[0].thought_number !== 1) return false;
 
-  // Check if thought numbers start at 1
-  if (thoughtChain.length > 0 && thoughtChain[0].thought_number !== 1) {
-    errors.push(`First thought number should be 1, found ${thoughtChain[0].thought_number}`);
-  }
+  // Check sequential numbering in main chain (non-branch, non-revision thoughts)
+  const mainChainThoughts = thoughtChain.filter(t => !t.branch_id && !t.is_revision);
 
-  // Check for sequential numbering within the main chain
-  const mainChainThoughts = thoughtChain.filter(t => !t.branch_id);
   for (let i = 1; i < mainChainThoughts.length; i++) {
     const current = mainChainThoughts[i];
     const previous = mainChainThoughts[i - 1];
 
-    // If not a revision, check sequential numbering
-    if (!current.is_revision && current.thought_number !== previous.thought_number + 1) {
-      errors.push(
-        `Non-sequential thought numbers in main chain: ${previous.thought_number} followed by ${current.thought_number}`
-      );
+    if (current.thought_number !== previous.thought_number + 1) {
+      return false;
     }
   }
 
-  // Check for duplicate thought numbers
-  const thoughtNumbers = thoughtChain.map(t => t.thought_number);
-  const duplicates = thoughtNumbers.filter((num, index) => thoughtNumbers.indexOf(num) !== index);
-  if (duplicates.length > 0) {
-    // Filter for unique duplicates
-    const uniqueDuplicates = [...new Set(duplicates)];
-    uniqueDuplicates.forEach(num => {
-      // Check if they're appropriately marked as revisions or branches
-      const duplicateThoughts = thoughtChain.filter(t => t.thought_number === num);
-      const revisionsOrBranches = duplicateThoughts.every(t => t.is_revision || t.branch_id);
-
-      if (!revisionsOrBranches) {
-        errors.push(`Duplicate thought number ${num} without proper revision or branch marking`);
-      }
-    });
-  }
-
-  // Check for reasonable total_thoughts values
-  thoughtChain.forEach((thought, index) => {
-    if (thought.total_thoughts < thought.thought_number) {
-      errors.push(
-        `Thought #${thought.thought_number} has total_thoughts (${thought.total_thoughts}) less than its own number`
-      );
-    }
-
-    // Check if total_thoughts is much larger than actual chain length
-    if (thought.total_thoughts > thoughtChain.length * 2 && index === thoughtChain.length - 1) {
-      warnings.push(
-        `Last thought estimates total_thoughts (${thought.total_thoughts}) much larger than actual count (${thoughtChain.length})`
-      );
-    }
-  });
-
-  // Check for multiple termination signals
-  const terminatingThoughts = thoughtChain.filter(t => t.next_thought_needed === false);
-  if (terminatingThoughts.length > 1) {
-    // We need to be careful about branches here - it's okay for each branch to have a termination
-    // Let's group by branch_id (null/undefined for main chain)
-    const byBranch = new Map<string | null, ThoughtData[]>();
-
-    terminatingThoughts.forEach(t => {
-      const branchKey = t.branch_id || null;
-      if (!byBranch.has(branchKey)) {
-        byBranch.set(branchKey, []);
-      }
-      byBranch.get(branchKey)!.push(t);
-    });
-
-    // Check each branch (including main chain) for multiple terminations
-    byBranch.forEach((thoughts, branchKey) => {
-      if (thoughts.length > 1) {
-        // Multiple terminations in the same branch (or main chain)
-        const branchDesc = branchKey ? `branch ${branchKey}` : 'main chain';
-        errors.push(
-          `Multiple termination signals (${thoughts.length} occurrences of next_thought_needed=false) in ${branchDesc}`
-        );
-      }
-    });
-  }
-
-  return { isValid: errors.length === 0, errors, warnings };
+  return true;
 }
 
 /**
- * Validates correct usage of revisions
+ * Check for proper termination (last thought has next_thought_needed = false)
  */
-function validateRevisions(thoughtChain: ThoughtData[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+function checkProperTermination(thoughtChain: ThoughtData[]): boolean {
+  if (thoughtChain.length === 0) return false;
 
-  // Check revisions
-  thoughtChain.forEach(thought => {
-    if (thought.is_revision === true) {
-      // Check that revises_thought is specified
-      if (thought.revises_thought === undefined) {
-        errors.push(
-          `Thought #${thought.thought_number} marked as revision but missing revises_thought parameter`
-        );
-      } else {
-        // Check that the referenced thought exists
-        const revisedThought = thoughtChain.find(t => t.thought_number === thought.revises_thought);
-        if (!revisedThought) {
-          errors.push(
-            `Thought #${thought.thought_number} revises non-existent thought #${thought.revises_thought}`
-          );
-        }
-        // Check that revised thought comes before revision
-        else if (
-          revisedThought &&
-          thoughtChain.indexOf(revisedThought) > thoughtChain.indexOf(thought)
-        ) {
-          errors.push(
-            `Thought #${thought.thought_number} revises a future thought #${thought.revises_thought}`
-          );
-        }
-      }
-    } else if (thought.revises_thought !== undefined) {
-      // Thought has revises_thought but is_revision is not true
-      warnings.push(
-        `Thought #${thought.thought_number} has revises_thought but is not marked as a revision`
-      );
-    }
-  });
+  // Find the last thought in the chain (highest thought_number)
+  const lastThought = [...thoughtChain].sort((a, b) => b.thought_number - a.thought_number)[0];
 
-  return { isValid: errors.length === 0, errors, warnings };
+  // Check if it properly terminates
+  return lastThought.next_thought_needed === false;
 }
 
 /**
- * Validates correct usage of branches
+ * Check for branching when required
  */
-function validateBranches(thoughtChain: ThoughtData[]): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+function checkBranching(thoughtChain: ThoughtData[]): boolean {
+  // At least one thought should have branch_id and branch_from_thought
+  const hasBranch = thoughtChain.some(
+    thought => thought.branch_id !== undefined && thought.branch_from_thought !== undefined
+  );
 
-  // Check branch IDs and references
-  const branchIds = new Set<string>();
-  thoughtChain.forEach(thought => {
-    if (thought.branch_id) {
-      // Register new branch IDs
-      if (!branchIds.has(thought.branch_id)) {
-        branchIds.add(thought.branch_id);
+  // Check that branches are formed correctly
+  if (hasBranch) {
+    const branches: Record<string, ThoughtData[]> = {};
 
-        // Check that branch_from_thought exists
-        if (thought.branch_from_thought === undefined) {
-          errors.push(
-            `First thought in branch ${thought.branch_id} missing branch_from_thought parameter`
-          );
-        } else {
-          // Check that the referenced thought exists
-          const branchFromThought = thoughtChain.find(
-            t => t.thought_number === thought.branch_from_thought
-          );
-          if (!branchFromThought) {
-            errors.push(
-              `Branch ${thought.branch_id} references non-existent thought #${thought.branch_from_thought}`
-            );
-          }
-          // Check that branched thought comes before branch
-          else if (
-            branchFromThought &&
-            thoughtChain.indexOf(branchFromThought) > thoughtChain.indexOf(thought)
-          ) {
-            errors.push(
-              `Branch ${thought.branch_id} references a future thought #${thought.branch_from_thought}`
-            );
-          }
+    // Group thoughts by branch_id
+    thoughtChain.forEach(thought => {
+      if (thought.branch_id) {
+        if (!branches[thought.branch_id]) {
+          branches[thought.branch_id] = [];
         }
-      } else {
-        // For continuations of an existing branch, branch_from_thought should not be specified
-        if (thought.branch_from_thought !== undefined) {
-          warnings.push(
-            `Thought #${thought.thought_number} in branch ${thought.branch_id} unnecessarily specifies branch_from_thought`
-          );
-        }
+        branches[thought.branch_id].push(thought);
       }
-    } else if (thought.branch_from_thought !== undefined) {
-      // Thought has branch_from_thought but no branch_id
-      warnings.push(`Thought #${thought.thought_number} has branch_from_thought but no branch_id`);
-    }
-  });
+    });
 
-  return { isValid: errors.length === 0, errors, warnings };
+    // Check each branch
+    for (const branchId in branches) {
+      const branchThoughts = branches[branchId];
+
+      // First thought in branch should have branch_from_thought
+      if (!branchThoughts[0].branch_from_thought) {
+        return false;
+      }
+
+      // branch_from_thought should exist and come before the branch
+      const branchFrom = branchThoughts[0].branch_from_thought;
+      const sourceThought = thoughtChain.find(t => t.thought_number === branchFrom);
+
+      if (!sourceThought) {
+        return false;
+      }
+
+      // The branch should come after the source thought
+      if (thoughtChain.indexOf(sourceThought) > thoughtChain.indexOf(branchThoughts[0])) {
+        return false;
+      }
+    }
+  }
+
+  return hasBranch;
 }
 
 /**
- * Calculates structure metrics for a thought chain
+ * Check for revisions when required
+ */
+function checkRevision(thoughtChain: ThoughtData[]): boolean {
+  // At least one thought should have is_revision = true and revises_thought
+  const hasRevision = thoughtChain.some(
+    thought => thought.is_revision === true && thought.revises_thought !== undefined
+  );
+
+  // Check that revisions are formed correctly
+  if (hasRevision) {
+    const revisionThoughts = thoughtChain.filter(t => t.is_revision === true);
+
+    for (const revision of revisionThoughts) {
+      // revises_thought should exist and come before the revision
+      const revisesThought = revision.revises_thought;
+      const targetThought = thoughtChain.find(t => t.thought_number === revisesThought);
+
+      if (!targetThought) {
+        return false;
+      }
+
+      // The revision should come after the target thought
+      if (thoughtChain.indexOf(targetThought) > thoughtChain.indexOf(revision)) {
+        return false;
+      }
+    }
+  }
+
+  return hasRevision;
+}
+
+/**
+ * Check for multiple skills (both branching and revision)
+ */
+function checkMultipleSkills(thoughtChain: ThoughtData[]): boolean {
+  return checkBranching(thoughtChain) && checkRevision(thoughtChain);
+}
+
+/**
+ * Check for thought depth (minimum number of thoughts)
+ */
+function checkThoughtDepth(thoughtChain: ThoughtData[], minThoughts: number): boolean {
+  return thoughtChain.length >= minThoughts;
+}
+
+/**
+ * Check for proper completion (enough thoughts and proper termination)
+ */
+function checkCompletion(thoughtChain: ThoughtData[]): boolean {
+  // Must have proper termination
+  if (!checkProperTermination(thoughtChain)) return false;
+
+  // Must not terminate too early (at least a few thoughts)
+  return thoughtChain.length >= 4;
+}
+
+/**
+ * Calculate structure metrics for a thought chain (for informational purposes)
  */
 export function calculateStructureMetrics(thoughtChain: ThoughtData[]): StructureMetrics {
   if (thoughtChain.length === 0) {
@@ -333,86 +273,105 @@ export function calculateStructureMetrics(thoughtChain: ThoughtData[]): Structur
 }
 
 /**
- * Calculates a score for parameter usage correctness
+ * Get detailed failure message for a specific check
  */
-export function calculateParameterUsageScore(
-  thoughtChain: ThoughtData[],
-  validationResult: ValidationResult
-): number {
-  if (thoughtChain.length === 0) {
-    return 0;
-  }
+export function getFailureDetail(
+  checkName: string,
+  thoughts: ThoughtData[],
+  scenario: PromptScenario
+): string {
+  switch (checkName) {
+    case 'hasRequiredParameters': {
+      const missingParams = thoughts
+        .map((thought, idx) => {
+          const missing = [];
+          if (thought.thought === undefined || thought.thought.trim().length === 0)
+            missing.push('thought');
+          if (thought.thought_number === undefined) missing.push('thought_number');
+          if (thought.total_thoughts === undefined) missing.push('total_thoughts');
+          if (thought.next_thought_needed === undefined) missing.push('next_thought_needed');
+          return missing.length > 0 ? `Thought #${idx + 1} missing: ${missing.join(', ')}` : null;
+        })
+        .filter(Boolean);
 
-  // Base score starts at 100
-  let score = 100;
-
-  // Deduct points for each error (more impactful)
-  score -= validationResult.errors.length * 10;
-
-  // Deduct fewer points for warnings
-  score -= validationResult.warnings.length * 3;
-
-  // Check for consistent use of branch_id
-  const branchesPresent = thoughtChain.some(t => t.branch_id);
-  const branchesConsistent =
-    branchesPresent &&
-    thoughtChain
-      .filter(t => t.branch_id)
-      .every(
-        t =>
-          t.branch_from_thought ||
-          // After the first thought in a branch, branch_from_thought is not required
-          thoughtChain.some(
-            prev =>
-              prev.branch_id === t.branch_id && thoughtChain.indexOf(prev) < thoughtChain.indexOf(t)
-          )
-      );
-
-  if (branchesPresent && !branchesConsistent) {
-    score -= 15; // Inconsistent branch usage
-  }
-
-  // Check for proper termination
-  const properlyTerminated =
-    thoughtChain.length > 0 &&
-    thoughtChain.some(
-      t =>
-        t.thought_number === Math.max(...thoughtChain.map(t => t.thought_number)) &&
-        t.next_thought_needed === false
-    );
-
-  if (!properlyTerminated) {
-    score -= 20; // Failed to properly terminate chain
-  }
-
-  // Check for appropriate total_thoughts adjustments
-  let adjustedTotal = false;
-  for (let i = 1; i < thoughtChain.length; i++) {
-    if (thoughtChain[i].total_thoughts !== thoughtChain[i - 1].total_thoughts) {
-      adjustedTotal = true;
-      break;
+      return missingParams.length > 0
+        ? `Missing required parameters: ${missingParams.join('; ')}`
+        : 'Missing required parameters in one or more thoughts';
     }
-  }
 
-  if (!adjustedTotal && thoughtChain.length >= 5) {
-    score -= 5; // Did not adjust total_thoughts estimate
-  }
+    case 'hasSequentialNumbering': {
+      // Find the first non-sequential pair
+      const mainChainThoughts = thoughts.filter(t => !t.branch_id && !t.is_revision);
+      for (let i = 1; i < mainChainThoughts.length; i++) {
+        if (mainChainThoughts[i].thought_number !== mainChainThoughts[i - 1].thought_number + 1) {
+          return `Non-sequential thought numbers: ${mainChainThoughts[i - 1].thought_number} followed by ${mainChainThoughts[i].thought_number}`;
+        }
+      }
+      return 'Non-sequential thought numbering';
+    }
 
-  // Apply bounds to the score (0-100)
-  return Math.max(0, Math.min(100, score));
+    case 'hasProperTermination':
+      return 'Missing proper termination (last thought must have next_thought_needed=false)';
+
+    case 'hasBranchingWhenRequired':
+      return 'Missing branching in a scenario that requires it (use branch_id and branch_from_thought)';
+
+    case 'hasRevisionWhenRequired':
+      return 'Missing revision in a scenario that requires it (use is_revision=true and revises_thought)';
+
+    case 'hasMultipleSkills': {
+      const hasBranches = thoughts.some(t => t.branch_id);
+      const hasRevisions = thoughts.some(t => t.is_revision);
+      if (!hasBranches && !hasRevisions) {
+        return 'Missing both branching and revision in a multiple-skills scenario';
+      } else if (!hasBranches) {
+        return 'Missing branching in a multiple-skills scenario';
+      } else if (!hasRevisions) {
+        return 'Missing revision in a multiple-skills scenario';
+      }
+      return 'Incorrect implementation of multiple skills';
+    }
+
+    case 'hasDepth':
+      return `Insufficient thought depth (has ${thoughts.length}, needs at least ${scenario.expectedThoughtsMin})`;
+
+    case 'hasProperCompletion':
+      return 'Improper completion (either terminated too early or missing termination)';
+
+    default:
+      return `Check failed: ${checkName}`;
+  }
 }
 
 /**
- * Main function to get all objective metrics for a thought chain
+ * Get required checks for a scenario
  */
-export function getObjectiveMetrics(thoughtChain: ThoughtData[]): ObjectiveMetrics {
-  const validationResults = validateParameters(thoughtChain);
-  const structureMetrics = calculateStructureMetrics(thoughtChain);
-  const parameterUsageScore = calculateParameterUsageScore(thoughtChain, validationResults);
+export function getRequiredChecks(scenario: PromptScenario): string[] {
+  // Base checks required for all scenarios
+  const baseChecks = ['hasRequiredParameters', 'hasSequentialNumbering', 'hasProperTermination'];
 
-  return {
-    structureMetrics,
-    validationResults,
-    parameterUsageScore,
-  };
+  // Add scenario-specific checks
+  switch (scenario.targetSkill) {
+    case 'branching':
+      baseChecks.push('hasBranchingWhenRequired');
+      break;
+
+    case 'revision':
+      baseChecks.push('hasRevisionWhenRequired');
+      break;
+
+    case 'multiple':
+      baseChecks.push('hasMultipleSkills');
+      break;
+
+    case 'depth':
+      baseChecks.push('hasDepth');
+      break;
+
+    case 'completion':
+      baseChecks.push('hasProperCompletion');
+      break;
+  }
+
+  return baseChecks;
 }

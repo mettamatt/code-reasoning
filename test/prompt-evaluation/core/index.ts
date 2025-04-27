@@ -1,5 +1,5 @@
 /**
- * Core evaluation module index
+ * Core evaluation module index - Pass/Fail System
  *
  * This provides a central export point for all core evaluation functionality.
  */
