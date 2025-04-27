@@ -35,16 +35,16 @@ async function loadEnv() {
   try {
     // Import findFile from utils
     const { findFile } = await import('./core/utils.js');
-    
+
     // Find .env file
     const envPath = findFile('.env');
-    
+
     if (envPath) {
       const { config } = await import('dotenv');
       config({ path: envPath });
       return true;
     }
-    
+
     console.warn('Could not find .env file in any of the expected locations');
     return false;
   } catch (error) {
@@ -164,7 +164,7 @@ export async function runApiEvaluation() {
       'claude-3-opus-20240229',
       'claude-3-haiku-20240307',
     ];
-    
+
     // Find the default model's index
     const defaultModel = process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219';
     let defaultIndex = modelOptions.findIndex(m => m === defaultModel);
@@ -195,14 +195,17 @@ export async function runApiEvaluation() {
     let maxConcurrent = 1;
 
     if (runAllScenarios) {
-      const useBatch = await promptUserWithYesNoDefault('Use parallel processing for batch evaluation?', true); // Default to yes
+      const useBatch = await promptUserWithYesNoDefault(
+        'Use parallel processing for batch evaluation?',
+        true
+      ); // Default to yes
       if (useBatch) {
         parallelProcessing = true;
         maxConcurrent = await promptUserWithNumericDefault(
           'Max concurrent evaluations (1-5, default 2)',
           2, // default value
           1, // min value
-          5  // max value
+          5 // max value
         );
       }
     }
@@ -212,18 +215,25 @@ export async function runApiEvaluation() {
       'Number of retry attempts for API failures (0-5, default 2)',
       2, // default value
       0, // min value
-      5  // max value
+      5 // max value
     );
 
-    const forceAutomated = await promptUserWithYesNoDefault('Force complete evaluation even if API fails?', false); // Default to no
+    const forceAutomated = await promptUserWithYesNoDefault(
+      'Force complete evaluation even if API fails?',
+      false
+    ); // Default to no
 
     // Set evaluator name to 'automated' by default
     const evaluator = 'automated';
 
     // Brief explanation of prompt variations
-    console.log("\nPrompt variation: A label for the prompt approach you're testing (e.g., 'baseline', 'enhanced', 'cot')");
-    console.log("This is used in filenames and reports to help compare different prompt strategies.");
-    
+    console.log(
+      "\nPrompt variation: A label for the prompt approach you're testing (e.g., 'baseline', 'enhanced', 'cot')"
+    );
+    console.log(
+      'This is used in filenames and reports to help compare different prompt strategies.'
+    );
+
     // Original simple input approach
     const promptVariation = await promptUser(
       'Prompt variation (e.g., "baseline", "enhanced", "cot", etc.): '

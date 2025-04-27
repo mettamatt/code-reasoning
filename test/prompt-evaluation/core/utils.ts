@@ -21,21 +21,21 @@ const rl = readline.createInterface({
 function findProjectRoot(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  
+
   // Define possible project root paths in order of preference
   const possibleRoots = [
-    path.join(__dirname, '../../..'),  // From source in test/prompt-evaluation/core
-    path.join(__dirname, '../../../..'),  // From compiled in dist/test/prompt-evaluation/core
-    process.cwd()  // Fallback to current working directory
+    path.join(__dirname, '../../..'), // From source in test/prompt-evaluation/core
+    path.join(__dirname, '../../../..'), // From compiled in dist/test/prompt-evaluation/core
+    process.cwd(), // Fallback to current working directory
   ];
-  
+
   // Check each path for package.json to identify project root
   for (const root of possibleRoots) {
     if (fs.existsSync(path.join(root, 'package.json'))) {
       return root;
     }
   }
-  
+
   // Fallback to current working directory if no root found
   console.warn('Could not find project root with package.json, using current directory.');
   return process.cwd();
@@ -51,22 +51,22 @@ export function findFile(filename: string, possiblePaths?: string[]): string | n
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const projectRoot = findProjectRoot();
-  
+
   // If no paths provided, use default paths
   const pathsToCheck = possiblePaths || [
-    path.join(__dirname, filename),                     // Current directory
-    path.join(__dirname, '..', filename),               // Parent directory
-    path.join(projectRoot, 'test/prompt-evaluation', filename),  // From project root
-    path.join(projectRoot, filename)                    // Project root
+    path.join(__dirname, filename), // Current directory
+    path.join(__dirname, '..', filename), // Parent directory
+    path.join(projectRoot, 'test/prompt-evaluation', filename), // From project root
+    path.join(projectRoot, filename), // Project root
   ];
-  
+
   // Try each path
   for (const pathToCheck of pathsToCheck) {
     if (fs.existsSync(pathToCheck)) {
       return pathToCheck;
     }
   }
-  
+
   return null;
 }
 
@@ -112,18 +112,18 @@ export async function promptUserWithNumericDefault(
 ): Promise<number> {
   // Add instructions about pressing Enter for default
   const fullPrompt = `${question} (press Enter for default): `;
-  
+
   // Get user input
   const input = await promptUser(fullPrompt);
-  
+
   // If input is empty, return the default
   if (input.trim() === '') {
     return defaultValue;
   }
-  
+
   // Parse and validate the input
   const parsedValue = parseInt(input);
-  
+
   // Apply min/max constraints if provided
   if (!isNaN(parsedValue)) {
     let value = parsedValue;
@@ -131,7 +131,7 @@ export async function promptUserWithNumericDefault(
     if (max !== undefined) value = Math.min(max, value);
     return value;
   }
-  
+
   // If parsing failed, return the default
   console.log(`Invalid input. Using default value of ${defaultValue}.`);
   return defaultValue;
@@ -149,29 +149,29 @@ export async function promptUserWithYesNoDefault(
 ): Promise<boolean> {
   // Format the default value display
   const defaultDisplay = defaultValue ? 'Y/n' : 'y/N';
-  
+
   // Add instructions about pressing Enter for default
   const fullPrompt = `${question} (${defaultDisplay}, press Enter for default): `;
-  
+
   // Get user input
   const input = await promptUser(fullPrompt);
   const trimmedInput = input.trim().toLowerCase();
-  
+
   // If input is empty, return the default
   if (trimmedInput === '') {
     return defaultValue;
   }
-  
+
   // Check valid yes inputs
   if (trimmedInput === 'y' || trimmedInput === 'yes') {
     return true;
   }
-  
+
   // Check valid no inputs
   if (trimmedInput === 'n' || trimmedInput === 'no') {
     return false;
   }
-  
+
   // If input is invalid, notify user and return default
   console.log(`Invalid input. Using default value of ${defaultValue ? 'yes' : 'no'}.`);
   return defaultValue;
