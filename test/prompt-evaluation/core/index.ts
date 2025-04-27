@@ -12,3 +12,6 @@ export * from './utils.js';
 
 // Export evaluation functions
 export * from './evaluation.js';
+
+// Export automated metrics functions
+export * from './automated-metrics.js';

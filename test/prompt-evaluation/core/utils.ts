@@ -96,21 +96,16 @@ export function closeReadline(): void {
 }
 
 /**
- * Save an evaluation to files
+ * Save an evaluation to file
  */
 export function saveEvaluation(evaluation: ScenarioEvaluation): void {
-  const filename = `${evaluation.scenarioId}-${evaluation.modelId}-${evaluation.promptVariation.replace(/\s+/g, '-')}-${Date.now()}.json`;
+  // Create a descriptive filename
+  const filename = `${evaluation.scenarioId}-auto-${evaluation.modelId}-${evaluation.promptVariation.replace(/\s+/g, '-')}-${Date.now()}.json`;
   const filePath = path.join(resultsDir, filename);
 
+  // Save the complete evaluation (including thought chain) in one file
   fs.writeFileSync(filePath, JSON.stringify(evaluation, null, 2));
   console.log(`\nEvaluation saved to ${filePath}`);
-
-  // Also save the thought chain separately
-  const thoughtChainFile = `${evaluation.scenarioId}-${evaluation.modelId}-thoughtchain-${Date.now()}.json`;
-  const thoughtChainPath = path.join(thoughtChainsDir, thoughtChainFile);
-
-  fs.writeFileSync(thoughtChainPath, JSON.stringify(evaluation.thoughtChain, null, 2));
-  console.log(`Thought chain saved to ${thoughtChainPath}`);
 }
 
 /**

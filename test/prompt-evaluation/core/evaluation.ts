@@ -9,85 +9,143 @@ import {
   ScenarioEvaluation,
   ThoughtData,
   EvaluationScore,
+  EvaluationOptions,
+  ObjectiveMetrics,
   PROMPT_TEST_SCENARIOS,
 } from './types.js';
-import { promptUser, getPaths } from './utils.js';
+import { getPaths } from './utils.js';
+import { evaluateThoughtChainWithAPI } from '../anthropic-api.js';
+import { getObjectiveMetrics } from './automated-metrics.js';
 
 /**
- * Evaluate a thought chain against a scenario
+ * Evaluate a thought chain against a scenario using automated evaluation
  */
 export async function evaluateThoughtChain(
   scenario: PromptScenario,
-  thoughts: ThoughtData[]
+  thoughts: ThoughtData[],
+  options: EvaluationOptions = {}
 ): Promise<ScenarioEvaluation> {
-  const evaluator = await promptUser('Evaluator name: ');
-  const modelId = await promptUser('Model ID (e.g., "GPT-4", "Claude-3", etc.): ');
-  const promptVariation = await promptUser(
-    'Prompt variation (e.g., "baseline", "enhanced", etc.): '
-  );
-
-  console.log('\n----- EVALUATION -----');
-
-  // Analyze the thought chain for some basic metrics
-  const usesRevisions = thoughts.some(t => t.is_revision === true);
-  const branches = new Set<string>();
-  thoughts.forEach(t => t.branch_id && branches.add(t.branch_id));
-  const branchCount = branches.size;
-
-  console.log('\nThought Chain Analysis:');
-  console.log(`- Total thoughts: ${thoughts.length}`);
-  console.log(`- Uses revisions: ${usesRevisions ? 'Yes' : 'No'}`);
-  console.log(`- Number of branches: ${branchCount}`);
-
-  // Score each criterion
-  const scores: EvaluationScore[] = [];
-
-  for (const criterion of scenario.evaluationCriteria) {
-    console.log(`\n${criterion.criterion} (max ${criterion.maxScore} points)`);
-    console.log(`Description: ${criterion.description}`);
-
-    let score: number;
-    do {
-      const input = await promptUser(`Score (0-${criterion.maxScore}): `);
-      score = parseInt(input);
-      if (isNaN(score) || score < 0 || score > criterion.maxScore) {
-        console.log(`Invalid score. Please enter a number between 0 and ${criterion.maxScore}.`);
-      }
-    } while (isNaN(score) || score < 0 || score > criterion.maxScore);
-
-    const notes = await promptUser('Notes on this criterion: ');
-
-    scores.push({
-      criterionId: criterion.criterion.toLowerCase().replace(/\s+/g, '-'),
-      criterion: criterion.criterion,
-      score,
-      maxScore: criterion.maxScore,
-      notes,
-    });
+  // Get API key
+  const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('API key is required for automated evaluation');
   }
 
-  // Calculate total score
-  const totalScore = scores.reduce((sum, score) => sum + score.score, 0);
-  const maxPossibleScore = scores.reduce((sum, score) => sum + score.maxScore, 0);
-  const percentageScore = Math.round((totalScore / maxPossibleScore) * 100);
+  console.log('\n----- AUTOMATED EVALUATION -----');
 
-  // Overall comments
-  console.log('\nOverall evaluation:');
-  const comments = await promptUser('Comments: ');
+  // Get objective metrics
+  console.log('Calculating objective metrics...');
+  const objectiveMetrics = getObjectiveMetrics(thoughts);
+
+  // Log some basic metrics
+  console.log('\nThought Chain Analysis:');
+  console.log(`- Total thoughts: ${objectiveMetrics.structureMetrics.totalThoughts}`);
+  console.log(
+    `- Uses revisions: ${objectiveMetrics.structureMetrics.revisionCount > 0 ? 'Yes' : 'No'}`
+  );
+  console.log(`- Number of branches: ${objectiveMetrics.structureMetrics.branchCount}`);
+  console.log(`- Completion status: ${objectiveMetrics.structureMetrics.completionStatus}`);
+  console.log(`- Parameter usage score: ${objectiveMetrics.parameterUsageScore}/100`);
+
+  if (objectiveMetrics.validationResults.errors.length > 0) {
+    console.log('\nValidation errors:');
+    objectiveMetrics.validationResults.errors.forEach(err => console.log(`- ${err}`));
+  }
+
+  // Run API-based evaluation
+  console.log('\nSending to Anthropic API for evaluation...');
+  const apiEvaluation = await evaluateThoughtChainWithAPI(apiKey, scenario, thoughts, {
+    model: options.model,
+    maxTokens: options.maxTokens,
+    temperature: options.temperature,
+    retryCount: options.retryCount || 2,
+  });
+
+  if (!apiEvaluation.success || !apiEvaluation.evaluation) {
+    const errorMsg = `API evaluation failed: ${apiEvaluation.error || 'Unknown error'}`;
+    console.error(errorMsg);
+
+    if (!options.forceAutomated) {
+      throw new Error(errorMsg);
+    } else {
+      console.log('Continuing with objective metrics only due to forceAutomated option');
+      // Create a placeholder evaluation with just objective metrics
+      return createPlaceholderEvaluation(scenario, thoughts, objectiveMetrics, options, errorMsg);
+    }
+  }
+
+  // Convert API evaluation to ScenarioEvaluation format
+  const scores: EvaluationScore[] = apiEvaluation.evaluation.scores.map(score => {
+    // Find the matching criterion
+    const criterion = scenario.evaluationCriteria.find(
+      c => c.criterion.toLowerCase().replace(/\s+/g, '-') === score.criterionId
+    );
+
+    return {
+      criterionId: score.criterionId,
+      criterion: criterion?.criterion || score.criterionId,
+      score: score.score,
+      maxScore: score.maxScore,
+      justification: score.justification,
+    };
+  });
+
+  // Create the evaluation result
+  const evaluation: ScenarioEvaluation = {
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    evaluator: 'automated',
+    modelId: options.model || 'claude-3-7-sonnet-20250219',
+    promptVariation: options.promptVariation || 'baseline',
+    date: new Date().toISOString(),
+    thoughtChain: thoughts,
+    scores,
+    totalScore: apiEvaluation.evaluation.totalScore,
+    maxPossibleScore: apiEvaluation.evaluation.maxPossibleScore,
+    percentageScore: apiEvaluation.evaluation.percentageScore,
+    comments: apiEvaluation.evaluation.overallComments,
+    objectiveMetrics,
+  };
+
+  console.log('\nAutomated evaluation complete.');
+  console.log(`Overall score: ${evaluation.percentageScore}%`);
+
+  return evaluation;
+}
+
+/**
+ * Helper function for creating a placeholder evaluation when API fails
+ */
+function createPlaceholderEvaluation(
+  scenario: PromptScenario,
+  thoughts: ThoughtData[],
+  objectiveMetrics: ObjectiveMetrics,
+  options: EvaluationOptions,
+  errorMessage: string
+): ScenarioEvaluation {
+  // Create placeholder scores based on objectives only
+  const scores: EvaluationScore[] = scenario.evaluationCriteria.map(criterion => ({
+    criterionId: criterion.criterion.toLowerCase().replace(/\s+/g, '-'),
+    criterion: criterion.criterion,
+    score: 0, // Zero score due to API failure
+    maxScore: criterion.maxScore,
+    justification: 'API evaluation failed',
+  }));
 
   return {
     scenarioId: scenario.id,
     scenarioName: scenario.name,
-    evaluator,
-    modelId,
-    promptVariation,
+    evaluator: 'automated-fallback',
+    modelId: options.model || 'claude-3-7-sonnet-20250219',
+    promptVariation: options.promptVariation || 'baseline',
     date: new Date().toISOString(),
     thoughtChain: thoughts,
     scores,
-    totalScore,
-    maxPossibleScore,
-    percentageScore,
-    comments,
+    totalScore: 0,
+    maxPossibleScore: scenario.evaluationCriteria.reduce((sum, c) => sum + c.maxScore, 0),
+    percentageScore: 0,
+    comments: `Automated evaluation failed with error: ${errorMessage}. Only objective metrics available.`,
+    objectiveMetrics,
   };
 }
 
