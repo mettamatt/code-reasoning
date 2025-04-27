@@ -80,7 +80,7 @@ export async function evaluateThoughtChain(
       'AUTOMATIC FAILURE: Multiple skills test requires use of both branch_id and is_revision parameters';
     console.log(`\n${autoFailureReason}`);
   } else if (
-    scenario.targetSkill === 'parameters' && 
+    scenario.targetSkill === 'parameters' &&
     objectiveMetrics.validationResults.errors.length > 0
   ) {
     autoFailure = true;
