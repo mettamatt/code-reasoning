@@ -260,3 +260,32 @@ export function getPaths() {
     resultsDir,
   };
 }
+
+/**
+ * Extract ONE succinct reason a scenario “failed” (or nearly failed).
+ *
+ * Priority order (first match wins):
+ *   1. An explicit “AUTOMATIC FAILURE …” line in `comments`
+ *   2. The first validation error (parameter / numbering / branching …)
+ *   3. A heading that starts with “### <Category> (Priority)” in `comments`
+ *   4. Fallback em-dash (no critical issues)
+ *
+ * This keeps the final markdown table short but actionable.
+ */
+export function getMainFailureReason(e: ScenarioEvaluation): string {
+  // 1 · Automatic failure explicitly reported by the pipeline
+  if (e.percentageScore === 0 && e.comments?.startsWith('AUTOMATIC FAILURE')) {
+    return e.comments.split('\n')[0]; // first line is clear enough
+  }
+
+  // 2 · The most specific validation error
+  const errs = e.objectiveMetrics.validationResults.errors;
+  if (errs.length) return errs[0];
+
+  // 3 · A category heading produced by the old verbose report
+  const headingMatch = e.comments?.match(/^### (.+?) \(/m);
+  if (headingMatch) return headingMatch[1];
+
+  // 4 · Nothing obviously wrong
+  return '—';
+}
