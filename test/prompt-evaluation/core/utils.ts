@@ -11,7 +11,7 @@ import { PromptScenario, ScenarioEvaluation } from './types.js';
 // Create readline interface for CLI
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 // Directory setup
@@ -46,15 +46,15 @@ export function promptUser(question: string): Promise<string> {
  * Display a numbered list of options and get selection
  */
 export async function selectFromList<T>(
-  items: T[], 
-  getLabel: (item: T) => string, 
+  items: T[],
+  getLabel: (item: T) => string,
   promptText: string
 ): Promise<T> {
   console.log('\n' + promptText);
   items.forEach((item, index) => {
     console.log(`${index + 1}. ${getLabel(item)}`);
   });
-  
+
   let selection: number;
   do {
     const input = await promptUser('Enter selection number: ');
@@ -63,7 +63,7 @@ export async function selectFromList<T>(
       console.log('Invalid selection. Please try again.');
     }
   } while (isNaN(selection) || selection < 0 || selection >= items.length);
-  
+
   return items[selection];
 }
 
@@ -101,14 +101,14 @@ export function closeReadline(): void {
 export function saveEvaluation(evaluation: ScenarioEvaluation): void {
   const filename = `${evaluation.scenarioId}-${evaluation.modelId}-${evaluation.promptVariation.replace(/\s+/g, '-')}-${Date.now()}.json`;
   const filePath = path.join(resultsDir, filename);
-  
+
   fs.writeFileSync(filePath, JSON.stringify(evaluation, null, 2));
   console.log(`\nEvaluation saved to ${filePath}`);
-  
+
   // Also save the thought chain separately
   const thoughtChainFile = `${evaluation.scenarioId}-${evaluation.modelId}-thoughtchain-${Date.now()}.json`;
   const thoughtChainPath = path.join(thoughtChainsDir, thoughtChainFile);
-  
+
   fs.writeFileSync(thoughtChainPath, JSON.stringify(evaluation.thoughtChain, null, 2));
   console.log(`Thought chain saved to ${thoughtChainPath}`);
 }
@@ -120,6 +120,6 @@ export function getPaths() {
   return {
     evaluationsDir,
     thoughtChainsDir,
-    resultsDir
+    resultsDir,
   };
 }

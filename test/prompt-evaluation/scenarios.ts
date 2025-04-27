@@ -1,9 +1,9 @@
 /**
  * Prompt Effectiveness Test Scenarios
- * 
+ *
  * This file contains test scenarios designed to evaluate how effectively
  * a model follows the instructions in the CODE_REASONING_TOOL prompt.
- * 
+ *
  * Each scenario targets a specific aspect of the prompt, such as:
  * - Understanding when to use branching
  * - Understanding when to use revisions
@@ -33,7 +33,8 @@ export const PROMPT_TEST_SCENARIOS: PromptScenario[] = [
   {
     id: 'branch-algorithm-selection',
     name: 'Algorithm Selection Problem',
-    description: 'Tests whether the model understands when to use branching to explore multiple approaches.',
+    description:
+      'Tests whether the model understands when to use branching to explore multiple approaches.',
     problem: `
 You need to implement a function to find the k most frequent elements in an array of integers. 
 There are multiple valid approaches to this problem with different time and space complexity tradeoffs.
@@ -54,31 +55,32 @@ Select the best approach for a general-purpose solution and explain your reasoni
       {
         criterion: 'Branch creation',
         description: 'Does the model create branches for different algorithmic approaches?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Branch depth',
         description: 'Are branches developed sufficiently to evaluate their merits?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Branch comparison',
         description: 'Does the model effectively compare the different approaches?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Branch selection',
         description: 'Does the model select an approach with clear reasoning?',
-        maxScore: 5
-      }
-    ]
+        maxScore: 5,
+      },
+    ],
   },
 
   // Revision Understanding Scenario
   {
     id: 'revision-bug-trap',
     name: 'Bug Identification Problem',
-    description: 'Tests whether the model correctly uses revisions when it discovers an error in earlier reasoning.',
+    description:
+      'Tests whether the model correctly uses revisions when it discovers an error in earlier reasoning.',
     problem: `
 Review the following code snippet that's supposed to find the median of two sorted arrays:
 
@@ -129,24 +131,25 @@ Analyze this code, identify any issues, and provide an improved solution.
       {
         criterion: 'Issue identification',
         description: 'Does the model identify the key issues in the code?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Revision usage',
-        description: 'Does the model properly use the revision feature when it realizes an error in earlier thinking?',
-        maxScore: 5
+        description:
+          'Does the model properly use the revision feature when it realizes an error in earlier thinking?',
+        maxScore: 5,
       },
       {
         criterion: 'Revision clarity',
         description: 'Are the revisions clear about what was incorrect and why?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Solution quality',
         description: 'Does the final solution correctly address all identified issues?',
-        maxScore: 5
-      }
-    ]
+        maxScore: 5,
+      },
+    ],
   },
 
   // Parameter Correctness Scenario
@@ -171,24 +174,26 @@ Break this down into a step-by-step implementation plan, explaining your approac
       {
         criterion: 'Thought numbering',
         description: 'Does the model correctly increment thought_number with each thought?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Total thoughts estimation',
-        description: 'Does the model provide a reasonable estimate for total_thoughts and adjust if needed?',
-        maxScore: 5
+        description:
+          'Does the model provide a reasonable estimate for total_thoughts and adjust if needed?',
+        maxScore: 5,
       },
       {
         criterion: 'Next thought needed',
-        description: 'Does the model correctly use next_thought_needed=false only when reasoning is complete?',
-        maxScore: 5
+        description:
+          'Does the model correctly use next_thought_needed=false only when reasoning is complete?',
+        maxScore: 5,
       },
       {
         criterion: 'Parameter consistency',
         description: 'Are parameters used consistently throughout the thinking process?',
-        maxScore: 5
-      }
-    ]
+        maxScore: 5,
+      },
+    ],
   },
 
   // Thought Depth Scenario
@@ -214,25 +219,26 @@ Provide a comprehensive design with justifications for your choices.
     evaluationCriteria: [
       {
         criterion: 'Thought comprehensiveness',
-        description: 'Do individual thoughts cover multiple relevant aspects rather than just surface-level analysis?',
-        maxScore: 5
+        description:
+          'Do individual thoughts cover multiple relevant aspects rather than just surface-level analysis?',
+        maxScore: 5,
       },
       {
         criterion: 'Technical depth',
         description: 'Does the model demonstrate deep technical understanding in its thoughts?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Consideration of alternatives',
         description: 'Does the model consider multiple options within each thought?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Edge case handling',
         description: 'Do thoughts address potential edge cases and failure modes?',
-        maxScore: 5
-      }
-    ]
+        maxScore: 5,
+      },
+    ],
   },
 
   // Reasoning Completion Scenario
@@ -266,24 +272,24 @@ Debug this function and provide an optimized solution that works efficiently for
       {
         criterion: 'Problem identification',
         description: 'Does the model correctly identify the problem?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Solution development',
         description: 'Does the model develop a full solution before concluding?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Appropriate termination',
         description: 'Does the model set next_thought_needed=false at the appropriate point?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Premature termination avoidance',
         description: 'Does the model avoid concluding before fully addressing the problem?',
-        maxScore: 5
-      }
-    ]
+        maxScore: 5,
+      },
+    ],
   },
 
   // Complex Multi-Skill Scenario
@@ -313,29 +319,33 @@ Identify potential conflicts between optimizations and how to resolve them.
     evaluationCriteria: [
       {
         criterion: 'Branching usage',
-        description: 'Does the model effectively use branching to explore different optimization approaches?',
-        maxScore: 5
+        description:
+          'Does the model effectively use branching to explore different optimization approaches?',
+        maxScore: 5,
       },
       {
         criterion: 'Revision application',
-        description: 'Does the model revise earlier thoughts when discovering conflicts or better approaches?',
-        maxScore: 5
+        description:
+          'Does the model revise earlier thoughts when discovering conflicts or better approaches?',
+        maxScore: 5,
       },
       {
         criterion: 'Parameter correctness',
-        description: 'Does the model use parameters correctly throughout this complex reasoning chain?',
-        maxScore: 5
+        description:
+          'Does the model use parameters correctly throughout this complex reasoning chain?',
+        maxScore: 5,
       },
       {
         criterion: 'Thought depth',
         description: 'Are thoughts sufficiently detailed and technically sound?',
-        maxScore: 5
+        maxScore: 5,
       },
       {
         criterion: 'Reasoning completion',
-        description: 'Does the model appropriately complete the reasoning when a comprehensive solution is reached?',
-        maxScore: 5
-      }
-    ]
-  }
+        description:
+          'Does the model appropriately complete the reasoning when a comprehensive solution is reached?',
+        maxScore: 5,
+      },
+    ],
+  },
 ];

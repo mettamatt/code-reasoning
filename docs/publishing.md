@@ -54,20 +54,22 @@ npm publish --access public
 
 The Code-Reasoning MCP Server follows [semantic versioning](https://semver.org/) (semver) principles. The version number format is `MAJOR.MINOR.PATCH`:
 
-| Increment | When to use | Example | Command |
-|-----------|-------------|---------|---------|
-| PATCH | Bug fixes and minor changes | 0.2.0 → 0.2.1 | `npm version patch` |
-| MINOR | New features (backward compatible) | 0.2.1 → 0.3.0 | `npm version minor` |
-| MAJOR | Breaking changes | 0.3.0 → 1.0.0 | `npm version major` |
+| Increment | When to use                        | Example       | Command             |
+| --------- | ---------------------------------- | ------------- | ------------------- |
+| PATCH     | Bug fixes and minor changes        | 0.2.0 → 0.2.1 | `npm version patch` |
+| MINOR     | New features (backward compatible) | 0.2.1 → 0.3.0 | `npm version minor` |
+| MAJOR     | Breaking changes                   | 0.3.0 → 1.0.0 | `npm version major` |
 
 ### Version Command Behavior
 
 The `npm version` command:
+
 1. Updates the version in package.json
 2. Creates a Git commit with the version change
 3. Creates a Git tag for the version
 
 Example:
+
 ```bash
 # Current version: 0.2.0
 npm version patch
@@ -87,12 +89,14 @@ Before publishing, ensure you have:
 ### Step-by-Step Publishing Guide
 
 1. **Prepare your package**:
+
    ```bash
    # Build the package
    npm run build
    ```
 
 2. **Publish the package**:
+
    ```bash
    # For scoped packages, use --access public
    npm publish --access public
@@ -122,14 +126,17 @@ Maintain a changelog to help users understand what changes in each version:
 
 1. **Create a CHANGELOG.md file** (if not already present)
 2. **Document changes for each version**:
+
    ```markdown
    # Changelog
 
    ## 0.2.1 (2025-04-25)
+
    - Fixed bug in thought branching logic
    - Improved error handling in visualizer
 
    ## 0.2.0 (2025-04-20)
+
    - Added visualization dashboard
    - Enhanced debugging capabilities
    ```
@@ -141,12 +148,14 @@ Maintain a changelog to help users understand what changes in each version:
 Leverage Git integration with npm versioning:
 
 1. **Commit all changes** before bumping version
+
    ```bash
    git add .
    git commit -m "Implement feature X"
    ```
 
 2. **Use npm version** to automatically create version commit and tag
+
    ```bash
    npm version patch -m "Bump version to %s - fix thought branching bug"
    ```
@@ -161,16 +170,19 @@ Leverage Git integration with npm versioning:
 Test your package before publishing:
 
 1. **Run all tests**:
+
    ```bash
    npm test
    ```
 
 2. **Verify the package builds correctly**:
+
    ```bash
    npm run build
    ```
 
 3. **Test the package locally**:
+
    ```bash
    # In your package directory
    npm link
@@ -183,13 +195,13 @@ Test your package before publishing:
 
 ### Common Publishing Issues
 
-| Issue | Solution |
-|-------|----------|
-| "You need to be logged in" | Run `npm login` and enter your credentials |
-| "You do not have permission" | Ensure you have the right permissions for the scope |
-| "Package name already exists" | Check for naming conflicts or update your version |
-| Repository URL warnings | Run `npm pkg fix` to correct package.json format |
-| "Invalid version" | Ensure your version follows semver (x.y.z) format |
+| Issue                         | Solution                                            |
+| ----------------------------- | --------------------------------------------------- |
+| "You need to be logged in"    | Run `npm login` and enter your credentials          |
+| "You do not have permission"  | Ensure you have the right permissions for the scope |
+| "Package name already exists" | Check for naming conflicts or update your version   |
+| Repository URL warnings       | Run `npm pkg fix` to correct package.json format    |
+| "Invalid version"             | Ensure your version follows semver (x.y.z) format   |
 
 ### Package Unpublishing
 

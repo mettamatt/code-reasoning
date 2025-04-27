@@ -20,15 +20,15 @@ The Integrated Test Runner is the only supported testing approach for Code-Reaso
 
 ## Command Reference
 
-| Command | Description |
-|---------|-------------|
-| `npm test` | Run basic test scenario with integrated runner |
-| `npm run test:basic` | Run basic test scenario |
-| `npm run test:branch` | Run branching test scenario |
-| `npm run test:revision` | Run revision test scenario |
-| `npm run test:error` | Run error handling test scenario |
-| `npm run test:perf` | Run performance test scenario |
-| `npm run test:verbose` | Run with verbose output |
+| Command                 | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `npm test`              | Run basic test scenario with integrated runner |
+| `npm run test:basic`    | Run basic test scenario                        |
+| `npm run test:branch`   | Run branching test scenario                    |
+| `npm run test:revision` | Run revision test scenario                     |
+| `npm run test:error`    | Run error handling test scenario               |
+| `npm run test:perf`     | Run performance test scenario                  |
+| `npm run test:verbose`  | Run with verbose output                        |
 
 ## Test Scenarios
 
@@ -100,6 +100,7 @@ npm run test:perf
 ```
 
 The integrated test runner:
+
 1. Starts the server automatically
 2. Runs the test client connecting to that server
 3. Captures all communication between them
@@ -162,6 +163,7 @@ The test client outputs detailed results for each test scenario:
 ### Saving Test Results
 
 When run with the `--save-results` option, test results are saved to:
+
 ```
 ./test-results/test-results-[TIMESTAMP].json
 ```
@@ -217,18 +219,18 @@ For more advanced performance testing, you can:
 
 - **JSON-RPC protocol errors**: These can occur if modifications are made to the communication protocol. The integrated test runner properly handles JSON-RPC notifications.
 - **Connection failures**: Ensure the server path is correct and the server can start properly.
-- **Unexpected errors**: Run with `--verbose` to see detailed error information.
-=======
+- # **Unexpected errors**: Run with `--verbose` to see detailed error information.
 
 ### Debugging
 
 For debugging test issues:
 
 1. Check the detailed log files:
+
    ```bash
    # View the client logs
    cat logs/custom-test-*.log
-   
+
    # View the test results
    cat test-results/custom-result-*.json
    ```

@@ -87,7 +87,7 @@ npm link
 ## Project Structure
 
 ```
-├── index.ts                  # Entry point 
+├── index.ts                  # Entry point
 ├── src/                      # Implementation source files
 └── test/                     # Testing framework
 ```

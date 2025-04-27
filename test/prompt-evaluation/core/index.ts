@@ -1,6 +1,6 @@
 /**
  * Core evaluation module index
- * 
+ *
  * This provides a central export point for all core evaluation functionality.
  */
 

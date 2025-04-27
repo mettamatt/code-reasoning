@@ -2,15 +2,15 @@
 
 /**
  * Integrated Test Runner for Code-Reasoning
- * 
+ *
  * A streamlined testing solution that manages server and client processes
  * while ensuring proper JSON-RPC protocol implementation. Key features:
- * 
+ *
  * 1. Properly handles JSON-RPC notifications (no waiting for responses)
  * 2. Captures all communication in dedicated log files
  * 3. Provides clear test result summaries
  * 4. Works reliably without requiring separate terminals
- * 
+ *
  * This approach solves the test visibility issues caused by StdioClientTransport
  * capturing stdout for JSON-RPC communication.
  */
@@ -131,7 +131,7 @@ import { ChildProcess, spawn } from 'child_process';
 // Find project root by looking for package.json
 function findProjectRoot(startDir: string): string {
   let currentDir = startDir;
-  
+
   // Walk up the directory tree until we find package.json
   while (currentDir !== path.parse(currentDir).root) {
     if (fs.existsSync(path.join(currentDir, 'package.json'))) {
@@ -139,7 +139,7 @@ function findProjectRoot(startDir: string): string {
     }
     currentDir = path.dirname(currentDir);
   }
-  
+
   // If we reach the filesystem root without finding package.json,
   // fall back to the original calculation
   return path.join(startDir, '..');
@@ -199,206 +199,207 @@ log(`Verbose mode: ${options.verbose}`);
 // Define the test scenarios
 const testScenarios: Record<string, TestScenario> = {
   basic: {
-    name: "Basic thought flow",
-    description: "Tests a linear sequence of thoughts without branches or revisions",
+    name: 'Basic thought flow',
+    description: 'Tests a linear sequence of thoughts without branches or revisions',
     thoughts: [
       {
         thought: "First step: Define the problem we're trying to solve.",
         thought_number: 1,
         total_thoughts: 4,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Second step: Break down the problem into smaller parts.",
+        thought: 'Second step: Break down the problem into smaller parts.',
         thought_number: 2,
         total_thoughts: 4,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Third step: Analyze each part and identify solutions.",
+        thought: 'Third step: Analyze each part and identify solutions.',
         thought_number: 3,
         total_thoughts: 4,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Fourth step: Combine the solutions into a comprehensive approach.",
+        thought: 'Fourth step: Combine the solutions into a comprehensive approach.',
         thought_number: 4,
         total_thoughts: 4,
-        next_thought_needed: false
-      }
+        next_thought_needed: false,
+      },
     ],
     expectedSuccessCount: 4,
-    expectedErrorCount: 0
+    expectedErrorCount: 0,
   },
-  
+
   branch: {
-    name: "Thought flow with branching",
-    description: "Tests the ability to branch into alternative thought paths",
+    name: 'Thought flow with branching',
+    description: 'Tests the ability to branch into alternative thought paths',
     thoughts: [
       {
-        thought: "Main approach: Define the problem scope.",
+        thought: 'Main approach: Define the problem scope.',
         thought_number: 1,
         total_thoughts: 5,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Identify potential solution methodologies.",
+        thought: 'Identify potential solution methodologies.',
         thought_number: 2,
         total_thoughts: 5,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Alternative approach: Consider the problem from first principles.",
+        thought: 'Alternative approach: Consider the problem from first principles.',
         thought_number: 3,
         total_thoughts: 5,
         branch_from_thought: 1,
-        branch_id: "B1",
-        next_thought_needed: true
+        branch_id: 'B1',
+        next_thought_needed: true,
       },
       {
-        thought: "Continue main approach: Evaluate methodologies against requirements.",
+        thought: 'Continue main approach: Evaluate methodologies against requirements.',
         thought_number: 3,
         total_thoughts: 5,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "B1: Break down the problem to its fundamental components.",
+        thought: 'B1: Break down the problem to its fundamental components.',
         thought_number: 4,
         total_thoughts: 5,
         branch_from_thought: 3,
-        branch_id: "B1",
-        next_thought_needed: true
+        branch_id: 'B1',
+        next_thought_needed: true,
       },
       {
-        thought: "Final main approach: Select the most appropriate methodology.",
+        thought: 'Final main approach: Select the most appropriate methodology.',
         thought_number: 4,
         total_thoughts: 5,
-        next_thought_needed: false
+        next_thought_needed: false,
       },
       {
-        thought: "B1: Construct solution directly from fundamental components.",
+        thought: 'B1: Construct solution directly from fundamental components.',
         thought_number: 5,
         total_thoughts: 5,
         branch_from_thought: 4,
-        branch_id: "B1",
-        next_thought_needed: false
-      }
+        branch_id: 'B1',
+        next_thought_needed: false,
+      },
     ],
     expectedSuccessCount: 7,
-    expectedErrorCount: 0
+    expectedErrorCount: 0,
   },
-  
+
   revision: {
-    name: "Thought flow with revision",
-    description: "Tests the ability to revise previous thoughts",
+    name: 'Thought flow with revision',
+    description: 'Tests the ability to revise previous thoughts',
     thoughts: [
       {
-        thought: "Initial analysis of the problem domain.",
+        thought: 'Initial analysis of the problem domain.',
         thought_number: 1,
         total_thoughts: 4,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Proposed solution based on initial understanding.",
+        thought: 'Proposed solution based on initial understanding.',
         thought_number: 2,
         total_thoughts: 4,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Wait, I made an error in my initial analysis. The problem actually involves asynchronous operations.",
+        thought:
+          'Wait, I made an error in my initial analysis. The problem actually involves asynchronous operations.',
         thought_number: 3,
         total_thoughts: 5,
         is_revision: true,
         revises_thought: 1,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Given the asynchronous nature, we need to revise our solution approach.",
+        thought: 'Given the asynchronous nature, we need to revise our solution approach.',
         thought_number: 4,
         total_thoughts: 5,
         is_revision: true,
         revises_thought: 2,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
       {
-        thought: "Final solution incorporating asynchronous handling and error management.",
+        thought: 'Final solution incorporating asynchronous handling and error management.',
         thought_number: 5,
         total_thoughts: 5,
-        next_thought_needed: false
-      }
+        next_thought_needed: false,
+      },
     ],
     expectedSuccessCount: 5,
-    expectedErrorCount: 0
+    expectedErrorCount: 0,
   },
-  
+
   error: {
-    name: "Error handling tests",
-    description: "Tests various error conditions and edge cases",
+    name: 'Error handling tests',
+    description: 'Tests various error conditions and edge cases',
     thoughts: [
       // Missing required field (thought)
       {
         thought_number: 1,
         total_thoughts: 3,
-        next_thought_needed: true
+        next_thought_needed: true,
       } as unknown as Thought,
-      
+
       // Missing required field (next_thought_needed)
       {
-        thought: "This is missing next_thought_needed field",
+        thought: 'This is missing next_thought_needed field',
         thought_number: 1,
-        total_thoughts: 3
+        total_thoughts: 3,
       } as unknown as Thought,
-      
+
       // Invalid type (thought_number as string)
       {
-        thought: "Invalid thought_number type",
-        thought_number: "1" as unknown as number,
+        thought: 'Invalid thought_number type',
+        thought_number: '1' as unknown as number,
         total_thoughts: 3,
-        next_thought_needed: true
+        next_thought_needed: true,
       } as unknown as Thought,
-      
+
       // Exceeding max thought number (>20)
       {
-        thought: "This exceeds the maximum thought number",
+        thought: 'This exceeds the maximum thought number',
         thought_number: 21,
         total_thoughts: 25,
-        next_thought_needed: true
+        next_thought_needed: true,
       },
-      
+
       // Invalid branch reference (non-existent thought)
       {
-        thought: "This references a non-existent branch point",
+        thought: 'This references a non-existent branch point',
         thought_number: 1,
         total_thoughts: 3,
         branch_from_thought: 100,
-        branch_id: "INVALID",
-        next_thought_needed: true
+        branch_id: 'INVALID',
+        next_thought_needed: true,
       },
-      
+
       // Valid thought (to ensure the server is still functional)
       {
-        thought: "This is a valid thought after error tests",
+        thought: 'This is a valid thought after error tests',
         thought_number: 1,
         total_thoughts: 1,
-        next_thought_needed: false
-      }
+        next_thought_needed: false,
+      },
     ],
     expectedSuccessCount: 1,
-    expectedErrorCount: 5
+    expectedErrorCount: 5,
   },
-  
+
   perf: {
-    name: "Performance testing",
-    description: "Tests performance with a long sequence of thoughts",
+    name: 'Performance testing',
+    description: 'Tests performance with a long sequence of thoughts',
     thoughts: Array.from({ length: 20 }, (_, i) => ({
       thought: `Performance test thought ${i + 1}. This is a longer thought to simulate more realistic content that the server would process in a real-world scenario. Including more text increases the processing load slightly to better measure performance characteristics.`,
       thought_number: i + 1,
       total_thoughts: 20,
-      next_thought_needed: i < 19 // Only the last one has next_thought_needed: false
+      next_thought_needed: i < 19, // Only the last one has next_thought_needed: false
     })),
     expectedSuccessCount: 20,
-    expectedErrorCount: 0
-  }
+    expectedErrorCount: 0,
+  },
 };
 
 // Create a custom socket for communication
@@ -406,36 +407,33 @@ async function createSocketConnection(): Promise<ChildProcess> {
   return new Promise<ChildProcess>((resolve, reject) => {
     // Start the server
     log('Starting server process...');
-    
+
     // Check if the index.js file exists
     const indexJsPath = path.join(projectRoot, 'dist/index.js');
     if (!fs.existsSync(indexJsPath)) {
       throw new Error(`Server entry point not found at ${indexJsPath}`);
     }
-    
+
     log(`Using server entry point: ${indexJsPath}`);
-    const serverProcess = spawn('node', [
-      indexJsPath,
-      '--debug'
-    ], {
+    const serverProcess = spawn('node', [indexJsPath, '--debug'], {
       stdio: 'pipe',
       shell: false,
     });
-    
+
     // Handle server stderr for logging
     serverProcess.stderr.on('data', (data: Buffer) => {
       const message = data.toString();
       log(`[SERVER] ${message.trim()}`);
     });
-    
+
     // Wait for server to initialize
     setTimeout(() => {
       log('Server initialization period complete');
       resolve(serverProcess);
     }, 5000);
-    
+
     // Handle server exit
-    serverProcess.on('exit', (code) => {
+    serverProcess.on('exit', code => {
       log(`Server process exited with code ${code}`);
       reject(new Error(`Server exited unexpectedly with code ${code}`));
     });
@@ -443,10 +441,13 @@ async function createSocketConnection(): Promise<ChildProcess> {
 }
 
 // Run a test scenario
-async function runTestScenario(serverProcess: ChildProcess, scenario: TestScenario): Promise<TestResult> {
+async function runTestScenario(
+  serverProcess: ChildProcess,
+  scenario: TestScenario
+): Promise<TestResult> {
   log(`Running test scenario: ${scenario.name}`);
   log(scenario.description);
-  
+
   // Results container
   const results: TestResult = {
     name: scenario.name,
@@ -454,9 +455,9 @@ async function runTestScenario(serverProcess: ChildProcess, scenario: TestScenar
     thoughts: [],
     successful: true,
     totalThoughts: scenario.thoughts.length,
-    successfulThoughts: 0
+    successfulThoughts: 0,
   };
-  
+
   // Initialize server with JSON-RPC
   log('Sending initialize request...');
   const initResponse = await sendJsonRpcMessage(serverProcess, {
@@ -468,48 +469,50 @@ async function runTestScenario(serverProcess: ChildProcess, scenario: TestScenar
       capabilities: {},
       clientInfo: {
         name: 'custom-test-client',
-        version: '1.0.0'
-      }
-    }
+        version: '1.0.0',
+      },
+    },
   });
-  
+
   log(`Initialize response: ${JSON.stringify(initResponse)}`);
-  
+
   // Send initialize notification - notifications don't need a response
   log('Sending initialized notification...');
   await sendJsonRpcNotification(serverProcess, {
     jsonrpc: '2.0',
-    method: 'notifications/initialized'
+    method: 'notifications/initialized',
   });
-  
+
   // Request tools list
   log('Requesting tools list...');
   const toolsResponse = await sendJsonRpcMessage(serverProcess, {
     jsonrpc: '2.0',
     id: 1,
     method: 'tools/list',
-    params: {}
+    params: {},
   });
-  
+
   log(`Tools response: ${JSON.stringify(toolsResponse)}`);
-  
+
   // Check for code-reasoning tool
   const tools = Array.isArray(toolsResponse?.result?.tools) ? toolsResponse.result.tools : [];
   const codeReasoningTool = tools.find((tool: Tool) => tool.name === 'code-reasoning');
-  
+
   if (!codeReasoningTool) {
     log('Error: code-reasoning tool not found!');
     results.successful = false;
     return results;
   }
-  
+
   log('Found code-reasoning tool, running thoughts...');
-  
+
   // Run each thought
   for (let index = 0; index < scenario.thoughts.length; index++) {
     const thought = scenario.thoughts[index];
-    log(`Sending thought #${index + 1}/${scenario.thoughts.length}: ${thought.thought?.substring?.(0, 50) || 'undefined'}...`);
-    
+    log(
+      `Sending thought #${index + 1}/${scenario.thoughts.length}: ${thought.thought?.substring?.(0, 50) || 'undefined'}...`
+    );
+
     try {
       const response = await sendJsonRpcMessage(serverProcess, {
         jsonrpc: '2.0',
@@ -517,12 +520,12 @@ async function runTestScenario(serverProcess: ChildProcess, scenario: TestScenar
         method: 'tools/call',
         params: {
           name: 'code-reasoning',
-          arguments: thought
-        }
+          arguments: thought,
+        },
       });
-      
+
       const success = !response.error;
-      
+
       // Log the result
       if (success) {
         log(`✓ Thought #${index + 1} succeeded`);
@@ -531,71 +534,79 @@ async function runTestScenario(serverProcess: ChildProcess, scenario: TestScenar
         log(`✗ Thought #${index + 1} failed: ${response.error?.message || 'Unknown error'}`);
         results.successful = false;
       }
-      
+
       // Store the result
       results.thoughts.push({
         thought,
         response,
-        success
+        success,
       });
-      
+
       if (options.verbose) {
         log(`Response: ${JSON.stringify(response)}`);
       }
     } catch (error) {
-      log(`Error sending thought #${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
+      log(
+        `Error sending thought #${index + 1}: ${error instanceof Error ? error.message : String(error)}`
+      );
       results.successful = false;
       results.thoughts.push({
         thought,
         error: error instanceof Error ? error.message : String(error),
-        success: false
+        success: false,
       });
     }
   }
-  
+
   return results;
 }
 
 // Send a JSON-RPC notification (doesn't expect a response)
-async function sendJsonRpcNotification(serverProcess: ChildProcess, message: JsonRpcNotification): Promise<void> {
-  return new Promise<void>((resolve) => {
+async function sendJsonRpcNotification(
+  serverProcess: ChildProcess,
+  message: JsonRpcNotification
+): Promise<void> {
+  return new Promise<void>(resolve => {
     // Send the message
     const messageStr = JSON.stringify(message) + '\n';
     if (serverProcess.stdin) {
       serverProcess.stdin.write(messageStr);
     } else {
-      throw new Error("Server process stdin is not available");
+      throw new Error('Server process stdin is not available');
     }
-    
+
     if (options.verbose) {
       log(`Sent notification: ${message.method}`);
     }
-    
+
     // Resolve immediately - notifications don't expect responses
     resolve();
   });
 }
 
 // Send a JSON-RPC message to the server and get the response
-async function sendJsonRpcMessage(serverProcess: ChildProcess, message: JsonRpcRequest): Promise<JsonRpcResponse> {
+async function sendJsonRpcMessage(
+  serverProcess: ChildProcess,
+  message: JsonRpcRequest
+): Promise<JsonRpcResponse> {
   return new Promise<JsonRpcResponse>((resolve, reject) => {
     // Handle response timeout
     const timeout = setTimeout(() => {
       reject(new Error('Timeout waiting for server response'));
     }, 10000);
-    
+
     // Create one-time handler for response
     const responseHandler = (data: Buffer): boolean => {
       try {
         const responseStr = data.toString();
         const lines = responseStr.split('\n');
-        
+
         for (const line of lines) {
           if (!line.trim()) continue;
-          
+
           try {
             const response = JSON.parse(line) as JsonRpcResponse;
-            
+
             // Check if this is a response to our message
             if (message.id !== undefined && response.id === message.id) {
               clearTimeout(timeout);
@@ -606,16 +617,16 @@ async function sendJsonRpcMessage(serverProcess: ChildProcess, message: JsonRpcR
             // Not JSON or not a response to our message
           }
         }
-        
+
         return false; // Signal that we didn't handle this message
       } catch (error) {
         reject(error);
         return false;
       }
     };
-    
+
     if (!serverProcess.stdout || !serverProcess.stdin) {
-      reject(new Error("Server process stdout or stdin is not available"));
+      reject(new Error('Server process stdout or stdin is not available'));
       return;
     }
 
@@ -626,9 +637,9 @@ async function sendJsonRpcMessage(serverProcess: ChildProcess, message: JsonRpcR
         serverProcess.stdout?.removeListener('data', onData);
       }
     };
-    
+
     serverProcess.stdout.on('data', onData);
-    
+
     // Send the message
     const messageStr = JSON.stringify(message) + '\n';
     serverProcess.stdin.write(messageStr);
@@ -640,50 +651,51 @@ async function main() {
   try {
     // Start server
     const serverProcess = await createSocketConnection();
-    
+
     // Determine which scenarios to run
-    const scenariosToRun = options.scenario === 'all' 
-      ? Object.keys(testScenarios)
-      : [options.scenario];
-    
+    const scenariosToRun =
+      options.scenario === 'all' ? Object.keys(testScenarios) : [options.scenario];
+
     // Validate scenarios
     if (!scenariosToRun.every(scenario => testScenarios[scenario])) {
       log(`Error: Unknown scenario '${options.scenario}'`);
       log(`Available scenarios: ${Object.keys(testScenarios).join(', ')}`);
       process.exit(1);
     }
-    
+
     // Results storage for multiple scenarios
     const allResults: TestResult[] = [];
     let totalSuccessfulThoughts = 0;
     let totalThoughts = 0;
-    
+
     // Run each selected scenario
     for (const scenarioKey of scenariosToRun) {
       const scenario = testScenarios[scenarioKey];
       log(`\n=== Running test scenario: ${scenario.name} ===`);
       log(scenario.description);
-      
+
       const results = await runTestScenario(serverProcess, scenario);
       allResults.push(results);
-      
+
       totalSuccessfulThoughts += results.successfulThoughts;
       totalThoughts += results.totalThoughts;
-      
+
       // Display individual scenario summary
       log(`\n--- ${scenario.name} Results ---`);
       log(`Successful thoughts: ${results.successfulThoughts}/${results.totalThoughts}`);
       log(`Status: ${results.successful ? 'SUCCESS' : 'FAILURE'}`);
-      
+
       // Check expected results if defined
       if (scenario.expectedSuccessCount !== undefined) {
         if (results.successfulThoughts === scenario.expectedSuccessCount) {
           log(`✓ Success count matches expected (${scenario.expectedSuccessCount})`);
         } else {
-          log(`✗ Success count ${results.successfulThoughts} doesn't match expected ${scenario.expectedSuccessCount}`);
+          log(
+            `✗ Success count ${results.successfulThoughts} doesn't match expected ${scenario.expectedSuccessCount}`
+          );
         }
       }
-      
+
       if (scenario.expectedErrorCount !== undefined) {
         const errorCount = results.totalThoughts - results.successfulThoughts;
         if (errorCount === scenario.expectedErrorCount) {
@@ -693,7 +705,7 @@ async function main() {
         }
       }
     }
-    
+
     // Save all results to file
     const combinedResults: CombinedResults = {
       timestamp: new Date().toISOString(),
@@ -701,25 +713,24 @@ async function main() {
       totalScenarios: scenariosToRun.length,
       totalThoughts: totalThoughts,
       totalSuccessfulThoughts: totalSuccessfulThoughts,
-      overallSuccess: totalSuccessfulThoughts === totalThoughts
+      overallSuccess: totalSuccessfulThoughts === totalThoughts,
     };
-    
+
     fs.writeFileSync(resultFile, JSON.stringify(combinedResults, null, 2));
     log(`Results saved to ${resultFile}`);
-    
+
     // Display overall summary
     log('\n=== Overall Test Results Summary ===');
     log(`Scenarios run: ${scenariosToRun.length}`);
     log(`Total thoughts: ${totalThoughts}`);
     log(`Successful thoughts: ${totalSuccessfulThoughts}/${totalThoughts}`);
     log(`Overall status: ${totalSuccessfulThoughts === totalThoughts ? 'SUCCESS' : 'FAILURE'}`);
-    
+
     // Kill server
     serverProcess.kill();
-    
+
     // Close log stream
     logStream.end();
-    
   } catch (error) {
     log(`Error: ${error instanceof Error ? error.message : String(error)}`);
     logStream.end();

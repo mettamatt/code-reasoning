@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool
-} from "@modelcontextprotocol/sdk/types.js";
-import chalk from "chalk";
-import { Logger, LogLevel } from "./logger.js";
-import { LoggingStdioServerTransport } from "./logging-transport.js";
+  Tool,
+} from '@modelcontextprotocol/sdk/types.js';
+import chalk from 'chalk';
+import { Logger, LogLevel } from './logger.js';
+import { LoggingStdioServerTransport } from './logging-transport.js';
 // ThoughtData interface definition
 export interface ThoughtData {
   thought: string;
@@ -34,20 +34,20 @@ class CodeReasoningServer {
 
   private validateThoughtData(input: unknown): ThoughtData {
     this.logger.debug('Validating thought data', input as Record<string, unknown>);
-    
+
     const data = input as Record<string, unknown>;
 
-    if (!data.thought || typeof data.thought !== "string") {
-      throw new Error("Invalid thought: must be a string");
+    if (!data.thought || typeof data.thought !== 'string') {
+      throw new Error('Invalid thought: must be a string');
     }
-    if (!data.thought_number || typeof data.thought_number !== "number") {
-      throw new Error("Invalid thought_number: must be a number");
+    if (!data.thought_number || typeof data.thought_number !== 'number') {
+      throw new Error('Invalid thought_number: must be a number');
     }
-    if (!data.total_thoughts || typeof data.total_thoughts !== "number") {
-      throw new Error("Invalid total_thoughts: must be a number");
+    if (!data.total_thoughts || typeof data.total_thoughts !== 'number') {
+      throw new Error('Invalid total_thoughts: must be a number');
     }
-    if (typeof data.next_thought_needed !== "boolean") {
-      throw new Error("Invalid next_thought_needed: must be a boolean");
+    if (typeof data.next_thought_needed !== 'boolean') {
+      throw new Error('Invalid next_thought_needed: must be a boolean');
     }
 
     return {
@@ -74,21 +74,21 @@ class CodeReasoningServer {
       branch_id,
     } = thoughtData;
 
-    let prefix = "";
-    let context = "";
+    let prefix = '';
+    let context = '';
 
     if (is_revision) {
-      prefix = chalk.yellow("🔄 Revision");
+      prefix = chalk.yellow('🔄 Revision');
       context = ` (revising thought ${revises_thought})`;
     } else if (branch_from_thought) {
-      prefix = chalk.green("🌿 Branch");
+      prefix = chalk.green('🌿 Branch');
       context = ` (from thought ${branch_from_thought}, ID: ${branch_id})`;
     } else {
-      prefix = chalk.blue("💭 Thought");
+      prefix = chalk.blue('💭 Thought');
     }
 
     const header = `${prefix} ${thought_number}/${total_thoughts}${context}`;
-    const border = "─".repeat(Math.max(header.length, thought.length) + 4);
+    const border = '─'.repeat(Math.max(header.length, thought.length) + 4);
 
     return `
 ┌${border}┐
@@ -104,11 +104,11 @@ class CodeReasoningServer {
   } {
     try {
       const validatedInput = this.validateThoughtData(input);
-      this.logger.debug('Processing thought', { 
+      this.logger.debug('Processing thought', {
         thought_number: validatedInput.thought_number,
         is_revision: validatedInput.is_revision,
         branch_from_thought: validatedInput.branch_from_thought,
-        branch_id: validatedInput.branch_id
+        branch_id: validatedInput.branch_id,
       });
 
       // Enforce the "abort with a summary if thought_number > 20" rule
@@ -117,12 +117,12 @@ class CodeReasoningServer {
         return {
           content: [
             {
-              type: "text",
+              type: 'text',
               text: JSON.stringify(
                 {
-                  error: "Max thought_number exceeded",
-                  summary: "Aborting chain of thought after 20 steps",
-                  status: "aborted",
+                  error: 'Max thought_number exceeded',
+                  summary: 'Aborting chain of thought after 20 steps',
+                  status: 'aborted',
                 },
                 null,
                 2
@@ -136,23 +136,20 @@ class CodeReasoningServer {
       // If actual thought_number exceeds total_thoughts, raise total_thoughts
       if (validatedInput.thought_number > validatedInput.total_thoughts) {
         validatedInput.total_thoughts = validatedInput.thought_number;
-        this.logger.debug('Adjusted total_thoughts', { 
-          new_total: validatedInput.total_thoughts 
+        this.logger.debug('Adjusted total_thoughts', {
+          new_total: validatedInput.total_thoughts,
         });
       }
 
       this.thoughtHistory.push(validatedInput);
 
       // If it's a branch, store it separately
-      if (
-        validatedInput.branch_from_thought &&
-        validatedInput.branch_id
-      ) {
+      if (validatedInput.branch_from_thought && validatedInput.branch_id) {
         if (!this.branches[validatedInput.branch_id]) {
           this.branches[validatedInput.branch_id] = [];
-          this.logger.info('Created new branch', { 
+          this.logger.info('Created new branch', {
             branch_id: validatedInput.branch_id,
-            from_thought: validatedInput.branch_from_thought 
+            from_thought: validatedInput.branch_from_thought,
           });
         }
         this.branches[validatedInput.branch_id].push(validatedInput);
@@ -163,17 +160,17 @@ class CodeReasoningServer {
 
       // Format and log the thought
 
-      this.logger.info('Thought processed successfully', { 
+      this.logger.info('Thought processed successfully', {
         thought_number: validatedInput.thought_number,
         next_thought_needed: validatedInput.next_thought_needed,
         branch_count: Object.keys(this.branches).length,
-        history_length: this.thoughtHistory.length
+        history_length: this.thoughtHistory.length,
       });
 
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify(
               {
                 thought_number: validatedInput.thought_number,
@@ -189,18 +186,18 @@ class CodeReasoningServer {
         ],
       };
     } catch (error) {
-      this.logger.error('Error processing thought', { 
-        error: error instanceof Error ? error.message : String(error) 
+      this.logger.error('Error processing thought', {
+        error: error instanceof Error ? error.message : String(error),
       });
-      
+
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify(
               {
                 error: error instanceof Error ? error.message : String(error),
-                status: "failed",
+                status: 'failed',
               },
               null,
               2
@@ -214,7 +211,7 @@ class CodeReasoningServer {
 }
 
 const CODE_REASONING_TOOL: Tool = {
-  name: "code-reasoning",
+  name: 'code-reasoning',
   description: `
 🧠 **Code Reasoning Tool** (using sequential thinking)
 
@@ -289,61 +286,63 @@ _All JSON keys **must** use \`lower_snake_case\`._
 \`\`\`
 `,
   inputSchema: {
-    type: "object",
+    type: 'object',
     properties: {
       thought: {
-        type: "string",
-        description: "Your current reasoning step",
+        type: 'string',
+        description: 'Your current reasoning step',
       },
       next_thought_needed: {
-        type: "boolean",
-        description: "Whether another thought step is needed",
+        type: 'boolean',
+        description: 'Whether another thought step is needed',
       },
       thought_number: {
-        type: "integer",
-        description: "Current thought number (1-based)",
+        type: 'integer',
+        description: 'Current thought number (1-based)',
         minimum: 1,
       },
       total_thoughts: {
-        type: "integer",
-        description: "Estimated total thoughts needed (can be adjusted)",
+        type: 'integer',
+        description: 'Estimated total thoughts needed (can be adjusted)',
         minimum: 1,
       },
       is_revision: {
-        type: "boolean",
-        description: "Whether this is a revision of a previous thought",
+        type: 'boolean',
+        description: 'Whether this is a revision of a previous thought',
       },
       revises_thought: {
-        type: "integer",
-        description: "Which thought is being revised",
+        type: 'integer',
+        description: 'Which thought is being revised',
         minimum: 1,
       },
       branch_from_thought: {
-        type: "integer",
-        description: "Branching point thought number",
+        type: 'integer',
+        description: 'Branching point thought number',
         minimum: 1,
       },
       branch_id: {
-        type: "string",
-        description: "Identifier for the current branch",
+        type: 'string',
+        description: 'Identifier for the current branch',
       },
       needs_more_thoughts: {
-        type: "boolean",
-        description: "Optional hint that more thoughts may follow",
+        type: 'boolean',
+        description: 'Optional hint that more thoughts may follow',
       },
     },
-    required: ["thought", "next_thought_needed", "thought_number", "total_thoughts"],
+    required: ['thought', 'next_thought_needed', 'thought_number', 'total_thoughts'],
   },
 };
 
-export async function runServer(options: {
-  debug?: boolean;
-  help?: boolean;
-} = {}) {
+export async function runServer(
+  options: {
+    debug?: boolean;
+    help?: boolean;
+  } = {}
+) {
   // Default values if not provided
   const values = {
     debug: options.debug ?? false,
-    help: options.help ?? false
+    help: options.help ?? false,
   };
 
   if (values.help) {
@@ -371,16 +370,16 @@ NOTE:
   // Initialize logger with appropriate level
   const logLevel = values.debug ? LogLevel.DEBUG : LogLevel.INFO;
   const logger = new Logger(logLevel);
-  logger.info('Starting Code-Reasoning MCP Server', { 
+  logger.info('Starting Code-Reasoning MCP Server', {
     version: '0.2.0',
-    debugMode: values.debug
+    debugMode: values.debug,
   });
 
   // Initialize server
   const server = new Server(
     {
-      name: "code-reasoning-server",
-      version: "0.2.0",
+      name: 'code-reasoning-server',
+      version: '0.2.0',
     },
     {
       capabilities: {
@@ -393,19 +392,19 @@ NOTE:
   const reasoningServer = new CodeReasoningServer(logger);
 
   // Set up request handlers with logging
-  server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
+  server.setRequestHandler(ListToolsRequestSchema, async _request => {
     logger.debug('Handling tools/list request');
     return {
       tools: [CODE_REASONING_TOOL],
     };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    logger.debug('Handling tools/call request', { 
-      tool: request.params.name 
+  server.setRequestHandler(CallToolRequestSchema, async request => {
+    logger.debug('Handling tools/call request', {
+      tool: request.params.name,
     });
 
-    if (request.params.name === "code-reasoning") {
+    if (request.params.name === 'code-reasoning') {
       return reasoningServer.processThought(request.params.arguments);
     }
 
@@ -413,7 +412,7 @@ NOTE:
     return {
       content: [
         {
-          type: "text",
+          type: 'text',
           text: `Unknown tool: ${request.params.name}`,
         },
       ],
@@ -423,12 +422,10 @@ NOTE:
 
   // Connect using the logging transport
   const transport = new LoggingStdioServerTransport(logger);
-  
+
   logger.info('Connecting server using LoggingStdioServerTransport');
   await server.connect(transport);
-  
 
-  
   logger.info('Code Reasoning MCP Server running on stdio');
 }
 

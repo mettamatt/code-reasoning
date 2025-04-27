@@ -263,8 +263,6 @@ To use the code-reasoning server with Claude Desktop, you'll need to configure C
 }
 ```
 
-
-
 #### Example Prompt for Claude
 
 When using Claude Desktop with the code-reasoning server, you can use the sequential thinking capability by asking Claude to reason step by step:
@@ -341,8 +339,6 @@ code-reasoning --debug
   }
 }
 ```
-
-
 
 ## Example Config Files
 

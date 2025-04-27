@@ -1,25 +1,25 @@
 /**
  * Anthropic API integration for prompt evaluation
  */
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { ThoughtData } from "./core/index.js";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { ThoughtData } from './core/index.js';
 
 // Get CODE_REASONING_TOOL description from server.ts
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const serverPath = path.join(__dirname, "../../src/server.ts");
-let toolDescription = "";
+const serverPath = path.join(__dirname, '../../src/server.ts');
+let toolDescription = '';
 
 try {
-  const serverContent = fs.readFileSync(serverPath, "utf8");
+  const serverContent = fs.readFileSync(serverPath, 'utf8');
   const match = serverContent.match(/description: `([\s\S]+?)`,\s+inputSchema/);
   if (match && match[1]) {
     toolDescription = match[1].trim();
   }
 } catch (error) {
-  console.warn("Could not read tool description from server file.");
+  console.warn('Could not read tool description from server file.');
 }
 
 // Create prompt with sequential thinking instructions
@@ -56,18 +56,18 @@ function extractThoughtRecords(responseText: string): ThoughtData[] {
     for (const match of matches) {
       try {
         // Extract the JSON part if it's in a code block
-        const jsonText = match.startsWith("```")
-          ? match.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, "$1")
+        const jsonText = match.startsWith('```')
+          ? match.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1')
           : match;
 
         const data = JSON.parse(jsonText);
 
         // Validate required fields
         if (
-          typeof data.thought === "string" &&
-          typeof data.thought_number === "number" &&
-          typeof data.total_thoughts === "number" &&
-          typeof data.next_thought_needed === "boolean"
+          typeof data.thought === 'string' &&
+          typeof data.thought_number === 'number' &&
+          typeof data.total_thoughts === 'number' &&
+          typeof data.next_thought_needed === 'boolean'
         ) {
           thoughtRecords.push({
             thought: data.thought,
@@ -82,7 +82,7 @@ function extractThoughtRecords(responseText: string): ThoughtData[] {
           });
         }
       } catch (error) {
-        console.warn("Failed to parse thought record:", match);
+        console.warn('Failed to parse thought record:', match);
       }
     }
   }
@@ -100,18 +100,14 @@ interface ApiOptions {
 }
 
 // Send scenario to Claude and extract thought chain
-export async function evaluateWithAPI(
-  apiKey: string,
-  scenario: string,
-  options: ApiOptions = {}
-) {
-  const model = options.model || "claude-3-7-sonnet-20250219";
+export async function evaluateWithAPI(apiKey: string, scenario: string, options: ApiOptions = {}) {
+  const model = options.model || 'claude-3-7-sonnet-20250219';
   const maxTokens = options.maxTokens || 8000;
   const temperature = options.temperature || 0.7;
 
   try {
     // Dynamic import of Anthropic SDK
-    const { Anthropic } = await import("@anthropic-ai/sdk");
+    const { Anthropic } = await import('@anthropic-ai/sdk');
 
     const client = new Anthropic({ apiKey });
 
@@ -120,15 +116,15 @@ export async function evaluateWithAPI(
       max_tokens: maxTokens,
       temperature,
       system:
-        "You solve complex problems by breaking them down into logical steps using sequential thinking.",
-      messages: [{ role: "user", content: createPrompt(scenario) }],
+        'You solve complex problems by breaking them down into logical steps using sequential thinking.',
+      messages: [{ role: 'user', content: createPrompt(scenario) }],
     });
 
     // Safely extract text from response
-    let responseText = "";
+    let responseText = '';
     if (response.content && response.content.length > 0) {
       const content = response.content[0];
-      if ("text" in content) {
+      if ('text' in content) {
         responseText = content.text;
       }
     }
