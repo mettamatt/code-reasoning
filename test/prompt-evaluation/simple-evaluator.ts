@@ -1,9 +1,9 @@
 /**
- * Simple Evaluation Script
+ * Simple Pass/Fail Evaluation Script
  *
  * This script provides a simplified way to test the Anthropic API integration
  * without the interactive prompts of the full evaluator. It runs a single test
- * scenario automatically and generates the evaluation results.
+ * scenario automatically and generates the pass/fail evaluation results.
  *
  * Usage:
  * - Set ANTHROPIC_API_KEY environment variable
@@ -12,7 +12,7 @@
  * This is useful for:
  * - Quick testing of API integration during development
  * - Debugging changes to the prompt formatting
- * - Demonstrating the API evaluation functionality
+ * - Demonstrating the pass/fail evaluation functionality
  */
 
 import fs from 'fs';
@@ -21,11 +21,12 @@ import { fileURLToPath } from 'url';
 import {
   PROMPT_TEST_SCENARIOS,
   evaluateThoughtChain,
-  saveEvaluation,
+  saveTestResult,
   getPaths,
   EvaluationOptions,
   PromptScenario,
 } from './core/index.js';
+
 import { evaluateWithAPI } from './anthropic-api.js';
 
 // Setup directories for responses
@@ -67,7 +68,7 @@ async function runSimpleEvaluation(): Promise<void> {
 
   // Save raw response
   if (response.rawResponse) {
-    const filename = `${scenario.id}-${model.replace(/:/g, '-')}-${Date.now()}.txt`;
+    const filename = `${scenario.id}-raw-${model.replace(/:/g, '-')}-${Date.now()}.txt`;
     const filePath = path.join(responsesDir, filename);
     fs.writeFileSync(filePath, response.rawResponse);
     console.log(`Raw response saved to ${filePath}`);
@@ -76,26 +77,39 @@ async function runSimpleEvaluation(): Promise<void> {
   console.log(`Received ${response.thoughtChain.length} thoughts from Claude`);
 
   // Evaluate the response
-  console.log('Evaluating response...');
+  console.log('Evaluating response with pass/fail system...');
   const evaluationOptions: EvaluationOptions = {
     apiKey,
     model,
     maxTokens: 8000,
     temperature: 0.2,
-    promptVariation: 'enhanced-format',
+    promptVariation: 'simple-test',
     retryCount: 2,
     forceAutomated: false,
   };
 
-  const evaluation = await evaluateThoughtChain(scenario, response.thoughtChain, evaluationOptions);
+  const result = await evaluateThoughtChain(scenario, response.thoughtChain, evaluationOptions);
 
-  // Set the evaluator name
-  evaluation.evaluator = 'automated';
+  // Save test result
+  saveTestResult(result);
 
-  // Save evaluation
-  saveEvaluation(evaluation);
+  // Display detailed result
+  console.log(`\nTest Status: ${result.status}`);
 
-  console.log(`\nEvaluation complete for ${scenario.name}.`);
+  if (result.status === 'FAIL' && result.failureMessage) {
+    console.log(`Failure reason: ${result.failureMessage}`);
+  }
+
+  console.log('\nChecks:');
+  result.checks.forEach(check => {
+    const status = check.passed ? '✅ PASS' : '❌ FAIL';
+    console.log(`- ${check.name}: ${status}`);
+    if (!check.passed && check.details) {
+      console.log(`  Reason: ${check.details}`);
+    }
+  });
+
+  console.log(`\nTest complete for ${scenario.name}.`);
 }
 
 // Run the evaluation
