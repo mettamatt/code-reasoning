@@ -22,7 +22,7 @@ export interface EvaluationResult {
   overallComments: string;
   totalScore: number;
   maxPossibleScore: number;
-  percentageScore: number;
+  // percentageScore field removed intentionally - part of migration to pass/fail system
 }
 
 export interface EvaluationResponse {
@@ -264,7 +264,7 @@ CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage should be weighted heavily in your evaluation`;
   }
 
-  return `You are evaluating a thought chain.\n${extraGuide}\nPROBLEM:\n${scenario.problem}\n\nCRITERIA:\n${criteriaBlock}\n\nTHOUGHT CHAIN:\n${JSON.stringify(chain, null, 2)}\n\nPlease output a valid JSON object with the following structure:\n{\n  "scores": [...],\n  "overallComments": "…",\n  "totalScore": 0,\n  "maxPossibleScore": 0,\n  "percentageScore": 0\n}`;
+  return `You are evaluating a thought chain.\n${extraGuide}\nPROBLEM:\n${scenario.problem}\n\nCRITERIA:\n${criteriaBlock}\n\nTHOUGHT CHAIN:\n${JSON.stringify(chain, null, 2)}\n\nPlease output a valid JSON object with the following structure:\n{\n  "scores": [...],\n  "overallComments": "…",\n  "totalScore": 0,\n  "maxPossibleScore": 0\n}`;
 }
 
 const BRANCHING_EVAL_GUIDE = `\nWhen scoring Branch Creation, dock points if branch_id / branch_from_thought are missing.`;
@@ -312,7 +312,7 @@ export async function evaluateThoughtChainWithAPI(
         messages: [{ role: 'user', content: evaluationPrompt }],
       });
 
-      const text = (resp.content?.[0] as any)?.text ?? '';
+      const text = resp.content?.[0]?.type === 'text' ? resp.content[0].text : '';
       const json = text.match(/\{[\s\S]*}/)?.[0];
       if (!json) throw new Error('No JSON found in response');
 
@@ -377,7 +377,7 @@ export async function evaluateWithAPI(
       messages: [{ role: 'user', content: createPrompt(scenarioPrompt, includeScenarioGuidance) }],
     });
 
-    const raw = (resp.content?.[0] as any)?.text ?? '';
+    const raw = resp.content?.[0]?.type === 'text' ? resp.content[0].text : '';
     const thoughtChain = extractThoughtRecords(raw, disablePostProcessing);
     return { success: true, thoughtChain, rawResponse: raw };
   } catch (error) {
