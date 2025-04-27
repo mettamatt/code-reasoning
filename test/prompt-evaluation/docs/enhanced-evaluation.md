@@ -7,6 +7,7 @@ This document describes the enhanced prompt evaluation system that prioritizes p
 ### 1. Weighted Scoring System
 
 The evaluation now uses a weighted scoring formula:
+
 - 70% - Parameter usage score (from objective metrics)
 - 30% - Content quality score (from API evaluation)
 
@@ -15,6 +16,7 @@ This ensures that proper parameter usage is prioritized over just getting the ri
 ### 2. Automatic Failure Conditions
 
 Tests now have automatic failure conditions for missing critical parameters:
+
 - Revision tests automatically fail if no `is_revision` parameter is used
 - Branching tests automatically fail if no `branch_id` parameter is used
 - Multiple skills tests automatically fail if neither parameter is used
@@ -32,6 +34,7 @@ Each test type now includes specific evaluation instructions for Claude to empha
 When running `npm run eval:api`, you'll be prompted with some new options:
 
 1. **Include scenario-specific guidance?**
+
    - Select "No" (default) to test with core prompt only, which emulates real user experience
    - Select "Yes" to include scenario-specific guidance
 
@@ -42,11 +45,13 @@ When running `npm run eval:api`, you'll be prompted with some new options:
 ## Understanding the Results
 
 The evaluation output now shows:
+
 - Parameter usage score (0-100) from objective metrics
 - Content quality score (0-100%) from API evaluation
 - Final weighted score (30% content, 70% parameters)
 
 Example output:
+
 ```
 Automated evaluation complete.
 Content quality score: 95%
@@ -61,7 +66,7 @@ Tests will automatically fail (score 0%) if they miss critical parameters for th
 1. Always run with "Include scenario-specific guidance" set to "No"
 2. Always run with "Disable automatic parameter fixing" set to "Yes"
 3. Compare results across multiple runs to ensure consistency
-4. Look for specific parameter usage issues in the validation errors 
+4. Look for specific parameter usage issues in the validation errors
 5. Focus on the parameter usage score as the primary indicator of core prompt effectiveness
 
 ## Interpreting Lower Scores
