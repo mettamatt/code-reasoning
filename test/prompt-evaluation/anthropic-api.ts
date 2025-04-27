@@ -145,7 +145,10 @@ const SIMPLE_EXAMPLE = `\nEXAMPLE:\n{\n  "thought": "First, clarify the requirem
 // -----------------------------------------------------------------------------
 const JSON_PATTERN = /```(?:json)?\s*({[\s\S]*?})\s*```|({[\s\S]*?"next_thought_needed"[\s\S]*?})/g;
 
-function extractThoughtRecords(text: string, disablePostProcessing: boolean = false): ThoughtData[] {
+function extractThoughtRecords(
+  text: string,
+  disablePostProcessing: boolean = false
+): ThoughtData[] {
   const records: ThoughtData[] = [];
   const matches = text.matchAll(JSON_PATTERN);
 
@@ -168,7 +171,7 @@ function extractThoughtRecords(text: string, disablePostProcessing: boolean = fa
   }
 
   // Only post-process if not disabled
-  return disablePostProcessing 
+  return disablePostProcessing
     ? records.sort((a, b) => a.thought_number - b.thought_number)
     : postProcessThoughtRecords(records).sort((a, b) => a.thought_number - b.thought_number);
 }
@@ -224,8 +227,7 @@ CRITICAL SCORING INSTRUCTIONS:
 - For "Branch depth" criterion: The model must use proper branching parameters throughout
 - Parameter usage should be weighted heavily in your evaluation
 ${BRANCHING_EVAL_GUIDE}`;
-  } 
-  else if (scenario.targetSkill === 'revision') {
+  } else if (scenario.targetSkill === 'revision') {
     extraGuide = `
 CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage is MORE IMPORTANT than solution quality
@@ -233,30 +235,26 @@ CRITICAL SCORING INSTRUCTIONS:
 - For "Revision clarity" criterion: Proper use of revises_thought parameter is required
 - Parameter usage should be weighted heavily in your evaluation
 ${REVISION_EVAL_GUIDE}`;
-  }
-  else if (scenario.targetSkill === 'parameters') {
+  } else if (scenario.targetSkill === 'parameters') {
     extraGuide = `
 CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage is MORE IMPORTANT than solution quality
 - For "Thought numbering" criterion: Non-sequential thought numbers should result in significant point deductions
 - For "Parameter consistency" criterion: Proper parameter usage throughout is required
 - Parameter usage should be weighted heavily in your evaluation`;
-  }
-  else if (scenario.targetSkill === 'depth') {
+  } else if (scenario.targetSkill === 'depth') {
     extraGuide = `
 CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage should be considered alongside depth of thought
 - Proper branching should be used when considering alternative approaches
 - Parameter consistency should be maintained throughout the chain`;
-  }
-  else if (scenario.targetSkill === 'completion') {
+  } else if (scenario.targetSkill === 'completion') {
     extraGuide = `
 CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage is important alongside solution correctness
 - The model should correctly use next_thought_needed=false when reasoning is complete
 - Proper parameter usage should be maintained throughout the chain`;
-  }
-  else if (scenario.targetSkill === 'multiple') {
+  } else if (scenario.targetSkill === 'multiple') {
     extraGuide = `
 CRITICAL SCORING INSTRUCTIONS:
 - Parameter usage is MORE IMPORTANT than solution quality

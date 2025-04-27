@@ -236,7 +236,7 @@ export async function runApiEvaluation() {
       'Include scenario-specific guidance? (No = core prompt only, emulates real user experience)',
       false
     ); // Default to no (core prompt only)
-    
+
     // Ask whether to disable automatic parameter fixing
     const disablePostProcessing = await promptUserWithYesNoDefault(
       'Disable automatic parameter fixing? (Recommended for core prompt testing)',

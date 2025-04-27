@@ -56,26 +56,39 @@ export async function evaluateThoughtChain(
   let autoFailure = false;
   let autoFailureReason = '';
 
-  if (scenario.targetSkill === 'revision' && objectiveMetrics.structureMetrics.revisionCount === 0) {
+  if (
+    scenario.targetSkill === 'revision' &&
+    objectiveMetrics.structureMetrics.revisionCount === 0
+  ) {
     autoFailure = true;
     autoFailureReason = 'AUTOMATIC FAILURE: Revision test requires use of is_revision parameter';
     console.log(`\n${autoFailureReason}`);
-  }
-  else if (scenario.targetSkill === 'branching' && objectiveMetrics.structureMetrics.branchCount === 0) {
+  } else if (
+    scenario.targetSkill === 'branching' &&
+    objectiveMetrics.structureMetrics.branchCount === 0
+  ) {
     autoFailure = true;
     autoFailureReason = 'AUTOMATIC FAILURE: Branching test requires use of branch_id parameter';
     console.log(`\n${autoFailureReason}`);
-  }
-  else if (scenario.targetSkill === 'multiple' && 
-           objectiveMetrics.structureMetrics.branchCount === 0 && 
-           objectiveMetrics.structureMetrics.revisionCount === 0) {
+  } else if (
+    scenario.targetSkill === 'multiple' &&
+    objectiveMetrics.structureMetrics.branchCount === 0 &&
+    objectiveMetrics.structureMetrics.revisionCount === 0
+  ) {
     autoFailure = true;
-    autoFailureReason = 'AUTOMATIC FAILURE: Multiple skills test requires use of both branch_id and is_revision parameters';
+    autoFailureReason =
+      'AUTOMATIC FAILURE: Multiple skills test requires use of both branch_id and is_revision parameters';
     console.log(`\n${autoFailureReason}`);
   }
 
   if (autoFailure) {
-    return createFailureEvaluation(scenario, thoughts, objectiveMetrics, options, autoFailureReason);
+    return createFailureEvaluation(
+      scenario,
+      thoughts,
+      objectiveMetrics,
+      options,
+      autoFailureReason
+    );
   }
 
   // Run API-based evaluation
@@ -119,8 +132,8 @@ export async function evaluateThoughtChain(
   // Calculate weighted scores - 70% parameter usage, 30% content quality
   const apiScore = apiEvaluation.evaluation.percentageScore;
   const parameterScore = objectiveMetrics.parameterUsageScore;
-  const adjustedPercentage = Math.round((apiScore * 0.3) + (parameterScore * 0.7));
-  
+  const adjustedPercentage = Math.round(apiScore * 0.3 + parameterScore * 0.7);
+
   // Adjust total score based on the weighted percentage
   const maxPossible = apiEvaluation.evaluation.maxPossibleScore;
   const adjustedTotal = Math.round((adjustedPercentage / 100) * maxPossible);
