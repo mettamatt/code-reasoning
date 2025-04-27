@@ -44,7 +44,7 @@ const possiblePaths = [
   path.join(__dirname, '../../../dist/src/server.js'),
   // Absolute paths from project root
   path.resolve(process.cwd(), 'src/server.ts'),
-  path.resolve(process.cwd(), 'dist/src/server.js')
+  path.resolve(process.cwd(), 'dist/src/server.js'),
 ];
 
 // Try each possible path until we find the server file
@@ -71,7 +71,10 @@ if (serverContent) {
       console.warn('Could not extract tool description from server file.');
     }
   } catch (error) {
-    console.warn('Error processing server file:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      'Error processing server file:',
+      error instanceof Error ? error.message : String(error)
+    );
   }
 } else {
   console.warn('Could not find server file in any of the expected locations.');
@@ -86,11 +89,42 @@ Here is the code reasoning tool description that explains the format to use:
 
 ${toolDescription}
 
+CRITICAL FORMATTING INSTRUCTIONS:
+For each thought, you MUST output a valid JSON object with EXACTLY these properties:
+1. "thought" (string): Your current reasoning step
+2. "thought_number" (integer ≥ 1): The sequential number of this thought
+3. "total_thoughts" (integer ≥ 1): Your estimate of how many thoughts will be needed
+4. "next_thought_needed" (boolean): Whether another thought is needed after this one
+
+Optional properties you MAY include (only when needed):
+- "is_revision" (boolean): Whether this is a revision of a previous thought
+- "revises_thought" (integer): Which thought number is being revised
+- "branch_from_thought" (integer): If this starts a new branch, the thought number it branches from
+- "branch_id" (string): An identifier for the branch
+- "needs_more_thoughts" (boolean): A hint that more thoughts may follow
+
+EXAMPLE OF THE EXACT FORMAT:
+\`\`\`json
+{
+  "thought": "First, I need to understand the problem requirements.",
+  "thought_number": 1,
+  "total_thoughts": 5,
+  "next_thought_needed": true
+}
+\`\`\`
+
+DO NOT include any fields not listed above, such as "reasoning" or "questions".
+PUT ALL your reasoning within the "thought" field.
+
 Please solve the following problem using this sequential thinking format:
 
 ${scenarioPrompt}
 
-For each thought, output a valid JSON object with the specified properties.
+REMEMBER: Each thought MUST be a valid JSON object containing AT MINIMUM these exact fields:
+- "thought"
+- "thought_number"
+- "total_thoughts"
+- "next_thought_needed"
 `;
 }
 
