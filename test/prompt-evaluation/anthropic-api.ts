@@ -326,7 +326,7 @@ Evaluate purely on solution quality and effectiveness, not on formatting or para
 Output your evaluation as a valid JSON object with the following structure:
 {
   "qualityScore": 85,
-  "justification": "Brief explanation of your score"
+  "justification": "TLDR explanation of your score"
 }`;
 
       const resp = await client.messages.create({
