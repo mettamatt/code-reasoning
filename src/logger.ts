@@ -6,16 +6,40 @@ import chalk from 'chalk';
 
 export enum LogLevel {
   ERROR = 0,
-  INFO = 1,
-  DEBUG = 2,
+  WARN = 1, // Added WARN level for operational warnings
+  INFO = 2,
+  DEBUG = 3,
+}
+
+// Map string log levels to enum values
+const LogLevelMap: { [key: string]: LogLevel } = {
+  ERROR: LogLevel.ERROR,
+  WARN: LogLevel.WARN,
+  INFO: LogLevel.INFO,
+  DEBUG: LogLevel.DEBUG,
+};
+
+export function parseLogLevel(levelStr: string | undefined, defaultLevel: LogLevel): LogLevel {
+  if (!levelStr) return defaultLevel;
+  const upperLevelStr = levelStr.toUpperCase();
+  return LogLevelMap[upperLevelStr] ?? defaultLevel;
 }
 
 export class Logger {
   private logStream: fs.WriteStream | null = null;
   private logLevel: LogLevel;
+  private colorOutput: boolean;
 
-  constructor(level: LogLevel = LogLevel.INFO, logToFile: boolean = true) {
+  constructor(
+    level: LogLevel = LogLevel.INFO,
+    logToFile: boolean = true,
+    colorOutput: boolean = true
+  ) {
     this.logLevel = level;
+    this.colorOutput = colorOutput;
+
+    // Apply color setting globally for chalk
+    chalk.level = this.colorOutput ? chalk.level : 0;
 
     if (logToFile) {
       this.setupLogFile();
@@ -46,7 +70,8 @@ export class Logger {
         if (fs.existsSync(latestPath)) {
           fs.unlinkSync(latestPath);
         }
-        fs.symlinkSync(logPath, latestPath);
+        // Use relative path for symlink for portability
+        fs.symlinkSync(path.basename(logPath), latestPath, 'file');
       } catch (err) {
         console.error(`Failed to create symlink to latest log: ${err}`);
       }
@@ -55,6 +80,7 @@ export class Logger {
         timestamp,
         level: LogLevel[this.logLevel],
         logDir,
+        colorOutput: this.colorOutput,
       });
     } catch (err) {
       console.error(`Failed to setup log directory: ${err}`);
@@ -107,20 +133,23 @@ export class Logger {
         if (fs.existsSync(latestPath)) {
           fs.unlinkSync(latestPath);
         }
-        fs.symlinkSync(logPath, latestPath);
+        // Use relative path for symlink for portability
+        fs.symlinkSync(path.basename(logPath), latestPath, 'file');
       } catch (err) {
         console.error(`Failed to create symlink to latest log: ${err}`);
       }
 
-      this.info('Logger initialized with fallback directory', {
+      this.warn('Logger initialized with fallback directory', {
+        // Use WARN for fallback
         timestamp,
         level: LogLevel[this.logLevel],
         fallbackDir: tempDir,
+        colorOutput: this.colorOutput,
       });
     } catch (err) {
       console.error(`Failed to setup fallback log directory: ${err}`);
       // If even the fallback fails, operate without file logging
-      this.info('Operating without file logging', {
+      this.error('Operating without file logging due to setup errors', {
         level: LogLevel[this.logLevel],
       });
     }
@@ -132,16 +161,20 @@ export class Logger {
       const files = fs
         .readdirSync(logDir)
         .filter(file => file.startsWith('mcp-server-') && file.endsWith('.log'))
-        .map(file => path.join(logDir, file))
-        .sort((a, b) => fs.statSync(b).mtime.getTime() - fs.statSync(a).mtime.getTime());
+        .map(file => ({
+          name: path.join(logDir, file),
+          time: fs.statSync(path.join(logDir, file)).mtime.getTime(),
+        }))
+        .sort((a, b) => b.time - a.time); // Sort descending by modification time
 
       // Delete oldest logs if we have too many
       if (files.length >= MAX_LOG_FILES) {
         files.slice(MAX_LOG_FILES - 1).forEach(file => {
           try {
-            fs.unlinkSync(file);
+            fs.unlinkSync(file.name);
+            this.debug(`Deleted old log file: ${path.basename(file.name)}`);
           } catch (err) {
-            console.error(`Failed to delete old log file ${file}: ${err}`);
+            console.error(`Failed to delete old log file ${file.name}: ${err}`);
           }
         });
       }
@@ -162,7 +195,14 @@ export class Logger {
     }
   }
 
+  warn(message: string, data?: Record<string, unknown>) {
+    if (this.logLevel >= LogLevel.WARN) {
+      this.log('WARN', message, data, chalk.yellow);
+    }
+  }
+
   error(message: string, data?: Record<string, unknown>) {
+    // Errors are always logged regardless of level
     this.log('ERROR', message, data, chalk.red);
   }
 
@@ -173,12 +213,24 @@ export class Logger {
     colorFn: (s: string) => string = (s: string) => s
   ) {
     const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${level}: ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}`;
+    // Ensure data is serializable, handle potential circular references safely
+    let dataString = '';
+    if (data) {
+      try {
+        dataString = '\n' + JSON.stringify(data, null, 2);
+      } catch (e) {
+        dataString = '\n<Data serialization error>';
+        console.error(`Failed to serialize log data for message: ${message}`, e);
+      }
+    }
 
-    // Log to console
-    console.error(colorFn(logEntry));
+    const logEntry = `[${timestamp}] ${level}: ${message}${dataString}`;
 
-    // Log to file
+    // Log to console (stderr is conventional for logs)
+    // Apply color only if colorOutput is enabled
+    console.error(this.colorOutput ? colorFn(logEntry) : logEntry);
+
+    // Log to file (without color codes)
     if (this.logStream) {
       this.logStream.write(logEntry + '\n');
     }
@@ -186,8 +238,9 @@ export class Logger {
 
   close() {
     if (this.logStream) {
-      this.logStream.end();
-      this.logStream = null;
+      this.logStream.end(() => {
+        this.logStream = null;
+      });
     }
   }
 }
