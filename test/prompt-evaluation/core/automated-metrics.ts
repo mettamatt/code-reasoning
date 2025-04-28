@@ -58,7 +58,7 @@ function checkRequiredParameters(thoughtChain: ThoughtData[]): boolean {
 }
 
 /**
- * Check for sequential numbering in the main chain
+ * Check for sequential numbering across all thoughts
  */
 function checkSequentialNumbering(thoughtChain: ThoughtData[]): boolean {
   if (thoughtChain.length === 0) return true;
@@ -66,15 +66,20 @@ function checkSequentialNumbering(thoughtChain: ThoughtData[]): boolean {
   // First thought should be 1
   if (thoughtChain[0].thought_number !== 1) return false;
 
-  // Check sequential numbering in main chain (non-branch, non-revision thoughts)
-  const mainChainThoughts = thoughtChain.filter(t => !t.branch_id && !t.is_revision);
+  // Build an array of just the thought_number values, sorted
+  const allThoughtNumbers = thoughtChain.map(t => t.thought_number).sort((a, b) => a - b);
 
-  for (let i = 1; i < mainChainThoughts.length; i++) {
-    const current = mainChainThoughts[i];
-    const previous = mainChainThoughts[i - 1];
+  // Check for duplicates
+  for (let i = 1; i < allThoughtNumbers.length; i++) {
+    if (allThoughtNumbers[i] === allThoughtNumbers[i - 1]) {
+      return false; // Duplicate thought number
+    }
+  }
 
-    if (current.thought_number !== previous.thought_number + 1) {
-      return false;
+  // Check for gaps (non-sequential numbers)
+  for (let i = 1; i < allThoughtNumbers.length; i++) {
+    if (allThoughtNumbers[i] !== allThoughtNumbers[i - 1] + 1) {
+      return false; // Gap in sequence
     }
   }
 
@@ -300,13 +305,23 @@ export function getFailureDetail(
     }
 
     case 'hasSequentialNumbering': {
-      // Find the first non-sequential pair
-      const mainChainThoughts = thoughts.filter(t => !t.branch_id && !t.is_revision);
-      for (let i = 1; i < mainChainThoughts.length; i++) {
-        if (mainChainThoughts[i].thought_number !== mainChainThoughts[i - 1].thought_number + 1) {
-          return `Non-sequential thought numbers: ${mainChainThoughts[i - 1].thought_number} followed by ${mainChainThoughts[i].thought_number}`;
+      // Get all thought numbers and sort them
+      const allThoughtNumbers = thoughts.map(t => t.thought_number).sort((a, b) => a - b);
+
+      // Check for duplicates
+      for (let i = 1; i < allThoughtNumbers.length; i++) {
+        if (allThoughtNumbers[i] === allThoughtNumbers[i - 1]) {
+          return `Duplicate thought number: ${allThoughtNumbers[i]}`;
         }
       }
+
+      // Check for gaps
+      for (let i = 1; i < allThoughtNumbers.length; i++) {
+        if (allThoughtNumbers[i] !== allThoughtNumbers[i - 1] + 1) {
+          return `Gap in thought numbers: ${allThoughtNumbers[i - 1]} followed by ${allThoughtNumbers[i]}`;
+        }
+      }
+
       return 'Non-sequential thought numbering';
     }
 

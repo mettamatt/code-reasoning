@@ -85,6 +85,12 @@ npm run eval:simple
 
 The evaluation results will be saved as JSON files and summarized in a markdown report.
 
+### Scenario-Specific Prompts
+
+The evaluator has been configured to disable scenario-specific prompts by default when running API evaluations. This prevents potential overfitting of results, allowing for a more accurate assessment of the model's general capabilities without specialized guidance tailored to each problem type.
+
+If you want to re-enable scenario-specific prompts, modify the `evaluateWithAPI` call in `api-evaluator.ts` by changing the fourth parameter from `false` to `true`.
+
 ## Key Benefits
 
 1. **Simpler Evaluation Logic**: Direct boolean checks instead of complex percentage calculations

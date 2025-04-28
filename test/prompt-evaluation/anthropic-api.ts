@@ -128,15 +128,15 @@ Break down your reasoning into explicit steps.
 // ─────────────────────────────────────────────────────────────────────────────
 //  Scenario‑specific snippets – extracted to keep createPrompt lean
 // ─────────────────────────────────────────────────────────────────────────────
-const BRANCHING_GUIDE = `\nIMPORTANT BRANCHING INSTRUCTIONS:\nWhen exploring or comparing multiple approaches, algorithms, or solutions:\n1. Start with an initial thought that outlines the problem\n2. Create a SEPARATE BRANCH for EACH distinct approach or algorithm\n3. Use unique branch_id values (e.g., "A", "B", "HeapApproach")\n4. Set branch_from_thought to reference the decision point\n5. Evaluate each branch, then compare & recommend\n`;
+const BRANCHING_GUIDE = `\nIMPORTANT BRANCHING INSTRUCTIONS:\nWhen exploring or comparing multiple approaches, algorithms, or solutions:\n1. Start with a main thought that outlines the problem (do NOT use branch_id or branch_from_thought)\n2. Continue with main chain thoughts for general reasoning (do NOT use branch_id or branch_from_thought)\n3. When you want to explore alternatives:\n   a. Create a SEPARATE BRANCH for EACH distinct approach or algorithm\n   b. Use unique branch_id values (e.g., "A", "B", "HeapApproach")\n   c. Set branch_from_thought to reference the decision point\n4. Resume the main chain (without branch_id) after exploring branches\n5. Evaluate each branch, then compare & recommend in the main chain\n`;
 
-const REVISION_GUIDE = `\nIMPORTANT REVISION INSTRUCTIONS:\nWhen debugging or correcting earlier thoughts:\n1. Use "is_revision": true and "revises_thought" to reference the original\n2. Keep the thought_number identical to the thought you're revising\n`;
+const REVISION_GUIDE = `\nIMPORTANT REVISION INSTRUCTIONS:\nWhen debugging or correcting earlier thoughts:\n1. Use "is_revision": true and "revises_thought" to reference the original thought\n2. Use unique sequential thought_number (do not reuse the original thought number)\n3. Main chain thoughts should NOT use branch_id or branch_from_thought\n`;
 
-const SYSTEM_DESIGN_GUIDE = `\nIMPORTANT SYSTEM DESIGN INSTRUCTIONS:\n1. Outline requirements\n2. Branch for alternative architectures\n3. Detail components, edge cases, and bottlenecks\n4. Finish with comparison & justified choice\n`;
+const SYSTEM_DESIGN_GUIDE = `\nIMPORTANT SYSTEM DESIGN INSTRUCTIONS:\n1. Outline requirements in the main chain (do NOT use branch_id or branch_from_thought)\n2. Branch for alternative architectures (use branch_id and branch_from_thought)\n3. Detail components, edge cases, and bottlenecks in each branch\n4. Resume main chain without branch parameters\n5. Finish with comparison & justified choice in the main chain\n`;
 
 const MULTISTAGE_GUIDE = `\nIMPORTANT PARAMETER USAGE INSTRUCTIONS (multi‑stage):\n1. Increment thought_number sequentially\n2. Adjust total_thoughts if scope changes\n3. Only set next_thought_needed false when fully complete\n`;
 
-const COMPILER_GUIDE = `\nIMPORTANT MULTI‑SKILL INSTRUCTIONS (compiler optimization):\nCombine branching & revision; provide technical depth before concluding.\n`;
+const COMPILER_GUIDE = `\nIMPORTANT MULTI‑SKILL INSTRUCTIONS (compiler optimization):\n1. Start with main chain thoughts (do NOT use branch_id or branch_from_thought)\n2. When exploring alternative optimizations, create branches (use branch_id and branch_from_thought)\n3. When correcting earlier thoughts, use revisions (is_revision=true and revises_thought)\n4. Resume main chain without branch parameters when comparing approaches\n5. Provide technical depth before concluding in the main chain\n`;
 
 const SIMPLE_EXAMPLE = `\nEXAMPLE:\n{\n  "thought": "First, clarify the requirements…",\n  "thought_number": 1,\n  "total_thoughts": 5,\n  "next_thought_needed": true\n}\n`;
 
@@ -289,6 +289,83 @@ const DEFAULTS = {
 
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));
+}
+
+/**
+ * Evaluates the quality of a solution using the Anthropic API
+ * This focuses specifically on solution effectiveness rather than parameter usage
+ */
+export async function evaluateQualityWithAPI(
+  apiKey: string,
+  scenario: PromptScenario,
+  thoughtChain: ThoughtData[],
+  options: ApiOptions = {}
+): Promise<{ success: boolean; qualityScore?: number; justification?: string; error?: string }> {
+  const cfg = { ...DEFAULTS, ...options };
+  const { Anthropic } = await import('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey });
+
+  for (let attempt = 0; attempt <= cfg.retryCount; attempt++) {
+    try {
+      // Create a prompt focused on solution quality only
+      const prompt = `You are evaluating the QUALITY of a solution to a problem, not parameter usage.
+
+PROBLEM:
+${scenario.problem}
+
+You will evaluate the solution quality as a percentage from 0% to 100% based on:
+1. How effectively the solution resolves the problem
+2. The clarity and thoroughness of the reasoning
+3. Consideration of edge cases and alternative approaches
+4. The practical implementability of the solution
+
+SOLUTION:
+${thoughtChain.map(t => t.thought).join('\n\n')}
+
+Evaluate purely on solution quality and effectiveness, not on formatting or parameter usage.
+Output your evaluation as a valid JSON object with the following structure:
+{
+  "qualityScore": 85,
+  "justification": "Brief explanation of your score"
+}`;
+
+      const resp = await client.messages.create({
+        model: cfg.model,
+        max_tokens: 1000,
+        temperature: 0.2,
+        system: 'You are an expert evaluator of solution quality. Return valid JSON only.',
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const text = resp.content?.[0]?.type === 'text' ? resp.content[0].text : '';
+      const json = text.match(/\{[\s\S]*}/)?.[0];
+      if (!json) throw new Error('No JSON found in response');
+
+      const evaluation = JSON.parse(json);
+
+      // Validate evaluation structure
+      if (typeof evaluation.qualityScore !== 'number') {
+        if (attempt < cfg.retryCount) {
+          console.warn('[anthropic-api] Invalid quality evaluation. Retrying...');
+          await sleep(2 ** attempt * 1_000);
+          continue;
+        }
+        throw new Error('Invalid quality evaluation: missing qualityScore');
+      }
+
+      return {
+        success: true,
+        qualityScore: evaluation.qualityScore,
+        justification: evaluation.justification,
+      };
+    } catch (err) {
+      if (attempt >= cfg.retryCount) {
+        return { success: false, error: (err as Error).message };
+      }
+      await sleep(2 ** attempt * 1_000);
+    }
+  }
+  return { success: false, error: 'Failed to evaluate solution quality' };
 }
 
 export async function evaluateThoughtChainWithAPI(

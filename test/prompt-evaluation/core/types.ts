@@ -38,6 +38,7 @@ export interface TestResult {
   date: string;
   modelId: string;
   promptVariation: string;
+  qualityScore?: number; // Solution quality score as a percentage (0-100)
 }
 
 // Standard templates to guide the model

@@ -28,7 +28,10 @@ import {
 import { evaluateWithAPI } from './anthropic-api.js';
 
 // Load environment variables from .env file
-dotenv.config({ path: path.join(fileURLToPath(new URL('.', import.meta.url)), '.env') });
+// When compiled, this code is in dist/test/prompt-evaluation/, so we need to go up to the root
+const rootDir = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../');
+// Look for .env in the source directory
+dotenv.config({ path: path.join(rootDir, 'test/prompt-evaluation/.env') });
 
 // Setup directories for responses
 const { evaluationsDir } = getPaths();
@@ -52,11 +55,16 @@ async function processScenario(
 
     // Send to API
     console.log('Sending to Anthropic API...');
-    const response = await evaluateWithAPI(apiKey, scenario.problem, {
-      model,
-      maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
-      temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
-    });
+    const response = await evaluateWithAPI(
+      apiKey,
+      scenario.problem,
+      {
+        model,
+        maxTokens: parseInt(process.env.MAX_TOKENS || '8000'),
+        temperature: parseFloat(process.env.TEMPERATURE || '0.7'),
+      },
+      false
+    ); // Disable scenario-specific prompts to prevent overfitting
 
     if (!response.success || !response.thoughtChain) {
       console.error(`Error evaluating scenario: ${response.error || 'Unknown error'}`);
@@ -104,6 +112,17 @@ function displayResults(results: TestResult[]): void {
   results.forEach((result, index) => {
     const statusColor = result.status === 'PASS' ? chalk.green : chalk.red;
     console.log(`${index + 1}. ${result.scenarioName}: ${statusColor(result.status)}`);
+
+    // Display quality score if available
+    if (result.qualityScore !== undefined) {
+      const qualityColor =
+        result.qualityScore >= 80
+          ? chalk.green
+          : result.qualityScore >= 60
+            ? chalk.yellow
+            : chalk.red;
+      console.log(`   Quality Score: ${qualityColor(result.qualityScore + '%')}`);
+    }
 
     if (result.status === 'FAIL' && result.failureMessage) {
       console.log(`   Reason: ${result.failureMessage}`);

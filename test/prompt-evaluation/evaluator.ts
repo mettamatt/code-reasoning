@@ -67,7 +67,10 @@ async function displayResults(): Promise<void> {
   // Allow selecting a result to view in detail
   const selectedResult = await selectFromList(
     results,
-    r => `${r.scenarioName}: ${r.status} (${r.date.split('T')[0]})`,
+    r => {
+      const base = `${r.scenarioName}: ${r.status} (${r.date.split('T')[0]})`;
+      return r.qualityScore !== undefined ? `${base} [Quality: ${r.qualityScore}%]` : base;
+    },
     'Select a result to view details:'
   );
 
@@ -76,6 +79,11 @@ async function displayResults(): Promise<void> {
   console.log(`Date: ${new Date(selectedResult.date).toLocaleString()}`);
   console.log(`Model: ${selectedResult.modelId}`);
   console.log(`Variation: ${selectedResult.promptVariation}`);
+
+  // Display quality score if available
+  if (selectedResult.qualityScore !== undefined) {
+    console.log(`\nSolution Quality Score: ${selectedResult.qualityScore}%`);
+  }
 
   if (selectedResult.status === 'FAIL' && selectedResult.failureMessage) {
     console.log(`\nFailure reason: ${selectedResult.failureMessage}`);

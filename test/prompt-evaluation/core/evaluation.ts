@@ -13,6 +13,7 @@ import {
   EvaluationOptions,
 } from './types.js';
 import { getPaths } from './utils.js';
+import { evaluateQualityWithAPI } from '../anthropic-api.js';
 import {
   validateThoughtChain,
   calculateStructureMetrics,
@@ -80,6 +81,36 @@ export async function evaluateThoughtChain(
     console.log(`Failure Reason: ${failureMessage}`);
   }
 
+  // Get quality score if API key and model are provided
+  let qualityScore: number | undefined;
+  let qualityJustification: string | undefined;
+
+  if (options.apiKey && options.model) {
+    console.log('\n----- SOLUTION QUALITY EVALUATION -----');
+    console.log('Evaluating solution quality...');
+
+    try {
+      const qualityResult = await evaluateQualityWithAPI(options.apiKey, scenario, thoughts, {
+        model: options.model,
+        maxTokens: 1000,
+        temperature: 0.2,
+      });
+
+      if (qualityResult.success && qualityResult.qualityScore !== undefined) {
+        qualityScore = qualityResult.qualityScore;
+        qualityJustification = qualityResult.justification;
+        console.log(`Quality Score: ${qualityScore}%`);
+        if (qualityJustification) {
+          console.log(`Justification: ${qualityJustification}`);
+        }
+      } else {
+        console.warn('Failed to evaluate solution quality:', qualityResult.error);
+      }
+    } catch (error) {
+      console.warn('Error during quality evaluation:', error);
+    }
+  }
+
   return {
     scenarioId: scenario.id,
     scenarioName: scenario.name,
@@ -90,6 +121,7 @@ export async function evaluateThoughtChain(
     date: new Date().toISOString(),
     modelId: options.model || 'claude-3-7-sonnet-20250219',
     promptVariation: options.promptVariation || 'baseline',
+    qualityScore, // Include the quality score in the result
   };
 }
 
@@ -153,12 +185,13 @@ export async function generateReport(): Promise<void> {
   md += `**Summary**: ${passed} passed, ${failed} failed (${Math.round((passed / results.length) * 100)}% pass rate)\n\n`;
 
   // Summary table
-  md += '| Scenario | Status | Failure Reason |\n';
-  md += '|----------|--------|----------------|\n';
+  md += '| Scenario | Status | Quality Score | Failure Reason |\n';
+  md += '|----------|--------|---------------|----------------|\n';
 
   results.forEach(result => {
     const statusEmoji = result.status === 'PASS' ? '✅' : '❌';
-    md += `| ${result.scenarioName} | ${statusEmoji} ${result.status} | ${result.failureMessage || '-'} |\n`;
+    const qualityDisplay = result.qualityScore !== undefined ? `${result.qualityScore}%` : '-';
+    md += `| ${result.scenarioName} | ${statusEmoji} ${result.status} | ${qualityDisplay} | ${result.failureMessage || '-'} |\n`;
   });
 
   // Append detailed results
@@ -166,6 +199,11 @@ export async function generateReport(): Promise<void> {
 
   results.forEach(result => {
     md += `### ${result.scenarioName}: ${result.status === 'PASS' ? '✅' : '❌'} ${result.status}\n\n`;
+
+    // Include quality score if available
+    if (result.qualityScore !== undefined) {
+      md += `**Solution Quality Score:** ${result.qualityScore}%\n\n`;
+    }
 
     if (result.status === 'FAIL') {
       md += `**Failure reason:** ${result.failureMessage}\n\n`;
