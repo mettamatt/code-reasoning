@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
+import dotenv from 'dotenv';
 import {
   PROMPT_TEST_SCENARIOS,
   evaluateThoughtChain,
@@ -25,6 +26,9 @@ import {
   closeReadline,
 } from './core/utils.js';
 import { evaluateWithAPI } from './anthropic-api.js';
+
+// Load environment variables from .env file
+dotenv.config({ path: path.join(fileURLToPath(new URL('.', import.meta.url)), '.env') });
 
 // Setup directories for responses
 const { evaluationsDir } = getPaths();
