@@ -6,8 +6,15 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
+import chalk from 'chalk';
+import { Logger, LogLevel, parseLogLevel } from './logger.js';
+import { LoggingStdioServerTransport } from './logging-transport.js';
 
-// Define locally since it's not exported from SDK
+// ---------------------------------------------------------------------------
+// Types & Interfaces
+// ---------------------------------------------------------------------------
+
+/** Defines the JSON‑RPC error structure we may return on unknown tool calls. */
 interface JSONRPCErrorResponse {
   jsonrpc: '2.0';
   id: string | number | null;
@@ -17,13 +24,8 @@ interface JSONRPCErrorResponse {
     data?: unknown;
   };
 }
-import chalk from 'chalk';
-import { Logger, LogLevel, parseLogLevel } from './logger.js';
-import { LoggingStdioServerTransport } from './logging-transport.js';
 
-// --- Configuration ---
-
-/** Defines the configuration options for the Code Reasoning Server. */
+/** Configuration options for the Code Reasoning Server.  */
 interface CodeReasoningConfig {
   maxThoughtLength: number;
   timeoutMs: number;
@@ -33,83 +35,86 @@ interface CodeReasoningConfig {
   colorOutput: boolean;
 }
 
-/** Default configuration values. */
+/** Default configuration – can be overridden by env vars or CLI flags. */
 const defaultConfig: CodeReasoningConfig = {
   maxThoughtLength: 2000,
-  timeoutMs: 30000,
+  timeoutMs: 30_000,
   maxThoughts: 20,
   logLevel: LogLevel.INFO,
   enhancedVisualization: true,
   colorOutput: true,
 };
 
-/** Parses configuration from command-line arguments and environment variables. */
+// ---------------------------------------------------------------------------
+// Utility: parseConfig – reads env/args into the above interface
+// ---------------------------------------------------------------------------
+
 function parseConfig(args: string[], env: NodeJS.ProcessEnv): CodeReasoningConfig {
-  const config = { ...defaultConfig };
+  const cfg = { ...defaultConfig };
 
-  // Helper to parse integer environment variables
-  const parseIntEnv = (key: string, defaultValue: number): number => {
-    const value = env[key];
-    return value && !isNaN(parseInt(value, 10)) ? parseInt(value, 10) : defaultValue;
+  // helpers
+  const intEnv = (key: string, d: number) => {
+    const v = env[key];
+    return v && !Number.isNaN(parseInt(v, 10)) ? parseInt(v, 10) : d;
+  };
+  const boolEnv = (key: string, d: boolean) => {
+    const v = env[key]?.toLowerCase();
+    return v === 'true' ? true : v === 'false' ? false : d;
   };
 
-  // Helper to parse boolean environment variables
-  const parseBoolEnv = (key: string, defaultValue: boolean): boolean => {
-    const value = env[key]?.toLowerCase();
-    return value === 'true' ? true : value === 'false' ? false : defaultValue;
-  };
+  // env
+  cfg.maxThoughtLength = intEnv('MAX_THOUGHT_LENGTH', cfg.maxThoughtLength);
+  cfg.timeoutMs = intEnv('TIMEOUT_MS', cfg.timeoutMs);
+  cfg.maxThoughts = intEnv('MAX_THOUGHTS', cfg.maxThoughts);
+  cfg.logLevel = parseLogLevel(env.LOG_LEVEL, cfg.logLevel);
+  cfg.enhancedVisualization = boolEnv('ENHANCED_VISUALIZATION', cfg.enhancedVisualization);
+  cfg.colorOutput = boolEnv('COLOR_OUTPUT', cfg.colorOutput);
 
-  // Parse from environment variables
-  config.maxThoughtLength = parseIntEnv('MAX_THOUGHT_LENGTH', config.maxThoughtLength);
-  config.timeoutMs = parseIntEnv('TIMEOUT_MS', config.timeoutMs);
-  config.maxThoughts = parseIntEnv('MAX_THOUGHTS', config.maxThoughts);
-  config.logLevel = parseLogLevel(env.LOG_LEVEL, config.logLevel);
-  config.enhancedVisualization = parseBoolEnv(
-    'ENHANCED_VISUALIZATION',
-    config.enhancedVisualization
-  );
-  config.colorOutput = parseBoolEnv('COLOR_OUTPUT', config.colorOutput);
-
-  // Parse from command-line arguments (override environment variables)
+  // cli
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    const value = args[i + 1]; // Potential value for args like --option <value>
-
-    if (arg === '--max-thought-length' && value) {
-      config.maxThoughtLength = parseInt(value, 10);
-      i++;
-    } else if (arg === '--timeout-ms' && value) {
-      config.timeoutMs = parseInt(value, 10);
-      i++;
-    } else if (arg === '--max-thoughts' && value) {
-      config.maxThoughts = parseInt(value, 10);
-      i++;
-    } else if (arg === '--log-level' && value) {
-      config.logLevel = parseLogLevel(value, config.logLevel);
-      i++;
-    } else if (arg === '--no-enhanced-visualization') {
-      config.enhancedVisualization = false;
-    } else if (arg === '--no-color') {
-      config.colorOutput = false;
-    } else if (arg === '--debug') {
-      // Allow --debug flag to override log level
-      config.logLevel = LogLevel.DEBUG;
+    const val = args[i + 1]; // maybe undefined
+    switch (arg) {
+      case '--max-thought-length':
+        if (val) cfg.maxThoughtLength = parseInt(val, 10);
+        i++;
+        break;
+      case '--timeout-ms':
+        if (val) cfg.timeoutMs = parseInt(val, 10);
+        i++;
+        break;
+      case '--max-thoughts':
+        if (val) cfg.maxThoughts = parseInt(val, 10);
+        i++;
+        break;
+      case '--log-level':
+        if (val) cfg.logLevel = parseLogLevel(val, cfg.logLevel);
+        i++;
+        break;
+      case '--no-enhanced-visualization':
+        cfg.enhancedVisualization = false;
+        break;
+      case '--no-color':
+        cfg.colorOutput = false;
+        break;
+      case '--debug':
+        cfg.logLevel = LogLevel.DEBUG;
+        break;
     }
   }
 
-  // Ensure maxThoughts is at least 1
-  if (config.maxThoughts < 1) config.maxThoughts = 1;
-  // Ensure maxThoughtLength is reasonable
-  if (config.maxThoughtLength < 100) config.maxThoughtLength = 100;
-  // Ensure timeout is reasonable
-  if (config.timeoutMs < 1000) config.timeoutMs = 1000;
+  // sanity guards
+  if (cfg.maxThoughts < 1) cfg.maxThoughts = 1;
+  if (cfg.maxThoughtLength < 100) cfg.maxThoughtLength = 100;
+  if (cfg.timeoutMs < 1000) cfg.timeoutMs = 1000;
 
-  return config;
+  return cfg;
 }
 
-// --- Thought Data ---
+// ---------------------------------------------------------------------------
+// Thought‑related data structures
+// ---------------------------------------------------------------------------
 
-/** Interface defining the structure for a single thought step. */
 export interface ThoughtData {
   thought: string;
   thought_number: number;
@@ -119,10 +124,9 @@ export interface ThoughtData {
   revises_thought?: number;
   branch_from_thought?: number;
   branch_id?: string;
-  needs_more_thoughts?: boolean; // Optional hint
+  needs_more_thoughts?: boolean;
 }
 
-/** Interface for performance metrics tracking. */
 interface PerformanceMetric {
   thoughtNumber: number;
   processingTimeMs: number;
@@ -130,125 +134,45 @@ interface PerformanceMetric {
   timestamp: string;
 }
 
-// --- Enhanced Tool Definition ---
+// ---------------------------------------------------------------------------
+//  Code Reasoning Tool Definition (Prompt v0.4)
+// ---------------------------------------------------------------------------
 
 const CODE_REASONING_TOOL: Tool = {
   name: 'code-reasoning',
   description: `
-🧠 **Code Reasoning Tool** – recursive private-thought mechanism to solve complex programming problems.
-• Break down problems into manageable steps with sequential thinking.
-• Use branching (🌿) to explore multiple approaches when uncertain.
-• Revise previous thoughts (🔄) when you gain new insights.
-• Structure your reasoning in a clear, step-by-step format.
-• Abort automatically after a configured number of thoughts (default 20, server will summarise).
-• *Always* set \`next_thought_needed\` = false when every open question is resolved.
+🧠 **Code Reasoning Tool** – private, recursive chain-of-thought
 
-Thinking checklist (review **every 3 thoughts**):
+• Turn big problems into a sequence of **numbered thoughts** that may **BRANCH** (🌿) or **REVISE** (🔄) until one clear answer emerges.
+• _Always_ set \`next_thought_needed\` = false when every open question is resolved.
+
+✅ Recommended checklist **every 3 thoughts**:
 1. Need to BRANCH?   → set \`branch_from_thought\` + \`branch_id\`.
 2. Need to REVISE?   → set \`is_revision\` + \`revises_thought\`.
-3. Need more steps?  → bump \`total_thoughts\`.
-4. Finished reasoning? → set \`next_thought_needed\` = false.
+3. Scope changed? → bump \`total_thoughts\`.
 
-Effective sequential thinking strategies:
-• Start by breaking down the problem into smaller, manageable parts
-• Consider edge cases and potential failure modes
-• Use branching when you see multiple viable approaches
-• Revise earlier thoughts when you discover errors or new insights
-• After exploring branches, conclude by synthesizing findings and making a clear selection or recommendation
-• Set appropriate total_thoughts estimate and adjust as needed
-• Be explicit about when your reasoning is complete
-
-When to use branching:
-• When you see multiple valid approaches to solving a problem
-• When you're uncertain which algorithm or method will work best
-• When you want to explore different implementations and compare them
-• Always use unique branch_id values for different exploration paths (e.g., "algorithm-a", "approach-b")
-
-When to use revision:
-• When you discover an error in previous reasoning
-• When new information invalidates earlier assumptions
-• When you gain a deeper understanding that changes your approach
-
-Request format examples:
-{
-  "thought": "Your detailed reasoning step...",
-  "thought_number": 1,
-  "total_thoughts": 5,
-  "next_thought_needed": true
-}
-
-For branching:
-{
-  "thought": "Let me explore an alternative approach...",
-  "thought_number": 3,
-  "total_thoughts": 7,
-  "next_thought_needed": true,
-  "branch_from_thought": 2,
-  "branch_id": "alternative-approach"
-}
-
-For revision:
-{
-  "thought": "I need to revise my earlier understanding...",
-  "thought_number": 4,
-  "total_thoughts": 6,
-  "next_thought_needed": true,
-  "is_revision": true,
-  "revises_thought": 2
-}
+✍️ *End every thought by quietly asking yourself: “What am I missing?”*
 `,
   inputSchema: {
     type: 'object',
     properties: {
-      thought: {
-        type: 'string',
-        description: 'Your current reasoning step',
-      },
-      next_thought_needed: {
-        type: 'boolean',
-        description: 'Whether another thought step is needed',
-      },
-      thought_number: {
-        type: 'integer',
-        description: 'Current thought number (1-based)',
-        minimum: 1,
-      },
-      total_thoughts: {
-        type: 'integer',
-        description: 'Estimated total thoughts needed (can be adjusted)',
-        minimum: 1,
-      },
-      is_revision: {
-        type: 'boolean',
-        description: 'Whether this is a revision of a previous thought',
-        default: false, // Explicit default
-      },
-      revises_thought: {
-        type: 'integer',
-        description: 'Which thought is being revised (required if is_revision is true)',
-        minimum: 1,
-      },
-      branch_from_thought: {
-        type: 'integer',
-        description: 'Branching point thought number (required if branch_id is provided)',
-        minimum: 1,
-      },
-      branch_id: {
-        type: 'string',
-        description:
-          'Identifier for the current branch (required if branch_from_thought is provided)',
-      },
-      needs_more_thoughts: {
-        type: 'boolean',
-        description: 'Optional hint that more thoughts may follow',
-      },
+      thought: { type: 'string' },
+      next_thought_needed: { type: 'boolean' },
+      thought_number: { type: 'integer', minimum: 1 },
+      total_thoughts: { type: 'integer', minimum: 1 },
+      is_revision: { type: 'boolean' },
+      revises_thought: { type: 'integer', minimum: 1 },
+      branch_from_thought: { type: 'integer', minimum: 1 },
+      branch_id: { type: 'string' },
+      needs_more_thoughts: { type: 'boolean' },
     },
     required: ['thought', 'next_thought_needed', 'thought_number', 'total_thoughts'],
-    // Additional validation logic can be added in validateThoughtData if needed
   },
 };
 
-// --- Code Reasoning Server Class ---
+// ---------------------------------------------------------------------------
+//  CodeReasoningServer class (unchanged logic, just documentation tweaks)
+// ---------------------------------------------------------------------------
 
 class CodeReasoningServer {
   private thoughtHistory: ThoughtData[] = [];
