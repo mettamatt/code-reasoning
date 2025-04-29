@@ -1,119 +1,78 @@
 #!/usr/bin/env node
 
+/**
+ * @fileoverview Code Reasoning MCP Server Implementation.
+ *
+ * This server provides a tool for reflective problem-solving in software development,
+ * allowing decomposition of tasks into sequential, revisable, and branchable thoughts.
+ * It adheres to the Model Context Protocol (MCP) and is designed to integrate seamlessly
+ * with Claude Desktop or similar MCP-compliant clients.
+ *
+ * ## Key Features
+ * - Processes "thoughts" in structured JSON, with optional branching and revision semantics.
+ * - Logs a simplified, colorized flow of thought evolution to stderr for debugging.
+ * - Built-in validation using Zod.
+ * - Single built-in configuration object.
+ * - Removed complex performance/error frequency tracking for simplicity.
+ * - Simplified thought formatting output.
+ *
+ * ## Usage in Claude Desktop
+ * - In your Claude Desktop settings, add a "tool" definition referencing this server.
+ * - Ensure the tool name is "code-reasoning".
+ * - Upon connecting, Claude can call the tool with an argument schema matching the
+ *   `ThoughtDataSchema` below.
+ *
+ * ## Example Thought Data
+ * ```json
+ * {
+ *   "thought": "Start investigating the root cause of bug #1234",
+ *   "thought_number": 1,
+ *   "total_thoughts": 5,
+ *   "next_thought_needed": true
+ * }
+ * ```
+ *
+ * @version 0.4.0
+ */
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   Tool,
+  CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import chalk from 'chalk';
-import { Logger, LogLevel, parseLogLevel } from './logger.js';
+import chalk from 'chalk'; // Kept for simplified, readable logging
+import { z, ZodError } from 'zod';
+
+import { Logger, LogLevel } from './logger.js';
 import { LoggingStdioServerTransport } from './logging-transport.js';
 
-// ---------------------------------------------------------------------------
-// Types & Interfaces
-// ---------------------------------------------------------------------------
-
-/** Defines the JSON‑RPC error structure we may return on unknown tool calls. */
-interface JSONRPCErrorResponse {
-  jsonrpc: '2.0';
-  id: string | number | null;
-  error: {
-    code: number;
-    message: string;
-    data?: unknown;
-  };
-}
-
-/** Configuration options for the Code Reasoning Server.  */
+/**
+ * Configuration options for the Code Reasoning Server.
+ */
 interface CodeReasoningConfig {
-  maxThoughtLength: number;
-  timeoutMs: number;
-  maxThoughts: number;
-  logLevel: LogLevel;
-  enhancedVisualization: boolean;
-  colorOutput: boolean;
+  maxThoughtLength: number; // Max characters in any single thought
+  timeoutMs: number; // Max time for processing a single thought (Note: SDK might have its own timeout)
+  maxThoughts: number; // Max number of thoughts before forcibly aborting
+  logLevel: LogLevel; // Logging verbosity
+  colorOutput: boolean; // Enable/disable color in stderr logs
 }
 
-/** Default configuration – can be overridden by env vars or CLI flags. */
-const defaultConfig: CodeReasoningConfig = {
+/**
+ * **Single** configuration object. Adjust as needed.
+ */
+const SERVER_CONFIG: CodeReasoningConfig = {
   maxThoughtLength: 2000,
-  timeoutMs: 30_000,
+  timeoutMs: 30_000, // Primarily for logging long operations, actual request timeout might be handled by MCP client/SDK
   maxThoughts: 20,
-  logLevel: LogLevel.INFO,
-  enhancedVisualization: true,
+  logLevel: LogLevel.INFO, // Adjust to DEBUG for more details
   colorOutput: true,
 };
 
-// ---------------------------------------------------------------------------
-// Utility: parseConfig – reads env/args into the above interface
-// ---------------------------------------------------------------------------
-
-function parseConfig(args: string[], env: NodeJS.ProcessEnv): CodeReasoningConfig {
-  const cfg = { ...defaultConfig };
-
-  // helpers
-  const intEnv = (key: string, d: number) => {
-    const v = env[key];
-    return v && !Number.isNaN(parseInt(v, 10)) ? parseInt(v, 10) : d;
-  };
-  const boolEnv = (key: string, d: boolean) => {
-    const v = env[key]?.toLowerCase();
-    return v === 'true' ? true : v === 'false' ? false : d;
-  };
-
-  // env
-  cfg.maxThoughtLength = intEnv('MAX_THOUGHT_LENGTH', cfg.maxThoughtLength);
-  cfg.timeoutMs = intEnv('TIMEOUT_MS', cfg.timeoutMs);
-  cfg.maxThoughts = intEnv('MAX_THOUGHTS', cfg.maxThoughts);
-  cfg.logLevel = parseLogLevel(env.LOG_LEVEL, cfg.logLevel);
-  cfg.enhancedVisualization = boolEnv('ENHANCED_VISUALIZATION', cfg.enhancedVisualization);
-  cfg.colorOutput = boolEnv('COLOR_OUTPUT', cfg.colorOutput);
-
-  // cli
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    const val = args[i + 1]; // maybe undefined
-    switch (arg) {
-      case '--max-thought-length':
-        if (val) cfg.maxThoughtLength = parseInt(val, 10);
-        i++;
-        break;
-      case '--timeout-ms':
-        if (val) cfg.timeoutMs = parseInt(val, 10);
-        i++;
-        break;
-      case '--max-thoughts':
-        if (val) cfg.maxThoughts = parseInt(val, 10);
-        i++;
-        break;
-      case '--log-level':
-        if (val) cfg.logLevel = parseLogLevel(val, cfg.logLevel);
-        i++;
-        break;
-      case '--no-enhanced-visualization':
-        cfg.enhancedVisualization = false;
-        break;
-      case '--no-color':
-        cfg.colorOutput = false;
-        break;
-      case '--debug':
-        cfg.logLevel = LogLevel.DEBUG;
-        break;
-    }
-  }
-
-  // sanity guards
-  if (cfg.maxThoughts < 1) cfg.maxThoughts = 1;
-  if (cfg.maxThoughtLength < 100) cfg.maxThoughtLength = 100;
-  if (cfg.timeoutMs < 1000) cfg.timeoutMs = 1000;
-
-  return cfg;
-}
-
-// ---------------------------------------------------------------------------
-// Thought‑related data structures
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Thought Data Schema (Unchanged)
+// ----------------------------------------------------------------------------
 
 export interface ThoughtData {
   thought: string;
@@ -124,378 +83,334 @@ export interface ThoughtData {
   revises_thought?: number;
   branch_from_thought?: number;
   branch_id?: string;
-  needs_more_thoughts?: boolean;
+  needs_more_thoughts?: boolean; // Optional flag for client hints
 }
 
-interface PerformanceMetric {
-  thoughtNumber: number;
-  processingTimeMs: number;
-  thoughtLength: number;
-  timestamp: string;
+// Zod schema remains the same for robust validation
+const ThoughtDataSchema = z
+  .object({
+    thought: z.string().trim().min(1, 'Thought cannot be empty.'),
+    thought_number: z.number().int().positive('Thought number must be a positive integer.'),
+    total_thoughts: z.number().int().positive('Total thoughts must be a positive integer.'),
+    next_thought_needed: z.boolean(),
+    is_revision: z.boolean().optional(),
+    revises_thought: z.number().int().positive().optional(),
+    branch_from_thought: z.number().int().positive().optional(),
+    branch_id: z.string().trim().min(1).optional(),
+    needs_more_thoughts: z.boolean().optional(),
+  })
+  .refine(
+    data => {
+      if (data.is_revision === true) {
+        return (
+          typeof data.revises_thought === 'number' &&
+          data.branch_id === undefined &&
+          data.branch_from_thought === undefined
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        'If is_revision is true, revises_thought (number) is required, and branch_id/branch_from_thought must not be set.',
+      path: ['is_revision', 'revises_thought', 'branch_id', 'branch_from_thought'],
+    }
+  )
+  .refine(
+    data => {
+      if (data.is_revision !== true && data.revises_thought !== undefined) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Cannot set revises_thought if is_revision is not true.',
+      path: ['revises_thought'],
+    }
+  )
+  .refine(
+    data => {
+      if (data.branch_id !== undefined || data.branch_from_thought !== undefined) {
+        return (
+          typeof data.branch_id === 'string' &&
+          typeof data.branch_from_thought === 'number' &&
+          data.is_revision !== true
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        'If branching, both branch_id (string) and branch_from_thought (number) are required, and is_revision must not be true.',
+      path: ['branch_id', 'branch_from_thought', 'is_revision'],
+    }
+  );
+
+type ValidatedThoughtData = z.infer<typeof ThoughtDataSchema>;
+
+// ----------------------------------------------------------------------------
+// JSON Schema
+// ----------------------------------------------------------------------------
+
+// Function to generate JSON schema from Zod schema
+function createJsonSchemaFromThoughtDataSchema(): {
+  type: 'object';
+  required: string[];
+  properties: Record<string, unknown>;
+  additionalProperties: boolean;
+  $schema: string;
+  title: string;
+} {
+  return {
+    type: 'object',
+    required: ['thought', 'thought_number', 'total_thoughts', 'next_thought_needed'],
+    properties: {
+      thought: { type: 'string', minLength: 1 },
+      thought_number: { type: 'integer', minimum: 1 },
+      total_thoughts: { type: 'integer', minimum: 1 },
+      next_thought_needed: { type: 'boolean' },
+      is_revision: { type: 'boolean' },
+      revises_thought: { type: 'integer', minimum: 1 },
+      branch_from_thought: { type: 'integer', minimum: 1 },
+      branch_id: { type: 'string', minLength: 1 },
+      needs_more_thoughts: { type: 'boolean' },
+    },
+    additionalProperties: false, // Keep strict schema adherence
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    title: 'ThoughtDataInput',
+  };
 }
 
-// ---------------------------------------------------------------------------
-//  Code Reasoning Tool Definition (Prompt v0.4)
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Code Reasoning Tool Definition
+// ----------------------------------------------------------------------------
 
 const CODE_REASONING_TOOL: Tool = {
   name: 'code-reasoning',
   description: `
-🧠 **Code Reasoning Tool** – private, recursive chain-of-thought
+🧠 **Code Reasoning Tool** – a reflective problem-solving tool with sequential thinking.
 
-• Turn big problems into a sequence of **numbered thoughts** that may **BRANCH** (🌿) or **REVISE** (🔄) until one clear answer emerges.
-• _Always_ set \`next_thought_needed\` = false when every open question is resolved.
+• Break down tasks into **numbered thoughts** that can **BRANCH** (🌿) or **REVISE** (🔄) until a conclusion is reached.
+• Always set \`next_thought_needed\` = false when no further reasoning is needed.
 
 ✅ Recommended checklist **every 3 thoughts**:
 1. Need to BRANCH?   → set \`branch_from_thought\` + \`branch_id\`.
 2. Need to REVISE?   → set \`is_revision\` + \`revises_thought\`.
 3. Scope changed? → bump \`total_thoughts\`.
 
-✍️ *End every thought by quietly asking yourself: “What am I missing?”*
+✍️ *End each thought with: “What am I missing?”*
 `,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      thought: { type: 'string' },
-      next_thought_needed: { type: 'boolean' },
-      thought_number: { type: 'integer', minimum: 1 },
-      total_thoughts: { type: 'integer', minimum: 1 },
-      is_revision: { type: 'boolean' },
-      revises_thought: { type: 'integer', minimum: 1 },
-      branch_from_thought: { type: 'integer', minimum: 1 },
-      branch_id: { type: 'string' },
-      needs_more_thoughts: { type: 'boolean' },
-    },
-    required: ['thought', 'next_thought_needed', 'thought_number', 'total_thoughts'],
-  },
+  inputSchema: createJsonSchemaFromThoughtDataSchema(),
 };
 
-// ---------------------------------------------------------------------------
-//  CodeReasoningServer class (unchanged logic, just documentation tweaks)
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// The Core Server Logic
+// ----------------------------------------------------------------------------
 
 class CodeReasoningServer {
-  private thoughtHistory: ThoughtData[] = [];
-  private branches: Record<string, ThoughtData[]> = {};
+  // Core state remains
+  private thoughtHistory: ValidatedThoughtData[] = [];
+  private branches: Record<string, ValidatedThoughtData[]> = {}; // Stores branched thoughts by branch_id
+
   private logger: Logger;
   private config: CodeReasoningConfig;
-  private performanceMetrics: PerformanceMetric[] = [];
-  private errorCounts: Record<string, number> = {}; // Track error types/messages
 
   constructor(logger: Logger, config: CodeReasoningConfig) {
     this.logger = logger;
     this.config = config;
-    this.logger.info('Code Reasoning Server initialized with configuration', {
-      config: this.config,
-    });
+    this.logger.info('Code Reasoning Server logic handler initialized', { config: this.config });
   }
 
-  /** Validates the input data against the ThoughtData interface and configuration limits. */
-  private validateThoughtData(input: unknown): ThoughtData {
-    this.logger.debug('Validating thought data', input as Record<string, unknown>);
-
-    if (typeof input !== 'object' || input === null) {
-      throw new Error('Invalid input: must be an object');
-    }
-
-    const data = input as Record<string, unknown>; // Use 'unknown' for type-safe validation
-
-    // Required fields
-    if (!data.thought || typeof data.thought !== 'string' || data.thought.trim() === '') {
-      throw new Error('Invalid or empty thought: must be a non-empty string');
-    }
-    if (
-      typeof data.thought_number !== 'number' ||
-      !Number.isInteger(data.thought_number) ||
-      data.thought_number < 1
-    ) {
-      throw new Error('Invalid thought_number: must be a positive integer');
-    }
-    if (
-      typeof data.total_thoughts !== 'number' ||
-      !Number.isInteger(data.total_thoughts) ||
-      data.total_thoughts < 1
-    ) {
-      throw new Error('Invalid total_thoughts: must be a positive integer');
-    }
-    if (typeof data.next_thought_needed !== 'boolean') {
-      throw new Error('Invalid next_thought_needed: must be a boolean');
-    }
-
-    // Length check
-    if (data.thought.length > this.config.maxThoughtLength) {
-      throw new Error(
-        `Thought exceeds maximum length of ${this.config.maxThoughtLength} characters. Please break it into multiple thoughts.`
-      );
-    }
-
-    // Conditional validation for revision
-    if (data.is_revision === true) {
-      if (
-        typeof data.revises_thought !== 'number' ||
-        !Number.isInteger(data.revises_thought) ||
-        data.revises_thought < 1
-      ) {
-        throw new Error(
-          'Invalid revises_thought: must be a positive integer when is_revision is true'
-        );
-      }
-      if (data.branch_id || data.branch_from_thought) {
-        throw new Error('Cannot specify branch information when is_revision is true');
-      }
-    } else if (data.revises_thought !== undefined) {
-      throw new Error('Cannot specify revises_thought when is_revision is not true');
-    }
-
-    // Conditional validation for branching
-    if (data.branch_id || data.branch_from_thought) {
-      if (typeof data.branch_id !== 'string' || data.branch_id.trim() === '') {
-        throw new Error('Invalid branch_id: must be a non-empty string when branching');
-      }
-      if (
-        typeof data.branch_from_thought !== 'number' ||
-        !Number.isInteger(data.branch_from_thought) ||
-        data.branch_from_thought < 1
-      ) {
-        throw new Error('Invalid branch_from_thought: must be a positive integer when branching');
-      }
-      if (data.is_revision === true) {
-        // Redundant check, but safe
-        throw new Error('Cannot specify revision information when branching');
-      }
-    } else if (data.branch_id !== undefined || data.branch_from_thought !== undefined) {
-      throw new Error('Must provide both branch_id and branch_from_thought when branching');
-    }
-
-    // Optional fields type checks
-    if (data.needs_more_thoughts !== undefined && typeof data.needs_more_thoughts !== 'boolean') {
-      throw new Error('Invalid needs_more_thoughts: must be a boolean if provided');
-    }
-
-    // Return validated and typed data
-    return {
-      thought: data.thought as string,
-      thought_number: data.thought_number as number,
-      total_thoughts: data.total_thoughts as number,
-      next_thought_needed: data.next_thought_needed as boolean,
-      is_revision: data.is_revision as boolean | undefined,
-      revises_thought: data.revises_thought as number | undefined,
-      branch_from_thought: data.branch_from_thought as number | undefined,
-      branch_id: data.branch_id as string | undefined,
-      needs_more_thoughts: data.needs_more_thoughts as boolean | undefined,
-    };
-  }
-
-  /** Formats a thought for enhanced visualization in the console/logs. */
-  private formatThought(thoughtData: ThoughtData): string {
+  /**
+   * Format a single thought for simplified, colorized output to stderr.
+   */
+  private formatThought(thoughtData: ValidatedThoughtData): string {
     const {
       thought_number,
       total_thoughts,
       thought,
       is_revision,
       revises_thought,
-      branch_from_thought,
       branch_id,
+      branch_from_thought,
     } = thoughtData;
 
     let prefix = '';
     let context = '';
-    let progressBar = '';
-    let connectionPrefix = '';
+    let headerText = '';
 
-    // Enhanced Visualization elements (conditionally applied)
-    if (this.config.enhancedVisualization) {
-      // Create a visual progress bar
-      const progressPercentage = Math.min(
-        100,
-        Math.max(0, Math.round((thought_number / total_thoughts) * 100))
-      );
-      const progressFilled = Math.floor(progressPercentage / 10);
-      const progressBarChars = 10;
-      progressBar = `[${'='.repeat(progressFilled)}${' '.repeat(progressBarChars - progressFilled)}] ${progressPercentage}%`;
+    // Color helpers using chalk
+    const headerChalk = this.config.colorOutput ? chalk.bold : (s: string) => s;
+    const revisionChalk = this.config.colorOutput ? chalk.yellow : (s: string) => s;
+    const branchChalk = this.config.colorOutput ? chalk.green : (s: string) => s;
+    const thoughtChalk = this.config.colorOutput ? chalk.blue : (s: string) => s;
+    const dimChalk = this.config.colorOutput ? chalk.dim : (s: string) => s;
 
-      // Add visual connector lines to show relationships
-      if (is_revision) {
-        connectionPrefix = chalk.yellow('  ↑↑ Revises Thought\n');
-      } else if (branch_from_thought) {
-        connectionPrefix = chalk.green('  ↳ Branch\n');
-      } else if (thought_number > 1) {
-        // Indicate continuation of the main thread
-        connectionPrefix = chalk.gray('  ↓ Continue\n');
-      }
-    }
-
-    // Determine prefix and context based on thought type
     if (is_revision) {
-      prefix = chalk.yellow('🔄 Revision');
-      context = ` (revising thought ${revises_thought})`;
+      prefix = revisionChalk('🔄 Revision');
+      context = dimChalk(`(revising thought ${revises_thought})`);
     } else if (branch_from_thought) {
-      prefix = chalk.green('🌿 Branch');
-      context = ` (from thought ${branch_from_thought}, ID: ${branch_id})`;
+      prefix = branchChalk('🌿 Branch');
+      context = dimChalk(`(from thought ${branch_from_thought}, ID: ${branch_id})`);
     } else {
-      prefix = chalk.blue('💭 Thought');
+      prefix = thoughtChalk('💭 Thought');
     }
 
-    const header = `${prefix} ${thought_number}/${total_thoughts}${context} ${progressBar}`;
-    // Calculate border width based on header or thought content, whichever is longer
-    const contentWidth = thought.split('\n').reduce((max, line) => Math.max(max, line.length), 0);
-    const headerWidth = header.replace(/\\u001b\[[0-9;]*m/g, '').length; // Strip ANSI codes for length calculation
-    const innerWidth = Math.max(headerWidth, contentWidth);
-    const border = '─'.repeat(innerWidth + 2); // +2 for padding spaces
+    headerText = `${prefix} ${thought_number}/${total_thoughts} ${context}`;
 
-    // Pad thought content lines
-    const paddedThoughtLines = thought
+    const separator = dimChalk('---');
+    // Indent thought content slightly for readability
+    const formattedThought = thought
       .split('\n')
-      .map(line => `│ ${line.padEnd(innerWidth)} │`)
+      .map(line => `  ${line}`)
       .join('\n');
 
-    return `
-${connectionPrefix}┌${border}┐
-│ ${header.padEnd(innerWidth + (header.length - headerWidth))} │
-├${border}┤
-${paddedThoughtLines}
-└${border}┘`;
+    return `\n${headerChalk(headerText)}\n${separator}\n${formattedThought}\n${separator}`;
   }
 
-  /** Provides example ThoughtData structures for error guidance. */
-  private getExampleThought(errorMsg: string): ThoughtData | object {
-    // Determine which example to provide based on the error
+  /**
+   * Pick an example thought object to give user guidance on input format if errors occur.
+   */
+  private getExampleThought(errorMsg: string): Partial<ThoughtData> {
     if (errorMsg.includes('branch')) {
       return {
-        thought: "I'll explore an alternative approach by considering a different algorithm.",
-        thought_number: 3, // Example number
+        thought: 'Exploring alternative: Consider algorithm X.',
+        thought_number: 3,
         total_thoughts: 7,
         next_thought_needed: true,
         branch_from_thought: 2,
-        branch_id: 'alternative-algorithm',
+        branch_id: 'alternative-algo-x',
       };
     } else if (errorMsg.includes('revis')) {
       return {
-        thought: 'I now realize my earlier assessment was incorrect. Let me revise my reasoning.',
-        thought_number: 4, // Example number
+        thought: 'Revisiting earlier point: Assumption Y was flawed.',
+        thought_number: 4,
         total_thoughts: 6,
         next_thought_needed: true,
         is_revision: true,
         revises_thought: 2,
       };
-    } else if (errorMsg.includes('length')) {
+    } else if (errorMsg.includes('length') || errorMsg.includes('Thought cannot be empty')) {
       return {
-        thought:
-          'This thought is too long... [break it here]\n...and continue in the next thought.',
+        thought: 'Breaking down the thought into smaller parts...',
         thought_number: 2,
         total_thoughts: 5,
         next_thought_needed: true,
       };
     }
-
-    // Default example for basic structure
+    // Default fallback
     return {
-      thought:
-        "Here I'm analyzing the problem step by step, breaking it down into manageable parts.",
+      thought: 'Initial exploration of the problem.',
       thought_number: 1,
       total_thoughts: 5,
       next_thought_needed: true,
     };
   }
 
-  /** Tracks performance metrics for thought processing. */
-  private trackPerformanceMetrics(thought: ThoughtData, processingTimeMs: number): void {
-    const metric: PerformanceMetric = {
-      thoughtNumber: thought.thought_number,
-      processingTimeMs,
-      thoughtLength: thought.thought.length,
-      timestamp: new Date().toISOString(),
+  /**
+   * Builds the success response for the MCP client.
+   */
+  private _buildSuccessResponse(thoughtData: ValidatedThoughtData): CallToolResult {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              status: 'processed',
+              thought_number: thoughtData.thought_number,
+              total_thoughts: thoughtData.total_thoughts,
+              next_thought_needed: thoughtData.next_thought_needed,
+              branches: Object.keys(this.branches),
+              thought_history_length: this.thoughtHistory.length,
+            },
+            null,
+            2 // Pretty print JSON response
+          ),
+        },
+      ],
+      isError: false,
     };
-    this.performanceMetrics.push(metric);
+  }
 
-    // Keep only the last N metrics (e.g., 100) to avoid memory leak
-    const MAX_METRICS = 100;
-    if (this.performanceMetrics.length > MAX_METRICS) {
-      this.performanceMetrics.shift(); // Remove the oldest metric
-    }
+  /**
+   * Builds the error response for the MCP client.
+   */
+  private _buildErrorResponse(error: Error): CallToolResult {
+    let errMsg = error.message;
+    let guidance = 'Check the tool description and provided schema for correct usage.';
+    const example = this.getExampleThought(errMsg); // Use helper to provide relevant example
 
-    // Log if performance seems degraded (e.g., significantly slower than recent average)
-    const recentMetrics = this.performanceMetrics.slice(-10); // Analyze last 10
-    if (recentMetrics.length >= 5) {
-      // Only analyze if we have enough data points
-      const averageTime =
-        recentMetrics.reduce((sum, m) => sum + m.processingTimeMs, 0) / recentMetrics.length;
-      const warningThreshold = Math.max(averageTime * 2, 500); // e.g., 2x average or > 500ms
-
-      if (processingTimeMs > warningThreshold) {
-        this.logger.warn('Potential performance degradation detected', {
-          thoughtNumber: thought.thought_number,
-          processingTimeMs: `${processingTimeMs}ms`,
-          recentAverageMs: `${averageTime.toFixed(2)}ms`,
-          thresholdMs: `${warningThreshold.toFixed(2)}ms`,
-        });
+    if (error instanceof ZodError) {
+      errMsg = `Validation Error: ${error.errors
+        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .join(', ')}`;
+      // Provide specific guidance based on Zod error path
+      const firstPath = error.errors[0]?.path.join('.');
+      if (firstPath?.includes('thought') && !firstPath.includes('number')) {
+        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${this.config.maxThoughtLength} characters.`;
+      } else if (firstPath?.includes('thought_number')) {
+        guidance = 'Ensure thought_number is a positive integer and increments correctly.';
+      } else if (firstPath?.includes('branch')) {
+        guidance =
+          'When branching, provide both "branch_from_thought" (number) and "branch_id" (string), and do not combine with revision (is_revision=true).';
+      } else if (firstPath?.includes('revision')) {
+        guidance =
+          'When revising, set is_revision=true and provide revises_thought (positive number). Do not combine with branching.';
       }
+    } else if (errMsg.includes('length')) {
+      guidance = `The thought is too long. Keep it under ${this.config.maxThoughtLength} characters.`;
+    } else if (errMsg.includes('Max thought_number exceeded')) {
+      guidance = `The maximum thought limit (${this.config.maxThoughts}) was reached.`;
     }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              error: errMsg,
+              status: 'failed',
+              guidance,
+              example, // Provide example for user correction
+            },
+            null,
+            2 // Pretty print JSON response
+          ),
+        },
+      ],
+      isError: true,
+    };
   }
 
-  /** Tracks error occurrences to identify patterns. */
-  private trackError(error: Error, _input: unknown): void {
-    // Use a simplified key for grouping similar errors
-    const errorKey = error.message.split(':')[0] || 'Unknown Error'; // Group by first part of message
-    this.errorCounts[errorKey] = (this.errorCounts[errorKey] || 0) + 1;
-
-    // Log a warning if a specific error type becomes frequent
-    const ERROR_THRESHOLD = 5; // Log after 5 occurrences of the same error type
-    const currentCount = this.errorCounts[errorKey];
-    if (currentCount === ERROR_THRESHOLD) {
-      // Log only the first time threshold is reached
-      this.logger.warn('High frequency of specific error type detected', {
-        errorType: errorKey,
-        count: currentCount,
-        errorMessage: error.message,
-        // Avoid logging potentially large/sensitive input directly in the warning
-        // inputSample: JSON.stringify(input).substring(0, 100) + '...'
-      });
-    }
-  }
-
-  /** Processes a single thought, handling validation, state updates, and formatting. */
-  public async processThought(input: unknown): Promise<{
-    content: Array<{ type: string; text: string }>;
-    isError?: boolean;
-  }> {
-    const startTime = Date.now();
-    let validatedInput: ThoughtData | null = null;
+  /**
+   * Main method to process a "thought" from the MCP client.
+   */
+  public async processThought(input: unknown): Promise<CallToolResult> {
+    const start = Date.now();
+    let validated: ValidatedThoughtData | null = null;
 
     try {
-      // 1. Validation
-      validatedInput = this.validateThoughtData(input);
+      // 1. Validate input using Zod schema
+      this.logger.debug('Validating thought data', { input });
+      validated = ThoughtDataSchema.parse(input);
+      this.logger.debug('Validation successful', { thought_number: validated.thought_number });
 
-      // 2. Timeout Check (early)
-      if (Date.now() - startTime > this.config.timeoutMs) {
-        throw new Error(`Thought processing timed out after ${this.config.timeoutMs}ms`);
+      // 2. Check thought length against config
+      if (validated.thought.length > this.config.maxThoughtLength) {
+        throw new Error(
+          `Thought exceeds maximum length of ${this.config.maxThoughtLength} characters. Break it into multiple steps.`
+        );
       }
 
-      this.logger.debug('Processing validated thought', {
-        thought_number: validatedInput.thought_number,
-        is_revision: validatedInput.is_revision,
-        branch_from_thought: validatedInput.branch_from_thought,
-        branch_id: validatedInput.branch_id,
-      });
-
-      // 3. Abort Check (Max Thoughts)
-      if (validatedInput.thought_number > this.config.maxThoughts) {
-        this.logger.warn(
-          `Aborting thought chain - exceeded max thoughts (${this.config.maxThoughts})`,
-          {
-            thought_number: validatedInput.thought_number,
-          }
-        );
-
-        // Generate statistics about the aborted thought process
-        const mainThreadThoughts = this.thoughtHistory.filter(t => !t.branch_id && !t.is_revision);
-        const branches = Object.entries(this.branches).map(([id, thoughts]) => ({
-          id,
-          count: thoughts.length,
-          from: thoughts.length > 0 ? thoughts[0].branch_from_thought : undefined, // Safely access first thought
-        }));
-        const revisions = this.thoughtHistory.filter(t => t.is_revision);
-
+      // 3. Check max thoughts limit
+      if (validated.thought_number > this.config.maxThoughts) {
+        this.logger.warn('Aborting chain - exceeded max thoughts', {
+          max: this.config.maxThoughts,
+          current: validated.thought_number,
+        });
+        // Return specific error response for max thoughts exceeded
         return {
           content: [
             {
@@ -503,314 +418,169 @@ ${paddedThoughtLines}
               text: JSON.stringify(
                 {
                   error: `Max thought_number exceeded (${this.config.maxThoughts})`,
-                  summary: `Aborting chain of thought after ${this.config.maxThoughts} steps.`,
                   status: 'aborted',
-                  thoughtStats: {
-                    totalThoughtsProcessed: this.thoughtHistory.length,
-                    mainThreadCount: mainThreadThoughts.length,
-                    branchCount: Object.keys(this.branches).length,
-                    branchDetails: branches,
-                    revisionCount: revisions.length,
-                  },
+                  totalProcessed: this.thoughtHistory.length,
                 },
                 null,
                 2
               ),
             },
           ],
-          isError: true, // Indicate this is an error state
+          isError: true,
         };
       }
 
-      // 4. Adjust total_thoughts if necessary
-      if (validatedInput.thought_number > validatedInput.total_thoughts) {
+      // 4. Adjust total_thoughts if necessary (ensure progress is possible)
+      if (validated.thought_number > validated.total_thoughts) {
         this.logger.debug('Adjusting total_thoughts to match current thought_number', {
-          old_total: validatedInput.total_thoughts,
-          new_total: validatedInput.thought_number,
+          old_total: validated.total_thoughts,
+          new_total: validated.thought_number,
         });
-        validatedInput.total_thoughts = validatedInput.thought_number;
+        validated.total_thoughts = validated.thought_number; // Ensures progress calculation isn't > 100%
       }
 
-      // 5. Update History and Branches
-      this.thoughtHistory.push(validatedInput);
-
-      if (validatedInput.branch_from_thought && validatedInput.branch_id) {
-        if (!this.branches[validatedInput.branch_id]) {
-          this.branches[validatedInput.branch_id] = [];
-          this.logger.info('Created new branch', {
-            branch_id: validatedInput.branch_id,
-            from_thought: validatedInput.branch_from_thought,
+      // 5. Update histories (main history and branches if applicable)
+      this.thoughtHistory.push(validated);
+      if (validated.branch_from_thought && validated.branch_id) {
+        // Initialize branch array if it doesn't exist
+        if (!this.branches[validated.branch_id]) {
+          this.branches[validated.branch_id] = [];
+          this.logger.info('Created a new branch', {
+            branch_id: validated.branch_id,
+            from_thought: validated.branch_from_thought,
           });
         }
-        this.branches[validatedInput.branch_id].push(validatedInput);
+        this.branches[validated.branch_id].push(validated);
       }
 
-      // 6. Format and Log Thought (to console/stderr)
-      const formattedThought = this.formatThought(validatedInput);
-      console.error(formattedThought); // Log formatted thought to stderr
+      // 6. Format & log the thought to stderr (using simplified format)
+      const formatted = this.formatThought(validated);
+      console.error(formatted); // Log formatted thought for debugging/visibility
 
-      // 7. Log Success and Performance
-      const processingTime = Date.now() - startTime;
-      this.trackPerformanceMetrics(validatedInput, processingTime);
+      // 7. Log success and processing time
+      const elapsed = Date.now() - start;
       this.logger.info('Thought processed successfully', {
-        thought_number: validatedInput.thought_number,
-        next_thought_needed: validatedInput.next_thought_needed,
-        branch_count: Object.keys(this.branches).length,
-        history_length: this.thoughtHistory.length,
-        processingTimeMs: processingTime,
+        thought_number: validated.thought_number,
+        is_revision: validated.is_revision ?? false,
+        branch_id: validated.branch_id ?? null,
+        next_thought_needed: validated.next_thought_needed,
+        processingTimeMs: elapsed,
       });
 
-      // 8. Return Result
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                status: 'processed', // More explicit status
-                thought_number: validatedInput.thought_number,
-                total_thoughts: validatedInput.total_thoughts,
-                next_thought_needed: validatedInput.next_thought_needed,
-                branches: Object.keys(this.branches),
-                thought_history_length: this.thoughtHistory.length,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
-    } catch (error) {
-      const processingTime = Date.now() - startTime;
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      // 8. Respond successfully to the MCP client
+      return this._buildSuccessResponse(validated);
+    } catch (err: unknown) {
+      // Handle errors (validation, length check, etc.)
+      const e = err instanceof Error ? err : new Error(String(err));
+      const elapsed = Date.now() - start;
+
+      // Log the error details
       this.logger.error('Error processing thought', {
-        error: errorMsg,
-        stack: error instanceof Error ? error.stack : undefined,
-        processingTimeMs: processingTime,
-        input: input, // Log the raw input on error for debugging
+        error: e.message,
+        // Avoid logging full stack in production INFO level, but maybe DEBUG?
+        // stack: this.config.logLevel === LogLevel.DEBUG ? e.stack : undefined,
+        processingTimeMs: elapsed,
+        // Include partial validated data if validation succeeded before error
+        thought_number: validated?.thought_number,
       });
 
-      // Track the error
-      if (error instanceof Error) {
-        this.trackError(error, input);
-      } else {
-        this.trackError(new Error(errorMsg), input);
-      }
-
-      // Provide enhanced error guidance
-      let guidance = 'Check the tool description and examples for correct usage.';
-      if (errorMsg.includes('thought_number')) {
-        guidance =
-          'Ensure thought_number is a positive integer, incremented correctly from the previous thought.';
-      } else if (errorMsg.includes('next_thought_needed')) {
-        guidance =
-          'Set next_thought_needed=true if more reasoning is required, or false if the current line of thought is complete.';
-      } else if (errorMsg.includes('branch')) {
-        guidance =
-          'When branching, provide both branch_from_thought (number) and a unique branch_id (string). Cannot branch and revise simultaneously.';
-      } else if (errorMsg.includes('revision') || errorMsg.includes('revises')) {
-        guidance =
-          'When revising, set is_revision=true and provide the revises_thought (number). Cannot revise and branch simultaneously.';
-      } else if (errorMsg.includes('length')) {
-        guidance = `The 'thought' content is too long. Break it down into smaller, sequential thoughts under ${this.config.maxThoughtLength} characters each.`;
-      } else if (errorMsg.includes('timeout')) {
-        guidance =
-          'The server took too long to process the thought. This might indicate an internal issue or overly complex request.';
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                error: errorMsg,
-                status: 'failed',
-                guidance,
-                // Provide a relevant example based on the error
-                example: this.getExampleThought(errorMsg),
-              },
-              null,
-              2
-            ),
-          },
-        ],
-        isError: true, // Clearly mark as an error response
-      };
+      // 9. Respond with an error to the MCP client
+      return this._buildErrorResponse(e);
     }
   }
 }
 
-// --- Server Setup and Execution ---
+// ----------------------------------------------------------------------------
+// Server Startup
+// ----------------------------------------------------------------------------
 
-export async function runServer(
-  options: {
-    help?: boolean;
-    // Allow passing args/env for testing or specific invocation scenarios
-    args?: string[];
-    env?: NodeJS.ProcessEnv;
-  } = {}
-) {
-  // Default values
-  const effectiveArgs = options.args ?? process.argv.slice(2);
-  const effectiveEnv = options.env ?? process.env;
-
-  // Early help check before parsing config
-  if (options.help || effectiveArgs.includes('--help') || effectiveArgs.includes('-h')) {
-    console.error(`
-Code-Reasoning MCP Server 
-
-A specialized server using sequential thinking methodology for complex programming tasks.
-
-USAGE:
-  code-reasoning [OPTIONS]
-
-OPTIONS:
-  --debug                       Enable debug logging (sets log level to DEBUG).
-  --help, -h                    Show this help message.
-  --max-thought-length <n>      Maximum character length of a single thought (default: ${defaultConfig.maxThoughtLength}).
-  --timeout-ms <n>              Timeout for processing a single thought in milliseconds (default: ${defaultConfig.timeoutMs}).
-  --max-thoughts <n>            Maximum number of thoughts allowed before auto-abort (default: ${defaultConfig.maxThoughts}).
-  --log-level <level>           Set logging level: ERROR, WARN, INFO, DEBUG (default: ${LogLevel[defaultConfig.logLevel]}).
-  --no-enhanced-visualization   Disable enhanced console visualization (progress bar, connectors).
-  --no-color                    Disable colored console output.
-
-ENVIRONMENT VARIABLES:
-  (Command-line arguments override environment variables)
-  MAX_THOUGHT_LENGTH=<n>       Maximum character length of a single thought.
-  TIMEOUT_MS=<n>               Timeout for processing a single thought in milliseconds.
-  MAX_THOUGHTS=<n>             Maximum number of thoughts allowed before auto-abort.
-  LOG_LEVEL=<level>            Logging level (ERROR, WARN, INFO, DEBUG).
-  ENHANCED_VISUALIZATION=<bool> Enable/disable enhanced console visualization ('true' or 'false').
-  COLOR_OUTPUT=<bool>          Enable/disable colored console output ('true' or 'false').
-
-NOTE:
-  This server registers the "code-reasoning" tool. Ensure your MCP client configuration
-  references the tool name "code-reasoning".
-`);
-    process.exit(0);
-  }
-
-  // Parse configuration from args and env
-  const config = parseConfig(effectiveArgs, effectiveEnv);
-
-  // Initialize logger with configuration
-  // Note: Logger constructor now handles setting chalk level based on config.colorOutput
-  const logger = new Logger(config.logLevel, true, config.colorOutput);
-
-  logger.info('Starting Code-Reasoning MCP Server', {
-    version: '0.3.0', // Update version string if needed
-    logLevel: LogLevel[config.logLevel],
-    config: config, // Log the effective configuration
+export async function runServer(): Promise<void> {
+  // Initialize logger with streamlined config
+  const logger = new Logger(SERVER_CONFIG.logLevel, true, SERVER_CONFIG.colorOutput);
+  const serverVersion = '0.4.0'; // Update version
+  logger.info(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
+    logLevel: LogLevel[SERVER_CONFIG.logLevel],
+    pid: process.pid,
   });
 
-  // Initialize MCP server framework
-  const server = new Server(
+  // Create MCP server instance
+  const mcpServer = new Server(
+    { name: 'code-reasoning-server', version: serverVersion },
     {
-      name: 'code-reasoning-server',
-      version: '0.3.0', // Match version
-    },
-    {
-      capabilities: {
-        tools: {}, // Indicate tool capability
-      },
+      capabilities: { tools: {} }, // Advertise tool capability
     }
   );
 
-  // Initialize our core reasoning logic handler with logger and config
-  const reasoningServer = new CodeReasoningServer(logger, config);
+  // Instantiate the streamlined core logic handler
+  const reasoningLogic = new CodeReasoningServer(logger, SERVER_CONFIG);
 
-  // --- Request Handlers ---
-
-  server.setRequestHandler(ListToolsRequestSchema, async _request => {
-    logger.debug('Handling tools/list request');
-    return {
-      tools: [CODE_REASONING_TOOL], // Return the enhanced tool definition
-    };
+  // Register request handlers
+  mcpServer.setRequestHandler(ListToolsRequestSchema, async _req => {
+    logger.debug('Received ListTools request');
+    return { tools: [CODE_REASONING_TOOL] }; // Return the single defined tool
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async request => {
-    // Cast request to a type that might have an id property
-    type RequestWithPossibleId = typeof request & { id?: string | number };
-    const typedRequest = request as RequestWithPossibleId;
-
-    logger.debug('Handling tools/call request', {
-      tool: request.params.name,
-      // Avoid logging full arguments here, sanitizeMessage in transport handles it
-      requestId: typedRequest.id ?? 'N/A',
-    });
-
+  mcpServer.setRequestHandler(CallToolRequestSchema, async request => {
+    logger.debug('Received CallTool request', { tool_name: request.params.name });
     if (request.params.name === CODE_REASONING_TOOL.name) {
-      // Delegate processing to the reasoning server instance
-      // processThought now handles timeouts, validation, etc.
-      return reasoningServer.processThought(request.params.arguments);
+      return reasoningLogic.processThought(request.params.arguments);
+    } else {
+      // Handle requests for unknown tools
+      const errorMsg = `Unknown tool requested: ${request.params.name}`;
+      logger.error(errorMsg);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ code: -32601, message: errorMsg }) }],
+        isError: true,
+      };
     }
-
-    // Handle unknown tool requests
-    const errorMsg = `Unknown tool requested: ${request.params.name}`;
-    logger.error(errorMsg, { requestedTool: request.params.name });
-
-    // Get request ID safely with proper typing
-    const requestId: string | number | null =
-      'id' in request ? (request as { id: string | number }).id : null;
-
-    // Return a structured JSON-RPC error response
-    const errorResponse: JSONRPCErrorResponse = {
-      jsonrpc: '2.0',
-      id: requestId, // Echo request ID if available
-      error: {
-        code: -32601, // Method not found
-        message: errorMsg,
-        data: { requestedTool: request.params.name },
-      },
-    };
-    // Although setRequestHandler expects a specific return type,
-    // the underlying transport should handle sending JSONRPCErrorResponse correctly.
-    // We construct the expected structure manually here for clarity.
-    return {
-      content: [{ type: 'text', text: JSON.stringify(errorResponse.error) }],
-      isError: true,
-    };
   });
 
-  // --- Transport and Connection ---
-
-  // Connect using the logging-enhanced stdio transport
+  // Connect transport (using custom logging transport)
   const transport = new LoggingStdioServerTransport(logger);
-
-  logger.info('Connecting server using LoggingStdioServerTransport...');
   try {
-    await server.connect(transport);
-    logger.info('Code Reasoning MCP Server running and connected via stdio.');
+    await mcpServer.connect(transport);
+    logger.info('Code Reasoning MCP Server ready and connected via stdio transport.');
   } catch (error) {
-    logger.error('Failed to connect server transport', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error('Failed to connect stdio transport', { error: String(error) });
     process.exit(1); // Exit if connection fails
   }
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
-    logger.info(`Received ${signal}. Shutting down server gracefully...`);
-    await server.close();
-    await transport.close();
-    logger.info('Server shutdown complete.');
-    process.exit(0);
+    logger.info(`Received ${signal}, initiating graceful shutdown...`);
+    try {
+      await mcpServer.close(); // Close MCP connection
+      await transport.close(); // Close transport
+      logger.info('Server shutdown complete.');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during shutdown', { error: String(err) });
+      process.exit(1); // Force exit on shutdown error
+    }
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('uncaughtException', error => {
-    logger.error('Uncaught Exception:', { error: error.message, stack: error.stack });
-    // Consider if a shutdown is needed here, but be cautious of shutdown loops
-    // process.exit(1); // Force exit on unhandled critical errors
+  process.on('SIGINT', () => shutdown('SIGINT')); // Ctrl+C
+  process.on('SIGTERM', () => shutdown('SIGTERM')); // Termination signal
+
+  // Basic global error handlers
+  process.on('uncaughtException', (error, origin) => {
+    logger.error('FATAL: Uncaught exception', { error: error.message, origin, stack: error.stack });
+    // Attempt graceful shutdown, then force exit
+    shutdown('uncaughtException').finally(() => process.exit(1));
   });
-  process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection at:', { promise, reason });
-    // Consider if a shutdown is needed
+
+  process.on('unhandledRejection', (reason, _promise) => {
+    logger.error('FATAL: Unhandled promise rejection', { reason: String(reason) });
+    // Attempt graceful shutdown, then force exit
+    shutdown('unhandledRejection').finally(() => process.exit(1));
   });
 }
 
-// Note: The actual server execution is typically triggered by the main entry point
-// (e.g., index.ts or a bin script in package.json) which imports and calls runServer().
-// Example: if (require.main === module) { runServer(); } // Common pattern if this file were the direct entry point
+// Auto-run if this script is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runServer().catch(err => {
+    // Use console.error here as logger might not be initialized
+    console.error('Server failed to start:', err);
+    process.exit(1);
+  });
+}
