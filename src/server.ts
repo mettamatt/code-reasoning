@@ -63,7 +63,7 @@ interface CodeReasoningConfig {
  * **Single** configuration object. Adjust as needed.
  */
 const SERVER_CONFIG: CodeReasoningConfig = {
-  maxThoughtLength: 2000,
+  maxThoughtLength: 20000, // https://github.com/modelcontextprotocol/servers/issues/751
   timeoutMs: 30_000, // Primarily for logging long operations, actual request timeout might be handled by MCP client/SDK
   maxThoughts: 20,
   logLevel: LogLevel.INFO, // Adjust to DEBUG for more details
@@ -187,19 +187,17 @@ function createJsonSchemaFromThoughtDataSchema(): {
 
 const CODE_REASONING_TOOL: Tool = {
   name: 'code-reasoning',
-  description: `
-🧠 **Code Reasoning Tool** – a reflective problem-solving tool with sequential thinking.
+  description: `🧠 A reflective problem-solving tool with sequential thinking.
 
-• Break down tasks into **numbered thoughts** that can **BRANCH** (🌿) or **REVISE** (🔄) until a conclusion is reached.
-• Always set \`next_thought_needed\` = false when no further reasoning is needed.
+• Break down tasks into numbered thoughts that can BRANCH (🌿) or REVISE (🔄) until a conclusion is reached.
+• Always set 'next_thought_needed' = false when no further reasoning is needed.
 
-✅ Recommended checklist **every 3 thoughts**:
-1. Need to BRANCH?   → set \`branch_from_thought\` + \`branch_id\`.
-2. Need to REVISE?   → set \`is_revision\` + \`revises_thought\`.
-3. Scope changed? → bump \`total_thoughts\`.
+✅ Recommended checklist every 3 thoughts:
+1. Need to BRANCH?   → set 'branch_from_thought' + 'branch_id'.
+2. Need to REVISE?   → set 'is_revision' + 'revises_thought'.
+3. Scope changed? → bump 'total_thoughts'.
 
-✍️ *End each thought with: “What am I missing?”*
-`,
+✍️ End each thought with: "What am I missing?"`,
   inputSchema: createJsonSchemaFromThoughtDataSchema(),
 };
 
@@ -428,6 +426,20 @@ class CodeReasoningServer {
           ],
           isError: true,
         };
+      }
+
+      // 3.5. Check if branch_from_thought references an existing thought
+      if (
+        validated.branch_from_thought !== undefined &&
+        validated.branch_from_thought > this.thoughtHistory.length
+      ) {
+        this.logger.warn('Invalid branch reference', {
+          branch_from_thought: validated.branch_from_thought,
+          thoughtHistory_length: this.thoughtHistory.length,
+        });
+        throw new Error(
+          `Invalid branch_from_thought (${validated.branch_from_thought}): cannot branch from a non-existent thought. Current thought history has ${this.thoughtHistory.length} thoughts.`
+        );
       }
 
       // 4. Adjust total_thoughts if necessary (ensure progress is possible)
