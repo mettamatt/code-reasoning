@@ -39,7 +39,8 @@
     "test:perf": "node dist/test/code-reasoning.e2e.js perf",
     "test:validate": "run-s validate test",
     "test:verbose": "node dist/test/code-reasoning.e2e.js --verbose",
-    "test:all": "node dist/test/code-reasoning.e2e.js all"
+    "test:all": "node dist/test/code-reasoning.e2e.js all",
+    "eval:api": "node dist/test/prompt-evaluation/api-evaluator.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.5.0",
