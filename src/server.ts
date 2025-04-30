@@ -199,17 +199,34 @@ function createJsonSchemaFromThoughtDataSchema(): {
 
 const CODE_REASONING_TOOL: Tool = {
   name: 'code-reasoning',
-  description: `🧠 A reflective problem-solving tool with sequential thinking.
+  description: `🧠 A detailed tool for dynamic and reflective problem-solving through sequential thinking.
 
-• Break down tasks into numbered thoughts that can BRANCH (🌿) or REVISE (🔄) until a conclusion is reached.
-• Always set 'next_thought_needed' = false when no further reasoning is needed.
+This tool helps you analyze problems through a flexible thinking process that can adapt and evolve.
+Each thought can build on, question, or revise previous insights as understanding deepens.
 
-✅ Recommended checklist every 3 thoughts:
-1. Need to BRANCH?   → set 'branch_from_thought' + 'branch_id'.
-2. Need to REVISE?   → set 'is_revision' + 'revises_thought'.
-3. Scope changed? → bump 'total_thoughts'.
+📋 KEY PARAMETERS:
+- thought: Your current reasoning step (required)
+- thought_number: Current number in sequence (required)
+- total_thoughts: Estimated final count (required, can adjust as needed)
+- next_thought_needed: Set to FALSE ONLY when completely done (required)
+- branch_from_thought + branch_id: When exploring alternative approaches (🌿)
+- is_revision + revises_thought: When correcting earlier thinking (🔄)
 
-✍️ End each thought with: "What am I missing?"`,
+✅ CRITICAL CHECKLIST (review every 3 thoughts):
+1. Need to explore alternatives? → Use BRANCH (🌿) with branch_from_thought + branch_id
+2. Need to correct earlier thinking? → Use REVISION (🔄) with is_revision + revises_thought
+3. Scope changed? → Adjust total_thoughts up or down as needed
+4. Only set next_thought_needed = false when you have a complete, verified solution
+
+💡 BEST PRACTICES:
+- Start with an initial estimate of total_thoughts, but adjust as you go
+- Don't hesitate to revise earlier conclusions when new insights emerge
+- Use branching to explore multiple approaches to the same problem
+- Express uncertainty when present
+- Ignore information that is irrelevant to the current step
+- End with a clear, validated conclusion before setting next_thought_needed = false
+
+✍️ End each thought by asking: "What am I missing or need to reconsider?"`,
   inputSchema: createJsonSchemaFromThoughtDataSchema(),
 };
 
