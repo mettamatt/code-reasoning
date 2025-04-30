@@ -1,99 +1,138 @@
-# Pass/Fail Evaluation System for Code Reasoning Tool
+# Prompt Evaluation System
 
-This directory contains a simplified pass/fail evaluation system for the code-reasoning tool, replacing the previous percentage-based system.
+A streamlined, standalone system for evaluating Claude's ability to follow the code reasoning prompts. This system tests parameter adherence and solution quality for different prompts and scenarios.
 
-## Overview
+## Purpose
 
-The pass/fail system performs direct boolean checks against specific criteria instead of calculating percentage scores. Each test scenario is either PASS or FAIL, with clear reasons for failures.
+This tool allows you to:
+- Test different prompt variations against scenario problems
+- Verify Claude's adherence to parameter format requirements
+- Score solution quality for different scenarios
+- Generate comprehensive reports of evaluation results
 
-## How It Works
+## System Architecture
 
-1. **Direct Boolean Checks**: The system performs specific checks for each test scenario, like verifying branching, revision, parameter correctness, etc.
+The system consists of these key files:
 
-2. **Template-Based Feedback**: Clear templates for both pass and fail messages ensure consistent, informative feedback.
+- **evaluator.ts** - Main evaluation logic and CLI interface
+- **api.ts** - API integration with Anthropic's Claude
+- **types.ts** - TypeScript types for the evaluation system
+- **utils.ts** - Utility functions for file I/O, CLI interaction
+- **core-prompts.ts** - Storage and management of different prompt variations
+- **scenarios.ts** - Test scenarios with problems to evaluate
 
-3. **Simplified Reporting**: Reports clearly show pass/fail status with details about which checks failed and why.
+## Setup
 
-## Directory Structure
-
-- `core/types.ts`: Data structures for pass/fail evaluation
-- `core/automated-metrics.ts`: Direct boolean validation checks
-- `core/evaluation.ts`: Pass/fail evaluation logic
-- `core/index.ts`: Export file for the system
-- `api-evaluator.ts`: CLI for running evaluations with the pass/fail system
-- `evaluator.ts`: Tool for viewing scenarios and test results
-- `simple-evaluator.ts`: Simple script for testing a single scenario
-
-## Key Interfaces
-
-### TestResult Interface
-
-```typescript
-export interface TestResult {
-  scenarioId: string;
-  scenarioName: string;
-  status: 'PASS' | 'FAIL';
-  checks: CheckResult[];
-  failureMessage?: string;
-  thoughtChain: ThoughtData[];
-  date: string;
-  modelId: string;
-  promptVariation: string;
-}
-```
-
-### CheckResult Interface
-
-```typescript
-export interface CheckResult {
-  name: string;
-  passed: boolean;
-  details?: string;
-}
-```
-
-### ValidationChecks Interface
-
-```typescript
-export interface ValidationChecks {
-  hasRequiredParameters: boolean;
-  hasSequentialNumbering: boolean;
-  hasBranchingWhenRequired: boolean;
-  hasRevisionWhenRequired: boolean;
-  hasProperTermination: boolean;
-  [key: string]: boolean; // Allow for additional scenario-specific checks
-}
-```
+1. Ensure you have Node.js installed
+2. Make sure you have an Anthropic API key
+3. Create a `.env` file in this directory with your API key:
+   ```
+   ANTHROPIC_API_KEY=your_api_key_here
+   CLAUDE_MODEL=claude-3-7-sonnet-20250219
+   MAX_TOKENS=4000
+   TEMPERATURE=0.2
+   ```
 
 ## Usage
 
-To use the pass/fail evaluation system:
+Run the evaluator from the project root:
 
 ```bash
-# Ensure you have the Anthropic API key set
-export ANTHROPIC_API_KEY=your_api_key
-
-# Run the pass/fail evaluator
-npm run eval:api
-
-# Or view scenarios and test results
-npm run eval:prompt
-
-# Or run a simple test with the first scenario
-npm run eval:simple
+node dist/test/prompt-evaluation/evaluator.js
 ```
 
-The evaluation results will be saved as JSON files and summarized in a markdown report.
+The interactive CLI will guide you through:
+- Selecting different core prompts
+- Running evaluations on specific scenarios or all scenarios
+- Viewing available scenarios
+- Generating reports
 
-### Scenario-Specific Prompts
+## Core Features
 
-The evaluator has been configured to disable scenario-specific prompts by default when running API evaluations. This prevents potential overfitting of results, allowing for a more accurate assessment of the model's general capabilities without specialized guidance tailored to each problem type.
+### Parameter Adherence Testing
+Verifies that the model correctly follows the parameter format specified in the code reasoning tool, including:
+- Required parameters (thought, thought_number, total_thoughts, next_thought_needed)
+- Sequential thought numbering
+- Proper termination
+- Valid branching parameters
+- Valid revision parameters
 
-If you want to re-enable scenario-specific prompts, modify the `evaluateWithAPI` call in `api-evaluator.ts` by changing the fourth parameter from `false` to `true`.
+### Solution Quality Scoring
+Evaluates and scores the quality of solutions for each scenario based on:
+- Correctness
+- Efficiency
+- Approach
+- Implementation details
 
-## Key Benefits
+### Standalone Reports
+Generates comprehensive reports that include:
+- Parameter adherence results
+- Quality scores
+- Complete thought chains
+- All prompts used in the evaluation
 
-1. **Simpler Evaluation Logic**: Direct boolean checks instead of complex percentage calculations
-2. **Clearer Feedback**: Explicit pass/fail status with specific reasons for failures
-3. **Template-Based Approach**: Standardized formats for different thought types in the prompt
-4. **Better Report Format**: Focus on what actually passed or failed rather than arbitrary percentages
+Reports are saved in the `./reports` directory with filenames that include the prompt name and timestamp.
+
+### Multiple Core Prompt Testing
+Allows testing different variations of the core prompt:
+- DEFAULT - The standard code reasoning prompt
+- SEQUENTIAL - A detailed prompt focused on flexible thinking
+- CODING_FOCUSED - A prompt specialized for coding problems
+- ALGORITHM_DESIGN - A prompt optimized for algorithm design
+- CUSTOM - Create your own custom prompt
+
+## Examples
+
+### Testing a Specific Scenario
+
+1. Select "Run evaluation on specific scenario"
+2. Choose a scenario from the list
+3. Wait for the evaluation to complete
+4. Review the results and check the generated report
+
+### Testing with a Custom Prompt
+
+1. Select "Select core prompt"
+2. Choose "CUSTOM" from the list
+3. Enter your custom prompt (type .done on a new line when finished)
+4. Run an evaluation using your custom prompt
+5. Compare results with other prompts
+
+## Extending the System
+
+### Adding New Scenarios
+
+To add new test scenarios, edit the `scenarios.ts` file and add a new entry to the `PROMPT_TEST_SCENARIOS` array:
+
+```typescript
+{
+  id: 'unique-scenario-id',
+  name: 'Human-Readable Scenario Name',
+  description: 'What this scenario is designed to test',
+  problem: 'The actual prompt text that will be sent to Claude',
+  targetSkill: 'branching', // One of: 'branching', 'revision', 'parameters', 'depth', 'completion', 'multiple'
+  difficulty: 'medium', // One of: 'easy', 'medium', 'hard'
+  expectedThoughtsMin: 5,
+  expectedThoughtsMax: 10,
+}
+```
+
+### Adding New Core Prompts
+
+To add new core prompts, edit the `core-prompts.ts` file and add a new entry to the `ALL_PROMPTS` object.
+
+## Simplified vs. Original System
+
+This evaluation system is a streamlined version of the original, with these key differences:
+
+1. **Self-contained:** All functionality is contained within this directory
+2. **Simplified architecture:** Reduced number of files and dependencies
+3. **Focused functionality:** Only includes essential features
+4. **Standalone reports:** Reports include all necessary details without external references
+5. **Improved ease of use:** Simpler CLI interface and more direct workflow
+
+## Troubleshooting
+
+- **API Key Issues**: Ensure your ANTHROPIC_API_KEY is correctly set in the .env file
+- **Missing Reports**: Verify the reports directory exists and has write permissions
+- **Parsing Errors**: If thought chains aren't being extracted properly, check the prompt formatting

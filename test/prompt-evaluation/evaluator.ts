@@ -1,171 +1,472 @@
 /**
- * Pass/Fail Prompt Evaluator
- *
- * This tool allows viewing test scenarios and generating reports
- * from evaluations that were run using the pass/fail evaluation system.
- * For running evaluations, use the api-evaluator.ts module instead.
+ * Main evaluator for prompt testing
  */
-
-import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  PROMPT_TEST_SCENARIOS,
-  selectFromList,
-  displayScenario,
-  generateReport,
-  promptUser,
+import * as dotenv from 'dotenv';
+import chalk from 'chalk';
+import { 
+  ThoughtData, 
+  TestResult, 
+  CheckResult,
+  PromptScenario, 
+  ApiOptions 
+} from './types.js';
+import { PROMPT_TEST_SCENARIOS } from './scenarios.js';
+import { callAPI, evaluateQuality } from './api.js';
+import { getActivePrompt, ALL_PROMPTS, setActivePrompt, setCustomPrompt, SYSTEM_PROMPT } from './core-prompts.js';
+import { 
+  getPaths, 
+  selectFromList, 
+  promptUser, 
   closeReadline,
-  getPaths,
-  TestResult,
-} from './core/index.js';
+  formatDate
+} from './utils.js';
+
+// Load environment variables
+// Ensure we're loading from the correct path
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Setup paths
+const { reportsDir } = getPaths();
+
+// Ensure reports directory exists
+if (!fs.existsSync(reportsDir)) {
+  fs.mkdirSync(reportsDir, { recursive: true });
+}
 
 /**
- * Display evaluation results in a user-friendly format
+ * Check parameter adherence
  */
-async function displayResults(): Promise<void> {
-  const { resultsDir } = getPaths();
+function checkParameterAdherence(thoughtChain: ThoughtData[]): CheckResult[] {
+  const checks: CheckResult[] = [];
+  
+  // Check for required parameters
+  checks.push({
+    name: 'requiredParameters',
+    passed: thoughtChain.every(t => 
+      typeof t.thought === 'string' && 
+      typeof t.thought_number === 'number' && 
+      typeof t.total_thoughts === 'number' && 
+      typeof t.next_thought_needed === 'boolean'
+    ),
+    details: 'All thoughts must have required parameters'
+  });
+  
+  // Check for sequential thought numbering
+  const hasSequentialNumbering = thoughtChain.every((t, i) => 
+    t.thought_number === i + 1
+  );
+  checks.push({
+    name: 'sequentialNumbering',
+    passed: hasSequentialNumbering,
+    details: 'Thought numbers must be sequential'
+  });
+  
+  // Check for proper termination
+  const lastThought = thoughtChain[thoughtChain.length - 1];
+  checks.push({
+    name: 'properTermination',
+    passed: lastThought && lastThought.next_thought_needed === false,
+    details: 'Final thought must have next_thought_needed set to false'
+  });
+  
+  // Check for branching parameters
+  const branchingThoughts = thoughtChain.filter(t => 
+    t.branch_from_thought !== undefined && t.branch_id !== undefined
+  );
+  const validBranching = branchingThoughts.every(t => 
+    typeof t.branch_from_thought === 'number' && 
+    typeof t.branch_id === 'string' &&
+    t.branch_from_thought >= 1 && 
+    t.branch_from_thought < t.thought_number
+  );
+  checks.push({
+    name: 'branchingParameters',
+    passed: branchingThoughts.length === 0 || validBranching,
+    details: 'Branching thoughts must have valid branch_from_thought and branch_id'
+  });
+  
+  // Check for revision parameters
+  const revisionThoughts = thoughtChain.filter(t => 
+    t.is_revision === true
+  );
+  const validRevisions = revisionThoughts.every(t => 
+    t.is_revision === true && 
+    typeof t.revises_thought === 'number' &&
+    t.revises_thought >= 1 && 
+    t.revises_thought < t.thought_number
+  );
+  checks.push({
+    name: 'revisionParameters',
+    passed: revisionThoughts.length === 0 || validRevisions,
+    details: 'Revision thoughts must have is_revision=true and valid revises_thought'
+  });
+  
+  return checks;
+}
 
-  // Read test results
-  const files = fs.readdirSync(resultsDir).filter(f => f.endsWith('.json'));
-  if (files.length === 0) {
-    console.log('No test results found. Run some evaluations first with api-evaluator.ts');
-    return;
+/**
+ * Evaluate a thought chain for a scenario
+ */
+async function evaluateThoughtChain(
+  apiKey: string,
+  scenario: PromptScenario,
+  thoughtChain: ThoughtData[],
+  options: ApiOptions = {}
+): Promise<TestResult> {
+  // Check parameter adherence
+  const checks = checkParameterAdherence(thoughtChain);
+  const allChecksPassed = checks.every(check => check.passed);
+  
+  // Evaluate solution quality
+  const qualityResult = await evaluateQuality(apiKey, scenario, thoughtChain, options);
+  
+  // Determine overall status
+  const status = allChecksPassed ? 'PASS' : 'FAIL';
+  
+  // Create failure message if any checks failed
+  let failureMessage;
+  if (!allChecksPassed) {
+    const failedChecks = checks.filter(check => !check.passed);
+    failureMessage = failedChecks.map(check => `${check.name}: ${check.details}`).join('; ');
   }
+  
+  // Get active prompt details
+  const activePrompt = getActivePrompt();
+  
+  // Create test result
+  const result: TestResult = {
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    status,
+    checks,
+    failureMessage,
+    thoughtChain,
+    date: new Date().toISOString(),
+    modelId: options.model || 'unknown',
+    temperature: options.temperature,
+    qualityScore: qualityResult.success ? qualityResult.qualityScore : undefined,
+    qualityJustification: qualityResult.success ? qualityResult.justification : undefined,
+    
+    // Include all prompts for standalone report
+    promptName: activePrompt.key,
+    corePrompt: activePrompt.prompt,
+    systemPrompt: SYSTEM_PROMPT,
+    scenarioPrompt: scenario.problem,
+    scenarioDetails: scenario,
+  };
+  
+  return result;
+}
 
+/**
+ * Run evaluation on scenarios
+ */
+async function runEvaluation(
+  apiKey: string,
+  scenarios: PromptScenario[],
+  options: ApiOptions = {}
+): Promise<TestResult[]> {
   const results: TestResult[] = [];
-
-  // Try to parse each file as a TestResult
-  for (const file of files) {
+  
+  for (const [index, scenario] of scenarios.entries()) {
+    console.log(chalk.blue(`\nEvaluating scenario ${index + 1} of ${scenarios.length}: ${scenario.name}`));
+    
     try {
-      const content = fs.readFileSync(path.join(resultsDir, file), 'utf8');
-      const parsed = JSON.parse(content);
-      // Basic validation to check if it's a TestResult
-      if (parsed.status && parsed.checks && Array.isArray(parsed.checks)) {
-        results.push(parsed);
+      // Call API
+      const apiResponse = await callAPI(apiKey, scenario.problem, options);
+      
+      // Handle API response
+      if (!apiResponse.success) {
+        console.error(chalk.red(`API error: ${apiResponse.error}`));
+        continue;
+      }
+      
+      const thoughtChain = apiResponse.thoughtChain;
+      if (!thoughtChain || thoughtChain.length === 0) {
+        console.error(chalk.red('No thought chain found in API response'));
+        continue;
+      }
+      
+      // Evaluate the thought chain
+      const result = await evaluateThoughtChain(apiKey, scenario, thoughtChain, options);
+      
+      // Save to results array
+      results.push(result);
+      
+      // Display status
+      const statusText = result.status === 'PASS' ? chalk.green('PASSED') : chalk.red('FAILED');
+      console.log(`\nScenario ${scenario.name}: ${statusText}`);
+      
+      if (result.status === 'FAIL' && result.failureMessage) {
+        console.log(`Failure reason: ${chalk.red(result.failureMessage)}`);
+      }
+      
+      if (result.qualityScore !== undefined) {
+        console.log(`Quality score: ${chalk.yellow(result.qualityScore + '%')}`);
       }
     } catch (error) {
-      // Skip files that aren't valid TestResults (likely older format)
+      console.error(chalk.red(`Error evaluating scenario ${scenario.name}:`), error);
     }
   }
-
-  if (results.length === 0) {
-    console.log('No pass/fail evaluation results found. Run api-evaluator.ts first.');
-    return;
-  }
-
-  console.log('\n===== PASS/FAIL TEST RESULTS =====');
-
-  // Count passes and failures
-  const passed = results.filter(r => r.status === 'PASS').length;
-  const failed = results.filter(r => r.status === 'FAIL').length;
-
-  console.log(
-    `Overall: ${passed} passed, ${failed} failed (${Math.round((passed / results.length) * 100)}% pass rate)\n`
-  );
-
-  // Allow selecting a result to view in detail
-  const selectedResult = await selectFromList(
-    results,
-    r => {
-      const base = `${r.scenarioName}: ${r.status} (${r.date.split('T')[0]})`;
-      return r.qualityScore !== undefined ? `${base} [Quality: ${r.qualityScore}%]` : base;
-    },
-    'Select a result to view details:'
-  );
-
-  // Display detailed result
-  console.log(`\n=== ${selectedResult.scenarioName}: ${selectedResult.status} ===`);
-  console.log(`Date: ${new Date(selectedResult.date).toLocaleString()}`);
-  console.log(`Model: ${selectedResult.modelId}`);
-  console.log(`Variation: ${selectedResult.promptVariation}`);
-
-  // Display quality score if available
-  if (selectedResult.qualityScore !== undefined) {
-    console.log(`\nSolution Quality Score: ${selectedResult.qualityScore}%`);
-  }
-
-  if (selectedResult.status === 'FAIL' && selectedResult.failureMessage) {
-    console.log(`\nFailure reason: ${selectedResult.failureMessage}`);
-  }
-
-  console.log('\nChecks:');
-  selectedResult.checks.forEach(check => {
-    const status = check.passed ? '✅ PASS' : '❌ FAIL';
-    console.log(`- ${check.name}: ${status}`);
-    if (!check.passed && check.details) {
-      console.log(`  Reason: ${check.details}`);
-    }
-  });
-
-  console.log('\nThought Chain:');
-  console.log(`- Total thoughts: ${selectedResult.thoughtChain.length}`);
-  console.log(
-    `- Branches: ${selectedResult.thoughtChain.filter(t => t.branch_id).length > 0 ? 'Yes' : 'No'}`
-  );
-  console.log(
-    `- Revisions: ${selectedResult.thoughtChain.filter(t => t.is_revision).length > 0 ? 'Yes' : 'No'}`
-  );
+  
+  return results;
 }
 
 /**
- * Main menu for the evaluator
+ * Generate report from results
  */
-async function mainMenu(): Promise<void> {
+function generateReport(results: TestResult[]): string {
+  // Get active prompt info
+  const activePrompt = getActivePrompt();
+  
+  // Create report content
+  let report = `# Prompt Evaluation Report\n\n`;
+  report += `Generated: ${new Date().toISOString()}\n\n`;
+  
+  // Add prompt information
+  report += `## Prompt Information\n\n`;
+  report += `**Prompt Name:** ${activePrompt.key}\n\n`;
+  report += `**System Prompt:**\n\`\`\`\n${SYSTEM_PROMPT}\n\`\`\`\n\n`;
+  report += `**Core Prompt:**\n\`\`\`\n${activePrompt.prompt}\n\`\`\`\n\n`;
+  
+  // Add summary
+  report += `## Summary\n\n`;
+  report += `Total scenarios evaluated: ${results.length}\n`;
+  
+  const passedCount = results.filter(r => r.status === 'PASS').length;
+  report += `Scenarios passed: ${passedCount} (${Math.round(passedCount / results.length * 100)}%)\n`;
+  
+  // Calculate average quality score
+  const qualityScores = results.filter(r => r.qualityScore !== undefined).map(r => r.qualityScore!);
+  if (qualityScores.length > 0) {
+    const avgQuality = qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length;
+    report += `Average solution quality: ${Math.round(avgQuality)}%\n\n`;
+  }
+  
+  // Add detailed results
+  report += `## Detailed Results\n\n`;
+  
+  for (const result of results) {
+    report += `### ${result.scenarioName}\n\n`;
+    report += `**Status:** ${result.status}\n`;
+    
+    if (result.qualityScore !== undefined) {
+      report += `**Quality Score:** ${result.qualityScore}%\n`;
+    }
+    
+    if (result.qualityJustification) {
+      report += `**Quality Justification:** ${result.qualityJustification}\n`;
+    }
+    
+    if (result.failureMessage) {
+      report += `**Failure Reason:** ${result.failureMessage}\n`;
+    }
+    
+    // Add check results
+    report += `\n**Parameter Checks:**\n\n`;
+    for (const check of result.checks) {
+      const status = check.passed ? '✅ PASS' : '❌ FAIL';
+      report += `- ${status} ${check.name}: ${check.details}\n`;
+    }
+    
+    // Add thought chain
+    report += `\n**Thought Chain:**\n\n`;
+    for (const thought of result.thoughtChain) {
+      report += `**Thought ${thought.thought_number}/${thought.total_thoughts}:**\n\n`;
+      report += `${thought.thought}\n\n`;
+      
+      // Add metadata
+      const metadata = [];
+      metadata.push(`next_thought_needed: ${thought.next_thought_needed}`);
+      
+      if (thought.is_revision) {
+        metadata.push(`is_revision: true`);
+        metadata.push(`revises_thought: ${thought.revises_thought}`);
+      }
+      
+      if (thought.branch_from_thought) {
+        metadata.push(`branch_from_thought: ${thought.branch_from_thought}`);
+        metadata.push(`branch_id: "${thought.branch_id}"`);
+      }
+      
+      report += `*Metadata: ${metadata.join(', ')}*\n\n`;
+    }
+    
+    report += `---\n\n`;
+  }
+  
+  return report;
+}
+
+/**
+ * Save report to file
+ */
+function saveReport(report: string): string {
+  const timestamp = formatDate();
+  const promptName = getActivePrompt().key;
+  const filename = `report-${promptName}-${timestamp}.md`;
+  const filepath = path.join(reportsDir, filename);
+  
+  fs.writeFileSync(filepath, report);
+  return filepath;
+}
+
+/**
+ * Select prompt interactive function
+ */
+async function selectPromptInteractive(): Promise<void> {
+  console.log('\n=== SELECT CORE PROMPT ===');
+  
+  // Create options list
+  const options = Object.entries(ALL_PROMPTS).map(([key, value]) => ({
+    key,
+    value: value.substring(0, 60) + '...'
+  }));
+  
+  options.push({ key: 'CUSTOM', value: 'Enter your own custom prompt' });
+  
+  // Get user selection
+  const selection = await selectFromList(
+    options,
+    item => `${item.key}: ${item.value}`,
+    'Select a prompt to use:',
+    0
+  );
+  
+  // Handle selection
+  if (selection.key === 'CUSTOM') {
+    console.log('\nEnter your custom prompt. Type .done on a new line when finished:');
+    let customPrompt = '';
+    let line = '';
+    
+    while (true) {
+      line = await promptUser('');
+      if (line.trim() === '.done') break;
+      customPrompt += line + '\n';
+    }
+    
+    setCustomPrompt(customPrompt.trim());
+    console.log(chalk.green('\nCustom prompt set successfully'));
+  } else {
+    setActivePrompt(selection.key);
+    console.log(chalk.green(`\nSelected prompt: ${selection.key}`));
+  }
+}
+
+/**
+ * Main CLI menu
+ */
+async function main(): Promise<void> {
+  console.log(chalk.bold.blue('\n--------------------------------------------------'));
+  console.log(chalk.bold.blue('CODE REASONING TOOL - PROMPT EVALUATOR'));
+  console.log(chalk.bold.blue('--------------------------------------------------\n'));
+  
+  // Check for API key
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error(chalk.red('Error: ANTHROPIC_API_KEY environment variable not set'));
+    console.error(chalk.red('Please add it to your .env file'));
+    return;
+  }
+  
+  // Default options
+  const defaultOptions: ApiOptions = {
+    model: process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
+    temperature: parseFloat(process.env.TEMPERATURE || '0.2'),
+    maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
+  };
+  
+  // Main menu options
+  const options = [
+    { label: 'Select core prompt', value: 'select-prompt' },
+    { label: 'Run evaluation on specific scenario', value: 'run-specific' },
+    { label: 'Run evaluation on all scenarios', value: 'run-all' },
+    { label: 'List available scenarios', value: 'list-scenarios' },
+    { label: 'Exit', value: 'exit' },
+  ];
+  
   let running = true;
-
   while (running) {
-    console.log('\n===== PASS/FAIL PROMPT EVALUATOR =====');
-    console.log('1. Display test scenario');
-    console.log('2. Display evaluation results');
-    console.log('3. Generate report');
-    console.log('4. Exit');
-
-    const choice = await promptUser('\nEnter choice (1-4): ');
-
-    switch (choice) {
-      case '1': {
+    const activePrompt = getActivePrompt();
+    console.log(chalk.yellow(`\nActive prompt: ${activePrompt.key}`));
+    
+    const selection = await selectFromList(options, opt => opt.label, 'Select an option:', 0);
+    
+    switch (selection.value) {
+      case 'select-prompt':
+        await selectPromptInteractive();
+        break;
+        
+      case 'list-scenarios':
+        console.log('\n=== AVAILABLE SCENARIOS ===');
+        PROMPT_TEST_SCENARIOS.forEach((scenario, index) => {
+          console.log(`${index + 1}. ${scenario.name} (${scenario.difficulty}, ${scenario.targetSkill})`);
+        });
+        await promptUser('\nPress Enter to continue...');
+        break;
+        
+      case 'run-specific':
+        console.log('\n=== RUN SPECIFIC SCENARIO ===');
         const scenario = await selectFromList(
           PROMPT_TEST_SCENARIOS,
-          s => `${s.name} (${s.targetSkill}, ${s.difficulty})`,
-          'Select a test scenario:'
+          s => `${s.name} (${s.difficulty}, ${s.targetSkill})`,
+          'Select a scenario to evaluate:',
+          0
         );
-        displayScenario(scenario);
+        
+        console.log(chalk.yellow(`\nRunning evaluation for scenario: ${scenario.name}`));
+        const results = await runEvaluation(apiKey, [scenario], defaultOptions);
+        
+        if (results.length > 0) {
+          const report = generateReport(results);
+          const reportPath = saveReport(report);
+          console.log(chalk.green(`\nReport saved to: ${reportPath}`));
+        }
+        
+        await promptUser('\nPress Enter to continue...');
         break;
-      }
-
-      case '2': {
-        await displayResults();
+        
+      case 'run-all':
+        console.log('\n=== RUN ALL SCENARIOS ===');
+        console.log(chalk.yellow(`Running evaluation for all ${PROMPT_TEST_SCENARIOS.length} scenarios...`));
+        
+        const allResults = await runEvaluation(apiKey, PROMPT_TEST_SCENARIOS, defaultOptions);
+        
+        if (allResults.length > 0) {
+          const allReport = generateReport(allResults);
+          const allReportPath = saveReport(allReport);
+          console.log(chalk.green(`\nReport saved to: ${allReportPath}`));
+        }
+        
+        await promptUser('\nPress Enter to continue...');
         break;
-      }
-
-      case '3': {
-        await generateReport();
-        break;
-      }
-
-      case '4':
+        
+      case 'exit':
+        console.log('\nExiting...');
         running = false;
         break;
-
-      default:
-        console.log('Invalid choice. Please try again.');
     }
   }
-
+  
   closeReadline();
-  console.log('\nThank you for using the Pass/Fail Prompt Evaluator!');
 }
 
-// Run the main menu if this file is executed directly
-const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+// CLI entry point
+// For ES modules, we need a different approach than require.main === module
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
 if (isMainModule) {
-  console.log('Starting Pass/Fail Prompt Evaluator...');
-  console.log('\nNOTE: This tool is for viewing scenarios and test results.');
-  console.log('For running automated evaluations, use: npm run eval:api\n');
-
-  mainMenu().catch(error => {
-    console.error('An error occurred:', error);
-    closeReadline();
-  });
+  main().catch(console.error);
 }
+
+// Export functions for programmatic use
+export {
+  runEvaluation,
+  evaluateThoughtChain,
+  generateReport,
+  saveReport,
+};

@@ -11,24 +11,62 @@
  *   • Proper termination signalling
  */
 
+/**
+ * Defines a scenario for evaluating the code reasoning tool.
+ *
+ * Each scenario targets a specific skill or capability of the code reasoning tool
+ * and provides a problem designed to test that capability.
+ */
 export interface PromptScenario {
+  /**
+   * Unique identifier for the scenario, used in filenames and references.
+   */
   id: string;
+
+  /**
+   * Human-readable name of the scenario, used in displays and reports.
+   */
   name: string;
-  /** concise, human description of the scenario's goal */
+
+  /**
+   * Concise description of what the scenario is designed to test.
+   */
   description: string;
-  /** the user-visible prompt text */
+
+  /**
+   * The actual prompt text sent to the model. This is the problem
+   * statement that the model will attempt to solve.
+   */
   problem: string;
+
+  /**
+   * The primary skill or capability being tested by this scenario.
+   * - 'branching': Tests if the model creates branches for exploring alternatives
+   * - 'revision': Tests if the model corrects earlier mistakes
+   * - 'parameters': Tests correct usage of sequential thinking parameters
+   * - 'depth': Tests deep exploration of complex topics
+   * - 'completion': Tests proper termination of the thought chain
+   * - 'multiple': Tests combinations of multiple skills
+   */
   targetSkill: 'branching' | 'revision' | 'parameters' | 'depth' | 'completion' | 'multiple';
+
+  /**
+   * The relative complexity level of the scenario.
+   */
   difficulty: 'easy' | 'medium' | 'hard';
-  /** recommended thought-count range for grading heuristics */
+
+  /**
+   * The minimum number of thoughts expected for this scenario.
+   * Used in validation to check if there are enough thoughts.
+   */
   expectedThoughtsMin: number;
+
+  /**
+   * The maximum number of thoughts expected for this scenario.
+   * Used for display purposes and setting expectations.
+   * Note: This is not currently used in validation logic.
+   */
   expectedThoughtsMax: number;
-  /** rubric items consumed by the automated metrics harness */
-  evaluationCriteria: {
-    criterion: string;
-    description: string;
-    maxScore: number;
-  }[];
 }
 
 export const PROMPT_TEST_SCENARIOS: PromptScenario[] = [
@@ -45,28 +83,6 @@ export const PROMPT_TEST_SCENARIOS: PromptScenario[] = [
     difficulty: 'medium',
     expectedThoughtsMin: 5,
     expectedThoughtsMax: 12,
-    evaluationCriteria: [
-      {
-        criterion: 'Branch creation',
-        description: 'Creates distinct algorithm branches.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Branch depth',
-        description: 'Develops each branch far enough for fair comparison.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Branch comparison',
-        description: 'Compares trade-offs explicitly.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Branch selection',
-        description: 'Chooses a final approach with clear justification.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -99,24 +115,6 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'medium',
     expectedThoughtsMin: 5,
     expectedThoughtsMax: 10,
-    evaluationCriteria: [
-      { criterion: 'Issue identification', description: 'Spots the logical bug.', maxScore: 5 },
-      {
-        criterion: 'Revision usage',
-        description: 'Uses the revision flag on correction.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Revision clarity',
-        description: 'Explains what was wrong and why.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Solution quality',
-        description: 'Presents a correct & performant fix.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -131,28 +129,6 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'medium',
     expectedThoughtsMin: 6,
     expectedThoughtsMax: 12,
-    evaluationCriteria: [
-      {
-        criterion: 'Thought numbering',
-        description: 'Increments thought_number correctly.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Total thoughts estimation',
-        description: 'Adjusts total_thoughts as needed.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Next thought needed',
-        description: 'Ends chain only when complete.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Parameter consistency',
-        description: 'Uses parameters uniformly.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -167,24 +143,6 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'hard',
     expectedThoughtsMin: 8,
     expectedThoughtsMax: 15,
-    evaluationCriteria: [
-      {
-        criterion: 'Thought comprehensiveness',
-        description: 'Addresses multiple facets per thought.',
-        maxScore: 5,
-      },
-      { criterion: 'Technical depth', description: 'Shows deep understanding.', maxScore: 5 },
-      {
-        criterion: 'Consideration of alternatives',
-        description: 'Evaluates multiple options.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Edge case handling',
-        description: 'Discusses failure modes & edge cases.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -199,28 +157,6 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'easy',
     expectedThoughtsMin: 4,
     expectedThoughtsMax: 8,
-    evaluationCriteria: [
-      {
-        criterion: 'Problem identification',
-        description: 'Notes exponential blow-up.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Solution development',
-        description: 'Produces full, optimised solutions.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Appropriate termination',
-        description: 'Sets next_thought_needed=false at the right time.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Premature termination avoidance',
-        description: 'Does not quit early.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -235,33 +171,6 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'hard',
     expectedThoughtsMin: 10,
     expectedThoughtsMax: 20,
-    evaluationCriteria: [
-      {
-        criterion: 'Branching usage',
-        description: 'Explores alternative optimisation orders.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Revision application',
-        description: 'Revises upon finding conflicts.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Parameter correctness',
-        description: 'Maintains JSON fields correctly.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Thought depth',
-        description: 'Demonstrates compiler internals knowledge.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Reasoning completion',
-        description: 'Converges on a coherent strategy.',
-        maxScore: 5,
-      },
-    ],
   },
 
   // ──────────────────────────────────────────────────────────
@@ -277,23 +186,5 @@ function findMedianSortedArrays(nums1, nums2) {
     difficulty: 'medium',
     expectedThoughtsMin: 6,
     expectedThoughtsMax: 12,
-    evaluationCriteria: [
-      {
-        criterion: 'Branch creation',
-        description: 'Creates separate branches for CDN vs Redis.',
-        maxScore: 5,
-      },
-      { criterion: 'Branch depth', description: 'Analyzes each strategy thoroughly.', maxScore: 5 },
-      {
-        criterion: 'Branch merge',
-        description: 'Integrates insights and converges on a final pick.',
-        maxScore: 5,
-      },
-      {
-        criterion: 'Justification clarity',
-        description: 'Explains why the chosen approach wins.',
-        maxScore: 5,
-      },
-    ],
   },
 ];
