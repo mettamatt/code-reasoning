@@ -391,11 +391,11 @@ class CodeReasoningServer {
 /* -------------------------------------------------------------------------- */
 
 export async function runServer(debugFlag = false): Promise<void> {
-  if (debugFlag) Object.assign(SERVER_CONFIG, { debug: true });
+  const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.6.0' } as const;
   const srv = new Server(serverMeta, { capabilities: { tools: {}, resources: {}, prompts: {} } });
-  const logic = new CodeReasoningServer(SERVER_CONFIG);
+  const logic = new CodeReasoningServer(config);
 
   srv.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
   srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
