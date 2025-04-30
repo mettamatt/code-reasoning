@@ -18,7 +18,7 @@ import {
 import { getPaths, selectFromList, promptUser, closeReadline, formatDate } from './utils.js';
 
 // Get project paths from utility function
-const { rootDir, evaluationsDir, reportsDir } = getPaths();
+const { evaluationsDir, reportsDir } = getPaths();
 
 // Load environment variables from the correct location
 const envPath = path.join(evaluationsDir, '.env');

@@ -161,8 +161,8 @@ Output your evaluation as a valid JSON object with EXACTLY this structure:
 
     return {
       success: true,
-      qualityScore: evaluation.qualityScore,
-      justification: evaluation.justification,
+      qualityScore: evaluation.qualityScore as number,
+      justification: evaluation.justification as string,
     };
   } catch (error) {
     return {
