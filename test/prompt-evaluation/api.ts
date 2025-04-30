@@ -7,8 +7,8 @@ import { getActivePrompt, SYSTEM_PROMPT } from './core-prompts.js';
 // Create a formatted prompt
 export function createPrompt(scenarioPrompt: string): string {
   const { prompt: toolDescription } = getActivePrompt();
-  
-  let prompt = `I'd like you to solve a problem using sequential thinking methodology.
+
+  const prompt = `I'd like you to solve a problem using sequential thinking methodology.
 Break down your reasoning into explicit steps.
 
 Here is the code reasoning tool description that explains the format to use:
@@ -40,7 +40,8 @@ REMEMBER: Each thought MUST be a valid JSON object containing at minimum the exa
 
 // Extract thought records from API response
 export function extractThoughtRecords(text: string): ThoughtData[] {
-  const JSON_PATTERN = /```(?:json)?\s*({[\s\S]*?})\s*```|({[\s\S]*?"next_thought_needed"[\s\S]*?})/g;
+  const JSON_PATTERN =
+    /```(?:json)?\s*({[\s\S]*?})\s*```|({[\s\S]*?"next_thought_needed"[\s\S]*?})/g;
   const records: ThoughtData[] = [];
   const matches = text.matchAll(JSON_PATTERN);
 
@@ -66,23 +67,19 @@ export function extractThoughtRecords(text: string): ThoughtData[] {
 }
 
 // Call the Anthropic API
-export async function callAPI(
-  apiKey: string,
-  scenarioPrompt: string,
-  options: ApiOptions = {}
-) {
+export async function callAPI(apiKey: string, scenarioPrompt: string, options: ApiOptions = {}) {
   const defaultOptions = {
     model: process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
     maxTokens: parseInt(process.env.MAX_TOKENS || '4000'),
     temperature: parseFloat(process.env.TEMPERATURE || '0.2'),
   };
-  
+
   const cfg = { ...defaultOptions, ...options };
-  
+
   try {
     const { Anthropic } = await import('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey });
-    
+
     const resp = await client.messages.create({
       model: cfg.model,
       max_tokens: cfg.maxTokens,
@@ -90,17 +87,17 @@ export async function callAPI(
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: createPrompt(scenarioPrompt) }],
     });
-    
+
     const raw = resp.content?.[0]?.type === 'text' ? resp.content[0].text : '';
     const thoughtChain = extractThoughtRecords(raw);
-    
+
     return { success: true, thoughtChain, rawResponse: raw };
   } catch (error) {
     return { success: false, error: (error as Error).message };
   }
 }
 
-// Evaluate solution quality 
+// Evaluate solution quality
 export async function evaluateQuality(
   apiKey: string,
   scenario: PromptScenario,
@@ -111,13 +108,13 @@ export async function evaluateQuality(
     model: process.env.CLAUDE_MODEL || 'claude-3-7-sonnet-20250219',
     temperature: 0.2,
   };
-  
+
   const cfg = { ...defaultOptions, ...options };
-  
+
   try {
     const { Anthropic } = await import('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey });
-    
+
     const prompt = `You are a RIGOROUS, CRITICAL evaluator assessing the quality of a solution to a coding or system design problem. Be exceptionally demanding in your evaluation.
 
 PROBLEM:
@@ -147,7 +144,8 @@ Output your evaluation as a valid JSON object with EXACTLY this structure:
       model: cfg.model,
       max_tokens: 1000,
       temperature: cfg.temperature,
-      system: 'You are an expert, highly critical evaluator of solution quality with exceptionally high standards. Be rigorous and strict in your assessment. Return valid JSON only.',
+      system:
+        'You are an expert, highly critical evaluator of solution quality with exceptionally high standards. Be rigorous and strict in your assessment. Return valid JSON only.',
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -156,20 +154,20 @@ Output your evaluation as a valid JSON object with EXACTLY this structure:
     if (!json) throw new Error('No JSON found in response');
 
     const evaluation = JSON.parse(json);
-    
+
     if (typeof evaluation.qualityScore !== 'number') {
       throw new Error('Invalid quality evaluation: missing qualityScore');
     }
 
-    return { 
-      success: true, 
-      qualityScore: evaluation.qualityScore, 
-      justification: evaluation.justification 
+    return {
+      success: true,
+      qualityScore: evaluation.qualityScore,
+      justification: evaluation.justification,
     };
   } catch (error) {
-    return { 
-      success: false, 
-      error: (error as Error).message 
+    return {
+      success: false,
+      error: (error as Error).message,
     };
   }
 }

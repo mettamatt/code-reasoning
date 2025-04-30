@@ -10,11 +10,11 @@ export function getPaths() {
   // For ES modules, we need to use import.meta.url instead of __dirname
   const __filename = new URL(import.meta.url).pathname;
   const __dirname = path.dirname(__filename);
-  
+
   const rootDir = path.resolve(__dirname, '../../../');
   const evaluationsDir = path.join(rootDir, 'test/prompt-evaluation');
   const reportsDir = path.join(evaluationsDir, 'reports');
-  
+
   return { rootDir, evaluationsDir, reportsDir };
 }
 
@@ -55,19 +55,19 @@ export async function selectFromList<T>(
   defaultIndex = 0
 ): Promise<T> {
   console.log(`\n${prompt}`);
-  
+
   items.forEach((item, index) => {
     console.log(`${index + 1}. ${labelFn(item)}`);
   });
-  
+
   const answer = await promptUser(`Enter selection (1-${items.length}) [${defaultIndex + 1}]: `);
   const selection = answer.trim() === '' ? defaultIndex : parseInt(answer) - 1;
-  
+
   if (isNaN(selection) || selection < 0 || selection >= items.length) {
     console.log(`Invalid selection. Using default (${defaultIndex + 1}).`);
     return items[defaultIndex];
   }
-  
+
   return items[selection];
 }
 

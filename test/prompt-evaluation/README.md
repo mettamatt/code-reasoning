@@ -5,6 +5,7 @@ A streamlined, standalone system for evaluating Claude's ability to follow the c
 ## Purpose
 
 This tool allows you to:
+
 - Test different prompt variations against scenario problems
 - Verify Claude's adherence to parameter format requirements
 - Score solution quality for different scenarios
@@ -42,6 +43,7 @@ node dist/test/prompt-evaluation/evaluator.js
 ```
 
 The interactive CLI will guide you through:
+
 - Selecting different core prompts
 - Running evaluations on specific scenarios or all scenarios
 - Viewing available scenarios
@@ -50,7 +52,9 @@ The interactive CLI will guide you through:
 ## Core Features
 
 ### Parameter Adherence Testing
+
 Verifies that the model correctly follows the parameter format specified in the code reasoning tool, including:
+
 - Required parameters (thought, thought_number, total_thoughts, next_thought_needed)
 - Sequential thought numbering
 - Proper termination
@@ -58,14 +62,18 @@ Verifies that the model correctly follows the parameter format specified in the 
 - Valid revision parameters
 
 ### Solution Quality Scoring
+
 Evaluates and scores the quality of solutions for each scenario based on:
+
 - Correctness
 - Efficiency
 - Approach
 - Implementation details
 
 ### Standalone Reports
+
 Generates comprehensive reports that include:
+
 - Parameter adherence results
 - Quality scores
 - Complete thought chains
@@ -74,7 +82,9 @@ Generates comprehensive reports that include:
 Reports are saved in the `./reports` directory with filenames that include the prompt name and timestamp.
 
 ### Multiple Core Prompt Testing
+
 Allows testing different variations of the core prompt:
+
 - DEFAULT - The standard code reasoning prompt
 - SEQUENTIAL - A detailed prompt focused on flexible thinking
 - CODING_FOCUSED - A prompt specialized for coding problems

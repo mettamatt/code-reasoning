@@ -259,7 +259,7 @@ class CodeReasoningServer {
 
     const headerText = `${prefix} ${thought_number}/${total_thoughts} ${context}`;
     const separator = '---';
-    
+
     // Indent thought content slightly for readability
     const formattedThought = thought
       .split('\n')
@@ -396,7 +396,8 @@ class CodeReasoningServer {
       // 1. Validate input using Zod schema
       if (this.config.debug) console.error('Validating thought data', { input });
       validated = ThoughtDataSchema.parse(input);
-      if (this.config.debug) console.error('Validation successful', { thought_number: validated.thought_number });
+      if (this.config.debug)
+        console.error('Validation successful', { thought_number: validated.thought_number });
 
       // 2. Check thought length against config
       if (validated.thought.length > this.config.maxThoughtLength) {
@@ -447,10 +448,11 @@ class CodeReasoningServer {
 
       // 4. Adjust total_thoughts if necessary (ensure progress is possible)
       if (validated.thought_number > validated.total_thoughts) {
-        if (this.config.debug) console.error('Adjusting total_thoughts to match current thought_number', {
-          old_total: validated.total_thoughts,
-          new_total: validated.thought_number,
-        });
+        if (this.config.debug)
+          console.error('Adjusting total_thoughts to match current thought_number', {
+            old_total: validated.total_thoughts,
+            new_total: validated.thought_number,
+          });
         validated.total_thoughts = validated.thought_number; // Ensures progress calculation isn't > 100%
       }
 
@@ -510,7 +512,7 @@ class CodeReasoningServer {
 export async function runServer(debugFlag: boolean = false): Promise<void> {
   // Set debug flag based on argument (from command line)
   SERVER_CONFIG.debug = debugFlag;
-  
+
   const serverVersion = '0.4.0'; // Update version
   console.error(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
     logLevel: LogLevel[SERVER_CONFIG.logLevel],
@@ -536,7 +538,8 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
   });
 
   mcpServer.setRequestHandler(CallToolRequestSchema, async request => {
-    if (SERVER_CONFIG.debug) console.error('Received CallTool request', { tool_name: request.params.name });
+    if (SERVER_CONFIG.debug)
+      console.error('Received CallTool request', { tool_name: request.params.name });
     if (request.params.name === CODE_REASONING_TOOL.name) {
       return reasoningLogic.processThought(request.params.arguments);
     } else {
@@ -579,7 +582,11 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
 
   // Basic global error handlers
   process.on('uncaughtException', (error, origin) => {
-    console.error('FATAL: Uncaught exception', { error: error.message, origin, stack: error.stack });
+    console.error('FATAL: Uncaught exception', {
+      error: error.message,
+      origin,
+      stack: error.stack,
+    });
     // Attempt graceful shutdown, then force exit
     shutdown('uncaughtException').finally(() => process.exit(1));
   });

@@ -39,7 +39,7 @@ export interface TestResult {
   temperature?: number;
   qualityScore?: number;
   qualityJustification?: string;
-  
+
   // Prompts used in the evaluation (for standalone reports)
   promptName: string;
   corePrompt: string;
