@@ -17,15 +17,13 @@ import {
 } from './core-prompts.js';
 import { getPaths, selectFromList, promptUser, closeReadline, formatDate } from './utils.js';
 
-// Load environment variables
-// Ensure we're loading from the correct path
-import { fileURLToPath } from 'url';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '.env') });
+// Get project paths from utility function
+const { rootDir, evaluationsDir, reportsDir } = getPaths();
 
-// Setup paths
-const { reportsDir } = getPaths();
+// Load environment variables from the correct location
+const envPath = path.join(evaluationsDir, '.env');
+console.log(`Loading environment from: ${envPath}`);
+dotenv.config({ path: envPath });
 
 // Ensure reports directory exists
 if (!fs.existsSync(reportsDir)) {
