@@ -21,7 +21,6 @@
 - Reorganized server.ts with clear section headers for better code organization
 - Enhanced code performance with cached JSON schema and optimized validation
 - Improved type safety with readonly properties and Map instead of object literals
-- Fixed package.json formatting with proper end-of-file newline
 
 ## 0.5.0 (2025-04-30)
 
