@@ -24,13 +24,13 @@ const { values } = parseArgs({
 // Import and run the server
 import('./src/server.js')
   .then(module => {
-    // Debug flag is handled by the server's config object directly
+    // Debug flag is passed to runServer
     if (values.debug) {
       // eslint-disable-next-line no-console
       console.log('Starting server in debug mode');
     }
 
-    module.runServer();
+    module.runServer(values.debug);
   })
   .catch(error => {
     console.error('Error starting server:', error);

@@ -30,7 +30,7 @@
     "validate": "run-s format lint:fix build",
     "prepare": "npm run build",
     "pretest": "tsc",
-    "reset:evaluations": "rm -rf prompt-evaluations && mkdir -p prompt-evaluations/responses prompt-evaluations/thought-chains prompt-evaluations/results",
+    "reset:evaluations": "rm -rf test/prompt-evaluation/reports && mkdir -p test/prompt-evaluation/reports",
     "test": "node dist/test/code-reasoning.e2e.js basic",
     "test:basic": "node dist/test/code-reasoning.e2e.js basic",
     "test:branch": "node dist/test/code-reasoning.e2e.js branch",
@@ -40,11 +40,14 @@
     "test:validate": "run-s validate test",
     "test:verbose": "node dist/test/code-reasoning.e2e.js --verbose",
     "test:all": "node dist/test/code-reasoning.e2e.js all",
-    "eval:api": "node dist/test/prompt-evaluation/api-evaluator.js"
+    "eval": "node dist/test/prompt-evaluation/evaluator.js",
+    "eval:view": "node dist/test/prompt-evaluation/evaluator.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.5.0",
-    "chalk": "^5.3.0"
+    "@types/uuid": "^10.0.0",
+    "chalk": "^5.3.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
