@@ -39,7 +39,7 @@
  * }
  * ```
  *
- * @version 0.4.0
+ * @version 0.5.0
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -512,7 +512,7 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
   // Set debug flag based on argument (from command line)
   SERVER_CONFIG.debug = debugFlag;
 
-  const serverVersion = '0.4.0'; // Update version
+  const serverVersion = '0.5.0'; // Update version to match package.json
   console.error(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
     logLevel: LogLevel[SERVER_CONFIG.logLevel],
     debug: SERVER_CONFIG.debug,
