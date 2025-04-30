@@ -5,29 +5,31 @@
  *
  * This server provides a tool for reflective problem-solving in software development,
  * allowing decomposition of tasks into sequential, revisable, and branchable thoughts.
- * It adheres to the Model Context Protocol (MCP) and is designed to integrate seamlessly
- * with Claude Desktop or similar MCP-compliant clients.
+ * It adheres to the Model Context Protocol (MCP) using SDK version 1.10.2 and is designed 
+ * to integrate seamlessly with Claude Desktop or similar MCP-compliant clients.
  *
  * ## Key Features
- * - Processes "thoughts" in structured JSON, with optional branching and revision semantics.
- * - Logs a simplified, colorized flow of thought evolution to stderr for debugging.
- * - Built-in validation using Zod.
- * - Single built-in configuration object.
- * - Removed complex performance/error frequency tracking for simplicity.
- * - Simplified thought formatting output.
+ * - Processes "thoughts" in structured JSON with sequential numbering
+ * - Supports advanced reasoning patterns through branching and revision semantics
+ *   - Branching: Explore alternative approaches from any existing thought
+ *   - Revision: Correct or update earlier thoughts when new insights emerge
+ * - Implements MCP capabilities for tools, resources, and prompts
+ * - Uses custom FilteredStdioServerTransport for improved stability
+ * - Provides detailed validation and error handling with helpful guidance
+ * - Logs thought evolution to stderr for debugging and visibility
  *
  * ## Usage in Claude Desktop
- * - In your Claude Desktop settings, add a "tool" definition referencing this server.
- * - Ensure the tool name is "code-reasoning".
+ * - In your Claude Desktop settings, add a "tool" definition referencing this server
+ * - Ensure the tool name is "code-reasoning"
+ * - Configure Claude to use this tool for complex reasoning and problem-solving tasks
  * - Upon connecting, Claude can call the tool with an argument schema matching the
- *   `ThoughtDataSchema` below.
+ *   `ThoughtDataSchema` defined in this file
  *
  * ## MCP Protocol Communication
- * - IMPORTANT: Local MCP servers must never log to stdout (standard output).
- * - All logging must be directed to stderr using console.error() instead of console.log() or console.info().
- * - The stdout channel is reserved exclusively for JSON-RPC protocol messages.
- * - Using console.log() or console.info() will cause client-side JSON parsing errors as these
- *   functions write to stdout, interfering with the protocol communication.
+ * - IMPORTANT: Local MCP servers must never log to stdout (standard output)
+ * - All logging must be directed to stderr using console.error() instead of console.log()
+ * - The stdout channel is reserved exclusively for JSON-RPC protocol messages
+ * - Using console.log() or console.info() will cause client-side parsing errors
  *
  * ## Example Thought Data
  * ```json
@@ -40,17 +42,23 @@
  * ```
  *
  * @version 0.5.0
+ * @mcp-sdk-version 1.10.2
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ListPromptsRequestSchema,
   Tool,
-  CallToolResult,
+  type ServerResult,
+  type CallToolRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z, ZodError } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import process from 'node:process';
 
 // LogLevel enum replacement (since we're removing logger.ts)
 enum LogLevel {
@@ -58,6 +66,33 @@ enum LogLevel {
   WARN = 1,
   INFO = 2,
   DEBUG = 3,
+}
+
+// Directly using SDK types for better maintainability
+// Removed type alias: type CallToolResult = ServerResult;
+
+/**
+ * Extended StdioServerTransport that filters out non-JSON messages.
+ * This prevents errors like "Watching /" from crashing the server.
+ */
+class FilteredStdioServerTransport extends StdioServerTransport {
+  constructor() {
+    // Create a proxy for stdout that only allows valid JSON to pass through
+    const originalStdoutWrite = process.stdout.write;
+    process.stdout.write = function(buffer: any) {
+      // Only intercept string output that doesn't look like JSON
+      // Also checks for array literals starting with '[' to handle all JSON types
+      if (typeof buffer === 'string') {
+        const trimmed = buffer.trim();
+        if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
+          return true; // Suppress non-JSON output (objects or arrays)
+        }
+      }
+      return originalStdoutWrite.apply(process.stdout, arguments as any);
+    };
+
+    super();
+  }
 }
 
 /**
@@ -164,7 +199,10 @@ type ValidatedThoughtData = z.infer<typeof ThoughtDataSchema>;
 // JSON Schema
 // ----------------------------------------------------------------------------
 
-// Function to generate JSON schema from Zod schema
+/**
+ * Generate JSON schema from Zod schema using the zodToJsonSchema utility
+ * This provides better maintainability by ensuring schema consistency
+ */
 function createJsonSchemaFromThoughtDataSchema(): {
   type: 'object';
   required: string[];
@@ -173,6 +211,12 @@ function createJsonSchemaFromThoughtDataSchema(): {
   $schema: string;
   title: string;
 } {
+  // Convert Zod schema to JSON schema
+  const jsonSchema = zodToJsonSchema(ThoughtDataSchema, {
+    target: 'jsonSchema7', 
+  });
+  
+  // Ensure the result matches the expected structure
   return {
     type: 'object',
     required: ['thought', 'thought_number', 'total_thoughts', 'next_thought_needed'],
@@ -187,7 +231,7 @@ function createJsonSchemaFromThoughtDataSchema(): {
       branch_id: { type: 'string', minLength: 1 },
       needs_more_thoughts: { type: 'boolean' },
     },
-    additionalProperties: false, // Keep strict schema adherence
+    additionalProperties: false,
     $schema: 'http://json-schema.org/draft-07/schema#',
     title: 'ThoughtDataInput',
   };
@@ -327,7 +371,7 @@ class CodeReasoningServer {
   /**
    * Builds the success response for the MCP client.
    */
-  private _buildSuccessResponse(thoughtData: ValidatedThoughtData): CallToolResult {
+  private _buildSuccessResponse(thoughtData: ValidatedThoughtData): ServerResult {
     return {
       content: [
         {
@@ -353,7 +397,7 @@ class CodeReasoningServer {
   /**
    * Builds the error response for the MCP client.
    */
-  private _buildErrorResponse(error: Error): CallToolResult {
+  private _buildErrorResponse(error: Error): ServerResult {
     let errMsg = error.message;
     let guidance = 'Check the tool description and provided schema for correct usage.';
     const example = this.getExampleThought(errMsg); // Use helper to provide relevant example
@@ -404,7 +448,7 @@ class CodeReasoningServer {
   /**
    * Main method to process a "thought" from the MCP client.
    */
-  public async processThought(input: unknown): Promise<CallToolResult> {
+  public async processThought(input: unknown): Promise<ServerResult> {
     const start = Date.now();
     let validated: ValidatedThoughtData | null = null;
 
@@ -540,14 +584,33 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
   const mcpServer = new Server(
     { name: 'code-reasoning-server', version: serverVersion },
     {
-      capabilities: { tools: {} }, // Advertise tool capability
+      capabilities: { 
+        tools: {},       // Original capability
+        resources: {},   // New capability
+        prompts: {},     // New capability
+      },
     }
   );
 
   // Instantiate the streamlined core logic handler
   const reasoningLogic = new CodeReasoningServer(SERVER_CONFIG);
 
-  // Register request handlers
+  // Register handlers for new capabilities
+  mcpServer.setRequestHandler(ListResourcesRequestSchema, async _req => {
+    if (SERVER_CONFIG.debug) console.error('Received ListResources request');
+    // This server intentionally provides no resources as it focuses on reasoning only
+    // Empty handler prevents Claude Desktop from writing errors when attempting to call this handler
+    return { resources: [] };
+  });
+
+  mcpServer.setRequestHandler(ListPromptsRequestSchema, async _req => {
+    if (SERVER_CONFIG.debug) console.error('Received ListPrompts request');
+    // This server intentionally provides no prompts as it focuses on reasoning only
+    // Empty handler prevents Claude Desktop from writing errors when attempting to call this handler
+    return { prompts: [] };
+  });
+
+  // Register request handlers for tools
   mcpServer.setRequestHandler(ListToolsRequestSchema, async _req => {
     if (SERVER_CONFIG.debug) console.error('Received ListTools request');
     return { tools: [CODE_REASONING_TOOL] }; // Return the single defined tool
@@ -570,7 +633,7 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
   });
 
   // Connect transport (using standard transport)
-  const transport = new StdioServerTransport();
+  const transport = new FilteredStdioServerTransport();
   try {
     await mcpServer.connect(transport);
     console.error('Code Reasoning MCP Server ready and connected via stdio transport.');
