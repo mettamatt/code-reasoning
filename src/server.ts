@@ -41,7 +41,7 @@
  * }
  * ```
  *
- * @version 0.5.0
+ * @version 0.6.0
  * @mcp-sdk-version 1.10.2
  */
 
@@ -573,7 +573,7 @@ export async function runServer(debugFlag: boolean = false): Promise<void> {
   // Set debug flag based on argument (from command line)
   SERVER_CONFIG.debug = debugFlag;
 
-  const serverVersion = '0.5.0'; // Update version to match package.json
+  const serverVersion = '0.6.0'; // Update version to match package.json
   console.error(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
     logLevel: LogLevel[SERVER_CONFIG.logLevel],
     debug: SERVER_CONFIG.debug,
