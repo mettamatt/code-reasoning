@@ -1,7 +1,6 @@
 /**
  * Minimal utility functions for prompt evaluation
  */
-import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 

@@ -339,10 +339,15 @@ async function selectPromptInteractive(): Promise<void> {
     let customPrompt = '';
     let line = '';
 
-    while (true) {
+    // Use a condition that can be evaluated rather than true
+    let collecting = true;
+    while (collecting) {
       line = await promptUser('');
-      if (line.trim() === '.done') break;
-      customPrompt += line + '\n';
+      if (line.trim() === '.done') {
+        collecting = false;
+      } else {
+        customPrompt += line + '\n';
+      }
     }
 
     setCustomPrompt(customPrompt.trim());
@@ -392,6 +397,15 @@ async function main(): Promise<void> {
 
     const selection = await selectFromList(options, opt => opt.label, 'Select an option:', 0);
 
+    // Define variables outside the switch cases
+    let scenario;
+    let results;
+    let report;
+    let reportPath;
+    let allResults;
+    let allReport;
+    let allReportPath;
+
     switch (selection.value) {
       case 'select-prompt':
         await selectPromptInteractive();
@@ -409,7 +423,7 @@ async function main(): Promise<void> {
 
       case 'run-specific':
         console.log('\n=== RUN SPECIFIC SCENARIO ===');
-        const scenario = await selectFromList(
+        scenario = await selectFromList(
           PROMPT_TEST_SCENARIOS,
           s => `${s.name} (${s.difficulty}, ${s.targetSkill})`,
           'Select a scenario to evaluate:',
@@ -417,11 +431,11 @@ async function main(): Promise<void> {
         );
 
         console.log(chalk.yellow(`\nRunning evaluation for scenario: ${scenario.name}`));
-        const results = await runEvaluation(apiKey, [scenario], defaultOptions);
+        results = await runEvaluation(apiKey, [scenario], defaultOptions);
 
         if (results.length > 0) {
-          const report = generateReport(results);
-          const reportPath = saveReport(report);
+          report = generateReport(results);
+          reportPath = saveReport(report);
           console.log(chalk.green(`\nReport saved to: ${reportPath}`));
         }
 
@@ -434,11 +448,11 @@ async function main(): Promise<void> {
           chalk.yellow(`Running evaluation for all ${PROMPT_TEST_SCENARIOS.length} scenarios...`)
         );
 
-        const allResults = await runEvaluation(apiKey, PROMPT_TEST_SCENARIOS, defaultOptions);
+        allResults = await runEvaluation(apiKey, PROMPT_TEST_SCENARIOS, defaultOptions);
 
         if (allResults.length > 0) {
-          const allReport = generateReport(allResults);
-          const allReportPath = saveReport(allReport);
+          allReport = generateReport(allResults);
+          allReportPath = saveReport(allReport);
           console.log(chalk.green(`\nReport saved to: ${allReportPath}`));
         }
 

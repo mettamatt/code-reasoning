@@ -49,7 +49,6 @@ import {
   Tool,
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import chalk from 'chalk'; // Kept for simplified, readable logging
 import { z, ZodError } from 'zod';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
