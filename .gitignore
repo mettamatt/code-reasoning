@@ -34,4 +34,4 @@ Thumbs.db
 # Runtime logs and test results
 logs/
 test-results/
-prompt-evaluations/
+test/prompt-evaluation/reports/
