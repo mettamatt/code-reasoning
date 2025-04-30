@@ -174,11 +174,14 @@ const resultFile = path.join(testResultsDir, `custom-result-${timestamp}.json`);
 // Create writable stream
 const logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
-// Logger function
+// Logger function with stream writable check
 function log(message: string): void {
   const timestamp = new Date().toISOString();
   const logMessage = `${timestamp} ${message}\n`;
-  logStream.write(logMessage);
+  // Only write to logStream if it is still writable
+  if (logStream.writable) {
+    logStream.write(logMessage);
+  }
   console.error(message);
 }
 
@@ -687,21 +690,52 @@ async function main() {
 
       // Check expected results if defined
       if (scenario.expectedSuccessCount !== undefined) {
-        if (results.successfulThoughts === scenario.expectedSuccessCount) {
-          log(`✓ Success count matches expected (${scenario.expectedSuccessCount})`);
-        } else {
-          log(
-            `✗ Success count ${results.successfulThoughts} doesn't match expected ${scenario.expectedSuccessCount}`
-          );
-        }
-      }
+        // For error handling tests specifically, check if responses have the expected isError flags
+        if (scenario.name === 'Error handling tests') {
+          // Count responses with isError: true and isError: false
+          const errorResponses = results.thoughts.filter(
+            t => t.response?.result?.isError === true
+          ).length;
+          const successResponses = results.thoughts.filter(
+            t => t.response?.result?.isError === false
+          ).length;
 
-      if (scenario.expectedErrorCount !== undefined) {
-        const errorCount = results.totalThoughts - results.successfulThoughts;
-        if (errorCount === scenario.expectedErrorCount) {
-          log(`✓ Error count matches expected (${scenario.expectedErrorCount})`);
+          // The last thought should be the only one without an error
+          if (successResponses === scenario.expectedSuccessCount) {
+            log(`✓ Success count matches expected (${scenario.expectedSuccessCount})`);
+          } else {
+            log(
+              `✗ Success count ${successResponses} doesn't match expected ${scenario.expectedSuccessCount}`
+            );
+          }
+
+          if (errorResponses === scenario.expectedErrorCount) {
+            log(`✓ Error count matches expected (${scenario.expectedErrorCount})`);
+          } else {
+            log(
+              `✗ Error count ${errorResponses} doesn't match expected ${scenario.expectedErrorCount}`
+            );
+          }
         } else {
-          log(`✗ Error count ${errorCount} doesn't match expected ${scenario.expectedErrorCount}`);
+          // For other tests, use the normal success/failure count
+          if (results.successfulThoughts === scenario.expectedSuccessCount) {
+            log(`✓ Success count matches expected (${scenario.expectedSuccessCount})`);
+          } else {
+            log(
+              `✗ Success count ${results.successfulThoughts} doesn't match expected ${scenario.expectedSuccessCount}`
+            );
+          }
+
+          if (scenario.expectedErrorCount !== undefined) {
+            const errorCount = results.totalThoughts - results.successfulThoughts;
+            if (errorCount === scenario.expectedErrorCount) {
+              log(`✓ Error count matches expected (${scenario.expectedErrorCount})`);
+            } else {
+              log(
+                `✗ Error count ${errorCount} doesn't match expected ${scenario.expectedErrorCount}`
+              );
+            }
+          }
         }
       }
     }
@@ -726,8 +760,15 @@ async function main() {
     log(`Successful thoughts: ${totalSuccessfulThoughts}/${totalThoughts}`);
     log(`Overall status: ${totalSuccessfulThoughts === totalThoughts ? 'SUCCESS' : 'FAILURE'}`);
 
+    // Make sure to remove all data listeners to prevent callbacks after stream is closed
+    serverProcess.stdout?.removeAllListeners('data');
+    serverProcess.stderr?.removeAllListeners('data');
+
     // Kill server
     serverProcess.kill();
+
+    // Give a small delay to ensure no more events are processed
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Close log stream
     logStream.end();
