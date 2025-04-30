@@ -22,6 +22,13 @@
  * - Upon connecting, Claude can call the tool with an argument schema matching the
  *   `ThoughtDataSchema` below.
  *
+ * ## MCP Protocol Communication
+ * - IMPORTANT: Local MCP servers must never log to stdout (standard output).
+ * - All logging must be directed to stderr using console.error() instead of console.log() or console.info().
+ * - The stdout channel is reserved exclusively for JSON-RPC protocol messages.
+ * - Using console.log() or console.info() will cause client-side JSON parsing errors as these
+ *   functions write to stdout, interfering with the protocol communication.
+ *
  * ## Example Thought Data
  * ```json
  * {
@@ -44,9 +51,15 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import chalk from 'chalk'; // Kept for simplified, readable logging
 import { z, ZodError } from 'zod';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { Logger, LogLevel } from './logger.js';
-import { LoggingStdioServerTransport } from './logging-transport.js';
+// LogLevel enum replacement (since we're removing logger.ts)
+enum LogLevel {
+  ERROR = 0,
+  WARN = 1,
+  INFO = 2,
+  DEBUG = 3,
+}
 
 /**
  * Configuration options for the Code Reasoning Server.
@@ -55,8 +68,8 @@ interface CodeReasoningConfig {
   maxThoughtLength: number; // Max characters in any single thought
   timeoutMs: number; // Max time for processing a single thought (Note: SDK might have its own timeout)
   maxThoughts: number; // Max number of thoughts before forcibly aborting
-  logLevel: LogLevel; // Logging verbosity
-  colorOutput: boolean; // Enable/disable color in stderr logs
+  logLevel: LogLevel; // Logging verbosity (kept for compatibility)
+  debug: boolean; // Whether to show debug level logs
 }
 
 /**
@@ -66,8 +79,8 @@ const SERVER_CONFIG: CodeReasoningConfig = {
   maxThoughtLength: 20000, // https://github.com/modelcontextprotocol/servers/issues/751
   timeoutMs: 30_000, // Primarily for logging long operations, actual request timeout might be handled by MCP client/SDK
   maxThoughts: 20,
-  logLevel: LogLevel.INFO, // Adjust to DEBUG for more details
-  colorOutput: true,
+  logLevel: LogLevel.INFO, // Kept for compatibility
+  debug: false, // Will be set to true if --debug flag is passed
 };
 
 // ----------------------------------------------------------------------------
@@ -210,17 +223,15 @@ class CodeReasoningServer {
   private thoughtHistory: ValidatedThoughtData[] = [];
   private branches: Record<string, ValidatedThoughtData[]> = {}; // Stores branched thoughts by branch_id
 
-  private logger: Logger;
   private config: CodeReasoningConfig;
 
-  constructor(logger: Logger, config: CodeReasoningConfig) {
-    this.logger = logger;
+  constructor(config: CodeReasoningConfig) {
     this.config = config;
-    this.logger.info('Code Reasoning Server logic handler initialized', { config: this.config });
+    console.error('Code Reasoning Server logic handler initialized', { config: this.config });
   }
 
   /**
-   * Format a single thought for simplified, colorized output to stderr.
+   * Format a single thought for simplified output to stderr.
    */
   private formatThought(thoughtData: ValidatedThoughtData): string {
     const {
@@ -235,35 +246,27 @@ class CodeReasoningServer {
 
     let prefix = '';
     let context = '';
-    let headerText = '';
-
-    // Color helpers using chalk
-    const headerChalk = this.config.colorOutput ? chalk.bold : (s: string) => s;
-    const revisionChalk = this.config.colorOutput ? chalk.yellow : (s: string) => s;
-    const branchChalk = this.config.colorOutput ? chalk.green : (s: string) => s;
-    const thoughtChalk = this.config.colorOutput ? chalk.blue : (s: string) => s;
-    const dimChalk = this.config.colorOutput ? chalk.dim : (s: string) => s;
 
     if (is_revision) {
-      prefix = revisionChalk('🔄 Revision');
-      context = dimChalk(`(revising thought ${revises_thought})`);
+      prefix = '🔄 Revision';
+      context = `(revising thought ${revises_thought})`;
     } else if (branch_from_thought) {
-      prefix = branchChalk('🌿 Branch');
-      context = dimChalk(`(from thought ${branch_from_thought}, ID: ${branch_id})`);
+      prefix = '🌿 Branch';
+      context = `(from thought ${branch_from_thought}, ID: ${branch_id})`;
     } else {
-      prefix = thoughtChalk('💭 Thought');
+      prefix = '💭 Thought';
     }
 
-    headerText = `${prefix} ${thought_number}/${total_thoughts} ${context}`;
-
-    const separator = dimChalk('---');
+    const headerText = `${prefix} ${thought_number}/${total_thoughts} ${context}`;
+    const separator = '---';
+    
     // Indent thought content slightly for readability
     const formattedThought = thought
       .split('\n')
       .map(line => `  ${line}`)
       .join('\n');
 
-    return `\n${headerChalk(headerText)}\n${separator}\n${formattedThought}\n${separator}`;
+    return `\n${headerText}\n${separator}\n${formattedThought}\n${separator}`;
   }
 
   /**
@@ -391,9 +394,9 @@ class CodeReasoningServer {
 
     try {
       // 1. Validate input using Zod schema
-      this.logger.debug('Validating thought data', { input });
+      if (this.config.debug) console.error('Validating thought data', { input });
       validated = ThoughtDataSchema.parse(input);
-      this.logger.debug('Validation successful', { thought_number: validated.thought_number });
+      if (this.config.debug) console.error('Validation successful', { thought_number: validated.thought_number });
 
       // 2. Check thought length against config
       if (validated.thought.length > this.config.maxThoughtLength) {
@@ -404,7 +407,7 @@ class CodeReasoningServer {
 
       // 3. Check max thoughts limit
       if (validated.thought_number > this.config.maxThoughts) {
-        this.logger.warn('Aborting chain - exceeded max thoughts', {
+        console.error('Aborting chain - exceeded max thoughts', {
           max: this.config.maxThoughts,
           current: validated.thought_number,
         });
@@ -433,7 +436,7 @@ class CodeReasoningServer {
         validated.branch_from_thought !== undefined &&
         validated.branch_from_thought > this.thoughtHistory.length
       ) {
-        this.logger.warn('Invalid branch reference', {
+        console.error('Invalid branch reference', {
           branch_from_thought: validated.branch_from_thought,
           thoughtHistory_length: this.thoughtHistory.length,
         });
@@ -444,7 +447,7 @@ class CodeReasoningServer {
 
       // 4. Adjust total_thoughts if necessary (ensure progress is possible)
       if (validated.thought_number > validated.total_thoughts) {
-        this.logger.debug('Adjusting total_thoughts to match current thought_number', {
+        if (this.config.debug) console.error('Adjusting total_thoughts to match current thought_number', {
           old_total: validated.total_thoughts,
           new_total: validated.thought_number,
         });
@@ -457,7 +460,7 @@ class CodeReasoningServer {
         // Initialize branch array if it doesn't exist
         if (!this.branches[validated.branch_id]) {
           this.branches[validated.branch_id] = [];
-          this.logger.info('Created a new branch', {
+          console.error('Created a new branch', {
             branch_id: validated.branch_id,
             from_thought: validated.branch_from_thought,
           });
@@ -471,7 +474,7 @@ class CodeReasoningServer {
 
       // 7. Log success and processing time
       const elapsed = Date.now() - start;
-      this.logger.info('Thought processed successfully', {
+      console.error('Thought processed successfully', {
         thought_number: validated.thought_number,
         is_revision: validated.is_revision ?? false,
         branch_id: validated.branch_id ?? null,
@@ -487,10 +490,8 @@ class CodeReasoningServer {
       const elapsed = Date.now() - start;
 
       // Log the error details
-      this.logger.error('Error processing thought', {
+      console.error('Error processing thought', {
         error: e.message,
-        // Avoid logging full stack in production INFO level, but maybe DEBUG?
-        // stack: this.config.logLevel === LogLevel.DEBUG ? e.stack : undefined,
         processingTimeMs: elapsed,
         // Include partial validated data if validation succeeded before error
         thought_number: validated?.thought_number,
@@ -506,12 +507,14 @@ class CodeReasoningServer {
 // Server Startup
 // ----------------------------------------------------------------------------
 
-export async function runServer(): Promise<void> {
-  // Initialize logger with streamlined config
-  const logger = new Logger(SERVER_CONFIG.logLevel, true, SERVER_CONFIG.colorOutput);
+export async function runServer(debugFlag: boolean = false): Promise<void> {
+  // Set debug flag based on argument (from command line)
+  SERVER_CONFIG.debug = debugFlag;
+  
   const serverVersion = '0.4.0'; // Update version
-  logger.info(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
+  console.error(`Starting Code-Reasoning MCP Server (streamlined v${serverVersion})...`, {
     logLevel: LogLevel[SERVER_CONFIG.logLevel],
+    debug: SERVER_CONFIG.debug,
     pid: process.pid,
   });
 
@@ -524,22 +527,22 @@ export async function runServer(): Promise<void> {
   );
 
   // Instantiate the streamlined core logic handler
-  const reasoningLogic = new CodeReasoningServer(logger, SERVER_CONFIG);
+  const reasoningLogic = new CodeReasoningServer(SERVER_CONFIG);
 
   // Register request handlers
   mcpServer.setRequestHandler(ListToolsRequestSchema, async _req => {
-    logger.debug('Received ListTools request');
+    if (SERVER_CONFIG.debug) console.error('Received ListTools request');
     return { tools: [CODE_REASONING_TOOL] }; // Return the single defined tool
   });
 
   mcpServer.setRequestHandler(CallToolRequestSchema, async request => {
-    logger.debug('Received CallTool request', { tool_name: request.params.name });
+    if (SERVER_CONFIG.debug) console.error('Received CallTool request', { tool_name: request.params.name });
     if (request.params.name === CODE_REASONING_TOOL.name) {
       return reasoningLogic.processThought(request.params.arguments);
     } else {
       // Handle requests for unknown tools
       const errorMsg = `Unknown tool requested: ${request.params.name}`;
-      logger.error(errorMsg);
+      console.error(errorMsg);
       return {
         content: [{ type: 'text', text: JSON.stringify({ code: -32601, message: errorMsg }) }],
         isError: true,
@@ -547,26 +550,26 @@ export async function runServer(): Promise<void> {
     }
   });
 
-  // Connect transport (using custom logging transport)
-  const transport = new LoggingStdioServerTransport(logger);
+  // Connect transport (using standard transport)
+  const transport = new StdioServerTransport();
   try {
     await mcpServer.connect(transport);
-    logger.info('Code Reasoning MCP Server ready and connected via stdio transport.');
+    console.error('Code Reasoning MCP Server ready and connected via stdio transport.');
   } catch (error) {
-    logger.error('Failed to connect stdio transport', { error: String(error) });
+    console.error('Failed to connect stdio transport', { error: String(error) });
     process.exit(1); // Exit if connection fails
   }
 
   // Graceful shutdown handling
   const shutdown = async (signal: string) => {
-    logger.info(`Received ${signal}, initiating graceful shutdown...`);
+    console.error(`Received ${signal}, initiating graceful shutdown...`);
     try {
       await mcpServer.close(); // Close MCP connection
       await transport.close(); // Close transport
-      logger.info('Server shutdown complete.');
+      console.error('Server shutdown complete.');
       process.exit(0);
     } catch (err) {
-      logger.error('Error during shutdown', { error: String(err) });
+      console.error('Error during shutdown', { error: String(err) });
       process.exit(1); // Force exit on shutdown error
     }
   };
@@ -576,13 +579,13 @@ export async function runServer(): Promise<void> {
 
   // Basic global error handlers
   process.on('uncaughtException', (error, origin) => {
-    logger.error('FATAL: Uncaught exception', { error: error.message, origin, stack: error.stack });
+    console.error('FATAL: Uncaught exception', { error: error.message, origin, stack: error.stack });
     // Attempt graceful shutdown, then force exit
     shutdown('uncaughtException').finally(() => process.exit(1));
   });
 
   process.on('unhandledRejection', (reason, _promise) => {
-    logger.error('FATAL: Unhandled promise rejection', { reason: String(reason) });
+    console.error('FATAL: Unhandled promise rejection', { reason: String(reason) });
     // Attempt graceful shutdown, then force exit
     shutdown('unhandledRejection').finally(() => process.exit(1));
   });
