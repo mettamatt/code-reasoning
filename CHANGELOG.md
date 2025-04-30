@@ -16,7 +16,6 @@
 - Refined JSON detection logic in FilteredStdioServerTransport to handle array literals
 - Simplified type aliases by using direct SDK types for better maintainability
 - Improved file header documentation with MCP SDK version information and clearer feature descriptions
-- Excluded DC directory from TypeScript compilation
 - Updated type definitions for newer SDK compatibility
 - Added zod-to-json-schema dependency
 
