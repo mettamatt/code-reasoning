@@ -141,6 +141,36 @@ To use the prompt evaluation system, run:
 npm run eval
 ```
 
+### Prompt Comparison and Development
+
+Significant effort went into developing the optimal prompt for the Code Reasoning server. The current implementation uses the HYBRID_DESIGN prompt, which emerged as the winner from our evaluation process.
+
+We compared four different prompt designs:
+
+| Prompt Design       | Description                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| SEQUENTIAL          | The original sequential thinking prompt design                       |
+| DEFAULT             | The baseline prompt previously used in the server                    |
+| CODE_REASONING_0_30 | An experimental variant focusing on code-specific reasoning          |
+| HYBRID_DESIGN       | A refined design incorporating the best elements of other approaches |
+
+Our evaluation across seven diverse programming scenarios showed that HYBRID_DESIGN outperformed other prompts:
+
+| Scenario                   | HYBRID_DESIGN | CODE_REASONING_0_30 | DEFAULT | SEQUENTIAL |
+| -------------------------- | ------------- | ------------------- | ------- | ---------- |
+| Algorithm Selection        | 87%           | 82%                 | 88%     | 82%        |
+| Bug Identification         | 87%           | 91%                 | 88%     | 92%        |
+| Multi-Stage Implementation | 83%           | 67%                 | 79%     | 82%        |
+| System Design Analysis     | 82%           | 87%                 | 78%     | 82%        |
+| Code Debugging Task        | 92%           | 87%                 | 92%     | 92%        |
+| Compiler Optimization      | 83%           | 78%                 | 67%     | 73%        |
+| Cache Strategy             | 86%           | 88%                 | 82%     | 87%        |
+| **Average**                | **86%**       | **83%**             | **82%** | **84%**    |
+
+The HYBRID_DESIGN prompt marginally demonstrated both the highest average solution quality (86%) and the most consistent performance across all scenarios, with no scores below 80%. It also prodouced the most thoughts. The `src/server.ts` file has been updated to use this optimal prompt design.
+
+Personally, I think the biggest improvement was adding this to the end of the prompt: "✍️ End each thought by asking: "What am I missing or need to reconsider?"
+
 See [Testing Framework](./docs/testing.md) for more details on the prompt evaluation system.
 
 ## License
