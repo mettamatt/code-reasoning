@@ -86,9 +86,8 @@ Reports are saved in the `./reports` directory with filenames that include the p
 Allows testing different variations of the core prompt:
 
 - DEFAULT - The standard code reasoning prompt
-- SEQUENTIAL - A detailed prompt focused on flexible thinking
-- CODING_FOCUSED - A prompt specialized for coding problems
-- ALGORITHM_DESIGN - A prompt optimized for algorithm design
+- SEQUENTIAL - The original sequential thinking prompt.
+- CODE_REASONING_0_30 - The prompt used for the 0.30 version of Code Reasoning
 - CUSTOM - Create your own custom prompt
 
 ## Examples
@@ -130,16 +129,6 @@ To add new test scenarios, edit the `scenarios.ts` file and add a new entry to t
 ### Adding New Core Prompts
 
 To add new core prompts, edit the `core-prompts.ts` file and add a new entry to the `ALL_PROMPTS` object.
-
-## Simplified vs. Original System
-
-This evaluation system is a streamlined version of the original, with these key differences:
-
-1. **Self-contained:** All functionality is contained within this directory
-2. **Simplified architecture:** Reduced number of files and dependencies
-3. **Focused functionality:** Only includes essential features
-4. **Standalone reports:** Reports include all necessary details without external references
-5. **Improved ease of use:** Simpler CLI interface and more direct workflow
 
 ## Troubleshooting
 

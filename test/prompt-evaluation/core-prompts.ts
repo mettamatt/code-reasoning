@@ -29,58 +29,157 @@ export const ALL_PROMPTS: Record<string, string> = {
 This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
 Each thought can build on, question, or revise previous insights as understanding deepens.
 
+When to use this tool:
+- Breaking down complex problems into steps
+- Planning and design with room for revision
+- Analysis that might need course correction
+- Problems where the full scope might not be clear initially
+- Problems that require a multi-step solution
+- Tasks that need to maintain context over multiple steps
+- Situations where irrelevant information needs to be filtered out
+
 Key features:
 - You can adjust total_thoughts up or down as you progress
 - You can question or revise previous thoughts
+- You can add more thoughts even after reaching what seemed like the end
 - You can express uncertainty and explore alternative approaches
 - Not every thought needs to build linearly - you can branch or backtrack
+- Generates a solution hypothesis
+- Verifies the hypothesis based on the Chain of Thought steps
+- Repeats the process until satisfied
+- Provides a correct answer
 
 Parameters explained:
-- thought: Your current thinking step
-- next_thought_needed: True if you need more thinking
-- thought_number: Current number in sequence
-- total_thoughts: Current estimate of thoughts needed
+- thought: Your current thinking step, which can include:
+* Regular analytical steps
+* Revisions of previous thoughts
+* Questions about previous decisions
+* Realizations about needing more analysis
+* Changes in approach
+* Hypothesis generation
+* Hypothesis verification
+- next_thought_needed: True if you need more thinking, even if at what seemed like the end
+- thought_number: Current number in sequence (can go beyond initial total if needed)
+- total_thoughts: Current estimate of thoughts needed (can be adjusted up/down)
 - is_revision: A boolean indicating if this thought revises previous thinking
 - revises_thought: If is_revision is true, which thought number is being reconsidered
 - branch_from_thought: If branching, which thought number is the branching point
-- branch_id: Identifier for the current branch (if any)`,
+- branch_id: Identifier for the current branch (if any)
+- needs_more_thoughts: If reaching end but realizing more thoughts needed
 
-  CODING_FOCUSED: `A specialized tool for breaking down coding and software development problems.
+You should:
+1. Start with an initial estimate of needed thoughts, but be ready to adjust
+2. Feel free to question or revise previous thoughts
+3. Don't hesitate to add more thoughts if needed, even at the "end"
+4. Express uncertainty when present
+5. Mark thoughts that revise previous thinking or branch into new paths
+6. Ignore information that is irrelevant to the current step
+7. Generate a solution hypothesis when appropriate
+8. Verify the hypothesis based on the Chain of Thought steps
+9. Repeat the process until satisfied with the solution
+10. Provide a single, ideally correct answer as the final output
+11. Only set next_thought_needed to false when truly done and a satisfactory answer is reached`,
 
-Key actions you can take:
-- Decompose problems into sequential, numbered thoughts
-- Create branches to explore different approaches (branch_from_thought + branch_id)
-- Revise earlier thoughts when you discover issues (is_revision + revises_thought)
-- Adjust your total_thoughts estimate as you learn more about the problem
+  CODE_REASONING_0_30: `🧠 **Sequential Thinking Tool**
 
-Focus on:
-1. Understanding the requirements thoroughly
-2. Considering edge cases and constraints
-3. Evaluating multiple implementation approaches
-4. Identifying potential optimizations
-5. Writing clean, maintainable code
-6. Proper error handling and validation
+Purpose → break complex problems into **self-auditing, exploratory** thought steps that can *branch*, *revise*, or *back-track* until a **single, well-supported answer** emerges.
 
-Only mark next_thought_needed = false when you have a complete, correct solution.`,
+---
 
-  ALGORITHM_DESIGN: `A tool for solving algorithmic problems through structured reasoning.
+## WHEN TO CALL
+• Multi-step planning, design, debugging, or open-ended analysis  
+• Whenever *further private reasoning* or *hypothesis testing* is required **before** replying to the user
 
-When designing algorithms, follow these steps:
-1. Understand the problem statement and constraints
-2. Identify key variables and data structures
-3. Consider multiple approaches (always use branching for this!)
-4. Analyze time and space complexity of each approach
-5. Implement the optimal solution
-6. Test with examples, including edge cases
+---
 
-Your thoughts should explore:
-- Different algorithmic paradigms (greedy, dynamic programming, divide & conquer)
-- Potential optimizations
-- Corner cases and error conditions
-- Tradeoffs between approaches
+## ENCOURAGED PRACTICES
+🔍 **Question aggressively** – ask "What am I missing?" after each step  
+🔄 **Revise freely** – mark \`is_revision=true\` even late in the chain  
+🌿 **Branch often** – explore plausible alternatives in parallel; you can merge or discard branches later  
+↩️ **Back-track** – if a path looks wrong, start a new branch from an earlier thought  
+❓ **Admit uncertainty** – explicitly note unknowns and schedule extra thoughts to resolve them
 
-Always use branch_from_thought and branch_id when exploring different algorithmic approaches.
-Use is_revision and revises_thought when you find flaws in earlier reasoning.`,
+---
+
+## MUST DO
+✅ Put **every** private reasoning step in \`thought\`  
+✅ Keep \`thought_number\` correct; update \`total_thoughts\` when scope changes  
+✅ Use \`is_revision\` & \`branch_from_thought\`/\`branch_id\` precisely  
+✅ Set \`next_thought_needed=false\` *only* when **all** open questions are resolved  
+✅ Abort and summarise if \`thought_number > 20\`  
+
+---
+
+## DO NOT
+⛔️ Reveal the content of \`thought\` to the end-user  
+⛔️ Continue thinking once \`next_thought_needed=false\`  
+⛔️ Assume thoughts must proceed strictly linearly – *branching is first-class*
+
+---
+
+### PARAMETER CHEAT-SHEET
+• \`thought\` (string) – current reasoning step  
+• \`next_thought_needed\` (boolean) – request further thinking?  
+• \`thought_number\` (int ≥ 1) – 1-based counter  
+• \`total_thoughts\` (int ≥ 1) – mutable estimate  
+• \`is_revision\`, \`revises_thought\` (int) – mark corrections  
+• \`branch_from_thought\`, \`branch_id\` – manage alternative paths  
+• \`needs_more_thoughts\` (boolean) – optional hint that more thoughts may follow  
+
+_All JSON keys **must** use \`lower_snake_case\`._
+
+---
+
+### EXAMPLE ✔️
+\`\`\`json
+{
+  "thought": "List solution candidates and pick the most promising",
+  "thought_number": 1,
+  "total_thoughts": 4,
+  "next_thought_needed": true
+}
+\`\`\`
+
+### EXAMPLE ✔️ (branching late)
+\`\`\`json
+{
+  "thought": "Alternative approach: treat it as a graph-search problem",
+  "thought_number": 6,
+  "total_thoughts": 8,
+  "branch_from_thought": 3,
+  "branch_id": "B1",
+  "next_thought_needed": true
+}
+\`\`\``,
+
+  HYBRID_DESIGN: `🧠 A detailed tool for dynamic and reflective problem-solving through sequential thinking.
+
+This tool helps you analyze problems through a flexible thinking process that can adapt and evolve.
+Each thought can build on, question, or revise previous insights as understanding deepens.
+
+📋 KEY PARAMETERS:
+- thought: Your current reasoning step (required)
+- thought_number: Current number in sequence (required)
+- total_thoughts: Estimated final count (required, can adjust as needed)
+- next_thought_needed: Set to FALSE ONLY when completely done (required)
+- branch_from_thought + branch_id: When exploring alternative approaches (🌿)
+- is_revision + revises_thought: When correcting earlier thinking (🔄)
+
+✅ CRITICAL CHECKLIST (review every 3 thoughts):
+1. Need to explore alternatives? → Use BRANCH (🌿) with branch_from_thought + branch_id
+2. Need to correct earlier thinking? → Use REVISION (🔄) with is_revision + revises_thought
+3. Scope changed? → Adjust total_thoughts up or down as needed
+4. Only set next_thought_needed = false when you have a complete, verified solution
+
+💡 BEST PRACTICES:
+- Start with an initial estimate of total_thoughts, but adjust as you go
+- Don't hesitate to revise earlier conclusions when new insights emerge
+- Use branching to explore multiple approaches to the same problem
+- Express uncertainty when present
+- Ignore information that is irrelevant to the current step
+- End with a clear, validated conclusion before setting next_thought_needed = false
+
+✍️ End each thought by asking: "What am I missing or need to reconsider?"`,
 };
 
 // State management for active prompt
