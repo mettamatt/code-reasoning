@@ -265,16 +265,32 @@ To use the code-reasoning server with Claude Desktop, you'll need to configure C
 
 #### Example Prompt for Claude
 
-When using Claude Desktop with the code-reasoning server, you can use the sequential thinking capability by asking Claude to reason step by step:
+When using Claude Desktop with the code-reasoning server, you can use the sequential thinking capability by asking Claude to reason step by step. The current tool description is:
 
 ```
-Please help me design a simple REST API for a todo application. Use sequential-thinking to break down the design process into steps.
+🧠 A reflective problem-solving tool with sequential thinking.
+
+• Break down tasks into numbered thoughts that can BRANCH (🌿) or REVISE (🔄) until a conclusion is reached.
+• Always set 'next_thought_needed' = false when no further reasoning is needed.
+
+✅ Recommended checklist every 3 thoughts:
+1. Need to BRANCH?   → set 'branch_from_thought' + 'branch_id'.
+2. Need to REVISE?   → set 'is_revision' + 'revises_thought'.
+3. Scope changed? → bump 'total_thoughts'.
+
+✍️ End each thought with: "What am I missing?"
+```
+
+Example prompts to use with Claude:
+
+```
+Please help me design a simple REST API for a todo application. Use code-reasoning to break down the design process into steps.
 ```
 
 Or more specifically for code-related tasks:
 
 ```
-Please analyze this algorithm implementation and identify any bugs or inefficiencies. Use sequential-thinking to break down your analysis step by step.
+Please analyze this algorithm implementation and identify any bugs or inefficiencies. Use code-reasoning to break down your analysis step by step.
 ```
 
 ### VS Code Integration
@@ -310,33 +326,31 @@ code-reasoning --debug
 #### Example Log Output
 
 ```
-[2025-04-24T12:34:56.789Z] INFO: Starting Code-Reasoning MCP Server
-{
-  "version": "0.2.0",
-  "debugMode": true,
-  "visualizerEnabled": false
+Starting Code-Reasoning MCP Server (streamlined v0.5.0)... {
+  "logLevel": "INFO",
+  "debug": true,
+  "pid": 12345
 }
-[2025-04-24T12:34:56.790Z] INFO: Logger initialized
-{
-  "timestamp": "2025-04-24T12:34:56.789Z",
-  "level": "DEBUG"
-}
-[2025-04-24T12:34:56.791Z] INFO: Starting stdio transport
-[2025-04-24T12:34:56.792Z] DEBUG: Received data chunk
-{
-  "size": 218
-}
-[2025-04-24T12:34:56.793Z] DEBUG: Outgoing message
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "name": "code-reasoning-server",
-    "version": "0.2.0",
-    "capabilities": {
-      "tools": {}
-    }
+Code Reasoning Server logic handler initialized {
+  "config": {
+    "maxThoughtLength": 20000,
+    "timeoutMs": 30000,
+    "maxThoughts": 20,
+    "logLevel": "INFO",
+    "debug": true
   }
+}
+Received ListTools request
+💭 Thought 1/5
+---
+  First, let's understand the problem: we need to design a simple calculator function.
+---
+Thought processed successfully {
+  "thought_number": 1,
+  "is_revision": false,
+  "branch_id": null,
+  "next_thought_needed": true,
+  "processingTimeMs": 5
 }
 ```
 
@@ -356,7 +370,7 @@ code-reasoning --debug
       "args": []
     }
   },
-  "defaultModel": "claude-3-opus",
+  "defaultModel": "claude-3-7-sonnet",
   "sessionDefaults": {
     "enableMultiModal": true
   }

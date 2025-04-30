@@ -209,9 +209,142 @@ For more advanced performance testing, you can:
 1. Modify the `perf` scenario in `testScenarios` to include more thoughts or different patterns
 2. Add custom performance metrics calculations in the test client
 3. Create specialized performance scenarios that focus on specific aspects:
+
    - Thought branching performance
    - Revision performance
    - Long thought chain performance
+
+4. Run with verbose output for more detailed information:
+   ```bash
+   npm run test:verbose
+   ```
+
+## Prompt Evaluation System
+
+In addition to the standard test framework, the Code-Reasoning MCP Server includes a specialized prompt evaluation system designed to assess Claude's ability to follow the code reasoning prompts. This system is located in the `test/prompt-evaluation` directory.
+
+### Purpose and Capabilities
+
+The prompt evaluation system allows you to:
+
+- Test different prompt variations against scenario problems
+- Verify Claude's adherence to parameter format requirements
+- Score solution quality for different scenarios
+- Generate comprehensive reports of evaluation results
+
+### Usage
+
+To use the prompt evaluation system:
+
+```bash
+# Run the prompt evaluator with interactive menu
+npm run eval
+
+# Same command, alias for running the evaluator
+npm run eval:view
+```
+
+The interactive CLI will guide you through:
+
+- Selecting different core prompts
+- Running evaluations on specific scenarios or all scenarios
+- Viewing available scenarios
+- Generating reports
+
+### Example Evaluation Flow
+
+```
+? Select an option: › - Use arrow-keys. Return to select.
+    Run evaluation on all scenarios
+    Run evaluation on specific scenario
+    View available scenarios
+    Select core prompt
+    Exit
+
+? Select a scenario to evaluate: › - Use arrow-keys. Return to select.
+    fibonacci
+    sorting-algorithm-selection
+    api-design
+    debugging-recursive-function
+    back
+
+Evaluating scenario "fibonacci" with DEFAULT prompt...
+Processing thought chain...
+Extracting parameters...
+Scoring solution quality...
+
+Evaluation complete! Report saved to:
+test/prompt-evaluation/reports/eval-DEFAULT-fibonacci-20250430-1208.json
+```
+
+### Available Core Prompts
+
+The prompt evaluation system allows testing different prompt variations:
+
+```
+? Select a core prompt: › - Use arrow-keys. Return to select.
+    DEFAULT - The standard code reasoning prompt
+    SEQUENTIAL - The original sequential thinking prompt
+    CODE_REASONING_0_30 - The prompt used for the 0.30 version
+    CUSTOM - Create your own custom prompt
+    back
+```
+
+### Creating a Custom Prompt
+
+You can also test with your own custom prompt:
+
+```
+Enter your custom prompt below.
+Type .done on a new line when finished.
+
+This is a tool for solving complex programming problems step by step.
+Each thought should build on previous ones and include code examples when relevant.
+
+For each step, include:
+- Clear explanation of your reasoning
+- Code examples when applicable
+- Consideration of edge cases
+
+.done
+
+Custom prompt saved! You can now run evaluations with this prompt.
+```
+
+### Key Components
+
+The system consists of these main files:
+
+- **evaluator.ts** - Main evaluation logic and CLI interface
+- **api.ts** - API integration with Anthropic's Claude
+- **types.ts** - TypeScript types for the evaluation system
+- **utils.ts** - Utility functions for file I/O, CLI interaction
+- **core-prompts.ts** - Storage and management of different prompt variations
+- **scenarios.ts** - Test scenarios with problems to evaluate
+
+### Setup Requirements
+
+To use the prompt evaluation system, you need:
+
+1. An Anthropic API key
+2. A `.env` file in the `test/prompt-evaluation` directory:
+   ```
+   ANTHROPIC_API_KEY=your_api_key_here
+   CLAUDE_MODEL=claude-3-7-sonnet-20250219
+   MAX_TOKENS=4000
+   TEMPERATURE=0.2
+   ```
+
+### Report Generation
+
+The evaluation system generates comprehensive reports that include:
+
+- Parameter adherence metrics (whether Claude correctly follows the required parameter format)
+- Solution quality scores (how well Claude solved the programming problem)
+- Complete thought chains (the entire sequence of thoughts from Claude)
+- The prompts used in the evaluation (for comparing different prompt variations)
+
+Reports are saved in the `test/prompt-evaluation/reports` directory with filenames that include the prompt name and timestamp (e.g., `eval-DEFAULT-fibonacci-20250430-1208.json`).
 
 ## Troubleshooting
 
@@ -219,7 +352,9 @@ For more advanced performance testing, you can:
 
 - **JSON-RPC protocol errors**: These can occur if modifications are made to the communication protocol. The integrated test runner properly handles JSON-RPC notifications.
 - **Connection failures**: Ensure the server path is correct and the server can start properly.
-- # **Unexpected errors**: Run with `--verbose` to see detailed error information.
+- **Unexpected errors**: Run with `--verbose` to see detailed error information.
+- **API Key Issues**: For prompt evaluation, ensure your ANTHROPIC_API_KEY is correctly set in the .env file
+- **Missing Reports**: Verify the reports directory exists and has write permissions
 
 ### Debugging
 
@@ -235,9 +370,9 @@ For debugging test issues:
    cat test-results/custom-result-*.json
    ```
 
-=======
+   =======
 
-3. Run with verbose output for more detailed information:
+2. Run with verbose output for more detailed information:
    ```bash
    npm run test:verbose
    ```

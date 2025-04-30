@@ -121,6 +121,27 @@ Configure in your VS Code settings:
   npm run test:branch     # Run branching test scenarios
   npm run test:revision   # Run revision test scenarios
   ```
+- Evaluate prompt effectiveness:
+  ```bash
+  npm run eval            # Run prompt evaluation system
+  ```
+
+## Prompt Evaluation
+
+The Code Reasoning MCP Server includes a prompt evaluation system that assesses Claude's ability to follow the code reasoning prompts. This system allows:
+
+- Testing different prompt variations against scenario problems
+- Verifying parameter format adherence
+- Scoring solution quality
+- Generating comprehensive reports
+
+To use the prompt evaluation system, run:
+
+```bash
+npm run eval
+```
+
+See [Testing Framework](./docs/testing.md) for more details on the prompt evaluation system.
 
 ## License
 

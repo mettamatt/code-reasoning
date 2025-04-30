@@ -14,6 +14,7 @@ This project was originally forked from the Sequential Thinking MCP Server but h
   - All tests: `npm run test` or `npm run test:all`
   - Single Test: `npm run test:basic`, `npm run test:branch`, `npm run test:revision`, `npm run test:error`, `npm run test:perf`
   - Verbose output: `npm run test:verbose`
+  - Prompt evaluation: `npm run eval` or `npm run eval:view`
 - Lint: `npm run lint`, `npm run lint:fix`
 - Format: `npm run format`, `npm run format:check`
 - Validation: `npm run validate` (runs format, lint:fix, and build)
