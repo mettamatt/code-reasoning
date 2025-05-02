@@ -81,7 +81,7 @@ interface CodeReasoningConfig {
 
 export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   maxThoughtLength: 20_000, // https://github.com/modelcontextprotocol/servers/issues/751
-  timeoutMs: 30_000,
+  timeoutMs: 60_000,
   maxThoughts: 20,
   logLevel: LogLevel.INFO,
   debug: false,
