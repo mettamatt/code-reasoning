@@ -196,25 +196,43 @@ Each thought can build on, question, or revise previous insights as understandin
 /* -------------------------------------------------------------------------- */
 
 class FilteredStdioServerTransport extends StdioServerTransport {
+  private originalStdoutWrite: typeof process.stdout.write;
+
   constructor() {
     super();
 
-    // Store a reference to the original implementation directly
-    const originalWriteImpl = process.stdout.write;
+    // Store the original implementation before making any changes
+    this.originalStdoutWrite = process.stdout.write;
 
-    // Override with a new function that doesn't create circular references
-    process.stdout.write = function (data: string | Uint8Array): boolean {
+    // Create a bound version that preserves the original context
+    const boundOriginalWrite = this.originalStdoutWrite.bind(process.stdout);
+
+    // Override with a new function that avoids recursion
+    process.stdout.write = ((data: string | Uint8Array): boolean => {
       if (typeof data === 'string') {
         const s = data.trimStart();
         if (s.startsWith('{') || s.startsWith('[')) {
-          // Call the original implementation directly
-          return originalWriteImpl.call(process.stdout, data);
+          // Call the bound function directly to avoid circular reference
+          return boundOriginalWrite(data);
         }
-        return true; // swallow non-JSON
+        // Silent handling of non-JSON strings
+        return true;
       }
-      return originalWriteImpl.call(process.stdout, data);
+      // For non-string data, use the original implementation
+      return boundOriginalWrite(data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any;
+    }) as any;
+  }
+
+  // Add cleanup to restore the original when the transport is closed
+  async close(): Promise<void> {
+    // Restore the original stdout.write before closing
+    if (this.originalStdoutWrite) {
+      process.stdout.write = this.originalStdoutWrite;
+    }
+
+    // Call the parent class's close method
+    await super.close();
   }
 }
 
