@@ -7,6 +7,10 @@
 - Fixed "Maximum call stack size exceeded" error in FilteredStdioServerTransport by preventing recursive stdout.write calls
 - Improved stdout filtering mechanism to avoid circular references when filtering non-JSON output
 
+### Improvements
+
+- Doubled default operation timeout from 30s to 60s for better handling of complex reasoning tasks
+
 ## 0.6.0 (2025-04-30)
 
 ### Features
