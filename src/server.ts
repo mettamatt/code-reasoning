@@ -41,7 +41,7 @@
  * }
  * ```
  *
- * @version 0.6.0
+ * @version 0.6.1
  * @mcp-sdk-version 1.10.2
  */
 
@@ -199,17 +199,22 @@ class FilteredStdioServerTransport extends StdioServerTransport {
   constructor() {
     super();
 
-    const originalWrite = process.stdout.write.bind(process.stdout);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    process.stdout.write = ((data: string | Uint8Array): boolean => {
+    // Store a reference to the original implementation directly
+    const originalWriteImpl = process.stdout.write;
+
+    // Override with a new function that doesn't create circular references
+    process.stdout.write = function (data: string | Uint8Array): boolean {
       if (typeof data === 'string') {
         const s = data.trimStart();
-        if (s.startsWith('{') || s.startsWith('[')) return originalWrite(data);
+        if (s.startsWith('{') || s.startsWith('[')) {
+          // Call the original implementation directly
+          return originalWriteImpl.call(process.stdout, data);
+        }
         return true; // swallow non-JSON
       }
-      return originalWrite(data);
+      return originalWriteImpl.call(process.stdout, data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+    } as any;
   }
 }
 
@@ -393,7 +398,7 @@ class CodeReasoningServer {
 export async function runServer(debugFlag = false): Promise<void> {
   const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
 
-  const serverMeta = { name: 'code-reasoning-server', version: '0.6.0' } as const;
+  const serverMeta = { name: 'code-reasoning-server', version: '0.6.1' } as const;
   const srv = new Server(serverMeta, { capabilities: { tools: {}, resources: {}, prompts: {} } });
   const logic = new CodeReasoningServer(config);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 (2025-05-02)
+
+### Bug Fixes
+
+- Fixed "Maximum call stack size exceeded" error in FilteredStdioServerTransport by preventing recursive stdout.write calls
+- Improved stdout filtering mechanism to avoid circular references when filtering non-JSON output
+
 ## 0.6.0 (2025-04-30)
 
 ### Features
