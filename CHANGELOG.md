@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 (2025-05-04)
+
+### Features
+
+- Added tool annotations support to better inform clients about the tool's behavior
+- Updated MCP SDK version reference to 1.11.0
 
 ### Improvements
 
@@ -10,6 +15,8 @@
   - @typescript-eslint/eslint-plugin: 7.18.0 → 8.31.1
 - Added ESLint v9 flat config support via eslint.config.js
 - Removed obsolete .eslintrc.json configuration
+- Added GitHub Actions CI/CD workflows and contribution templates
+- Added CI badge and Contributing section to README
 
 ## 0.6.1 (2025-05-02)
 

@@ -41,7 +41,7 @@
  * }
  * ```
  *
- * @version 0.6.1
+ * @version 0.6.2
  * @mcp-sdk-version 1.11.0
  */
 
@@ -420,7 +420,7 @@ class CodeReasoningServer {
 export async function runServer(debugFlag = false): Promise<void> {
   const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
 
-  const serverMeta = { name: 'code-reasoning-server', version: '0.6.1' } as const;
+  const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
   const srv = new Server(serverMeta, { capabilities: { tools: {}, resources: {}, prompts: {} } });
   const logic = new CodeReasoningServer(config);
 
