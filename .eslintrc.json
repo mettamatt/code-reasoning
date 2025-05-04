@@ -11,6 +11,7 @@
     "node": true,
     "es6": true
   },
+  "ignorePatterns": ["dist/**/*"],
   "rules": {
     "@typescript-eslint/no-explicit-any": "warn",
     "no-console": ["warn", { "allow": ["error", "warn", "info", "debug"] }],
