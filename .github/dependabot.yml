@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # Check for updates to npm packages
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Group all minor and patch updates together
+    groups:
+      minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Create pull requests for version updates
+    open-pull-requests-limit: 10
+    # Assign labels to pull requests
+    labels:
+      - "dependencies"
+    # Set reviewers for pull requests
+    reviewers:
+      - "mettamatt"  # Using the GitHub username from package.json
+
+  # Check for updates to GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
