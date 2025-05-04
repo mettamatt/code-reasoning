@@ -616,7 +616,7 @@ async function sendJsonRpcMessage(
               resolve(response);
               return true; // Signal that we handled this message
             }
-          } catch (err) {
+          } catch {
             // Not JSON or not a response to our message
           }
         }

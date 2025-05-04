@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- Updated ESLint ecosystem to major new versions
+  - ESLint: 8.57.1 → 9.26.0
+  - @typescript-eslint/parser: 7.18.0 → 8.31.1
+  - @typescript-eslint/eslint-plugin: 7.18.0 → 8.31.1
+- Added ESLint v9 flat config support via eslint.config.js
+- Removed obsolete .eslintrc.json configuration
+
 ## 0.6.1 (2025-05-02)
 
 ### Bug Fixes
