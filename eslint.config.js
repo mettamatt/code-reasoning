@@ -5,10 +5,13 @@ import tsParser from '@typescript-eslint/parser';
 import prettier from 'eslint-plugin-prettier';
 
 export default [
+  // Add an initial configuration that ignores dist
+  {
+    ignores: ['dist/**/*'],
+  },
   js.configs.recommended,
   {
     files: ['**/*.{ts,js}'],
-    ignores: ['dist/**/*'],
     languageOptions: {
       globals: {
         ...globals.node,
