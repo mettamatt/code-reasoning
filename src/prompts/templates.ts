@@ -128,7 +128,7 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
  * Each function takes a record of argument values and returns a prompt result.
  */
 export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => PromptResult> = {
-  'bug-analysis': (args) => ({
+  'bug-analysis': args => ({
     messages: [
       {
         role: 'user',
@@ -161,7 +161,7 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
       },
     ],
   }),
-  'feature-planning': (args) => ({
+  'feature-planning': args => ({
     messages: [
       {
         role: 'user',
@@ -202,7 +202,7 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
       },
     ],
   }),
-  'code-review': (args) => ({
+  'code-review': args => ({
     messages: [
       {
         role: 'user',
@@ -252,7 +252,7 @@ ${args.requirements || 'No specific requirements provided.'}
       },
     ],
   }),
-  'refactoring-plan': (args) => ({
+  'refactoring-plan': args => ({
     messages: [
       {
         role: 'user',
@@ -293,7 +293,7 @@ ${args.requirements || 'No specific requirements provided.'}
       },
     ],
   }),
-  'architecture-decision': (args) => ({
+  'architecture-decision': args => ({
     messages: [
       {
         role: 'user',

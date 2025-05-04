@@ -53,6 +53,7 @@ import {
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ServerCapabilities,
   Tool,
   type ServerResult,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -79,10 +80,10 @@ interface CodeReasoningConfig {
   maxThoughts: number;
   logLevel: LogLevel;
   debug: boolean;
-  
+
   // Prompt-related configuration
   promptsEnabled: boolean;
-  customPromptsDir?: string;  // Directory for custom prompt templates
+  customPromptsDir?: string; // Directory for custom prompt templates
 }
 
 export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
@@ -91,7 +92,7 @@ export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   maxThoughts: 20,
   logLevel: LogLevel.INFO,
   debug: false,
-  
+
   // Prompt config with defaults
   promptsEnabled: true,
   customPromptsDir: undefined, // No custom prompts directory by default
@@ -431,13 +432,13 @@ export async function runServer(debugFlag = false): Promise<void> {
   const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
-  
+
   // Configure server capabilities based on config
-  const capabilities: any = { 
+  const capabilities: Partial<ServerCapabilities> = {
     tools: {},
     resources: {},
   };
-  
+
   // Only add prompts capability if enabled
   if (config.promptsEnabled) {
     capabilities.prompts = {
@@ -445,43 +446,43 @@ export async function runServer(debugFlag = false): Promise<void> {
       get: true,
     };
   }
-  
+
   const srv = new Server(serverMeta, { capabilities });
   const logic = new CodeReasoningServer(config);
-  
+
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
   if (config.promptsEnabled) {
     promptManager = new PromptManager();
     console.error('Prompts capability enabled');
-    
+
     // Load custom prompts if configured
     if (config.customPromptsDir) {
       console.error(`Loading custom prompts from ${config.customPromptsDir}`);
       await promptManager.loadCustomPrompts(config.customPromptsDir);
     }
-    
+
     // Add prompt handlers
     srv.setRequestHandler(ListPromptsRequestSchema, async () => {
       const prompts = promptManager?.getAllPrompts() || [];
       console.error(`Returning ${prompts.length} prompts`);
       return { prompts };
     });
-    
-    srv.setRequestHandler(GetPromptRequestSchema, async (req) => {
+
+    srv.setRequestHandler(GetPromptRequestSchema, async req => {
       try {
         if (!promptManager) {
           throw new Error('Prompt manager not initialized');
         }
-        
+
         const promptName = req.params.name;
         const args = req.params.arguments || {};
-        
+
         console.error(`Getting prompt: ${promptName} with args:`, args);
-        
+
         // Get the prompt result
         const result = promptManager.applyPrompt(promptName, args);
-        
+
         // Return the result in the format expected by MCP
         return {
           messages: result.messages,
