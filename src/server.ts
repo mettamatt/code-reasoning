@@ -5,7 +5,7 @@
  *
  * This server provides a tool for reflective problem-solving in software development,
  * allowing decomposition of tasks into sequential, revisable, and branchable thoughts.
- * It adheres to the Model Context Protocol (MCP) using SDK version 1.10.2 and is designed
+ * It adheres to the Model Context Protocol (MCP) using SDK version 1.11.0 and is designed
  * to integrate seamlessly with Claude Desktop or similar MCP-compliant clients.
  *
  * ## Key Features
@@ -42,7 +42,7 @@
  * ```
  *
  * @version 0.6.1
- * @mcp-sdk-version 1.10.2
+ * @mcp-sdk-version 1.11.0
  */
 
 import process from 'node:process';
@@ -189,6 +189,10 @@ Each thought can build on, question, or revise previous insights as understandin
 ✍️ End each thought by asking: "What am I missing or need to reconsider?"`,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inputSchema: THOUGHT_DATA_JSON_SCHEMA as any, // SDK expects unknown JSON schema shape
+  annotations: {
+    title: 'Code Reasoning',
+    readOnlyHint: true,
+  },
 };
 
 /* -------------------------------------------------------------------------- */
