@@ -49,6 +49,7 @@ import process from 'node:process';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
+  GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
@@ -58,6 +59,7 @@ import {
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { PromptManager } from './prompts/manager.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -77,6 +79,10 @@ interface CodeReasoningConfig {
   maxThoughts: number;
   logLevel: LogLevel;
   debug: boolean;
+  
+  // Prompt-related configuration
+  promptsEnabled: boolean;
+  customPromptsDir?: string;  // Directory for custom prompt templates
 }
 
 export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
@@ -85,6 +91,10 @@ export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   maxThoughts: 20,
   logLevel: LogLevel.INFO,
   debug: false,
+  
+  // Prompt config with defaults
+  promptsEnabled: true,
+  customPromptsDir: undefined, // No custom prompts directory by default
 });
 
 /* -------------------------------------------------------------------------- */
@@ -421,11 +431,78 @@ export async function runServer(debugFlag = false): Promise<void> {
   const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
-  const srv = new Server(serverMeta, { capabilities: { tools: {}, resources: {}, prompts: {} } });
+  
+  // Configure server capabilities based on config
+  const capabilities: any = { 
+    tools: {},
+    resources: {},
+  };
+  
+  // Only add prompts capability if enabled
+  if (config.promptsEnabled) {
+    capabilities.prompts = {
+      list: true,
+      get: true,
+    };
+  }
+  
+  const srv = new Server(serverMeta, { capabilities });
   const logic = new CodeReasoningServer(config);
+  
+  // Initialize prompt manager if enabled
+  let promptManager: PromptManager | undefined;
+  if (config.promptsEnabled) {
+    promptManager = new PromptManager();
+    console.error('Prompts capability enabled');
+    
+    // Load custom prompts if configured
+    if (config.customPromptsDir) {
+      console.error(`Loading custom prompts from ${config.customPromptsDir}`);
+      await promptManager.loadCustomPrompts(config.customPromptsDir);
+    }
+    
+    // Add prompt handlers
+    srv.setRequestHandler(ListPromptsRequestSchema, async () => {
+      const prompts = promptManager?.getAllPrompts() || [];
+      console.error(`Returning ${prompts.length} prompts`);
+      return { prompts };
+    });
+    
+    srv.setRequestHandler(GetPromptRequestSchema, async (req) => {
+      try {
+        if (!promptManager) {
+          throw new Error('Prompt manager not initialized');
+        }
+        
+        const promptName = req.params.name;
+        const args = req.params.arguments || {};
+        
+        console.error(`Getting prompt: ${promptName} with args:`, args);
+        
+        // Get the prompt result
+        const result = promptManager.applyPrompt(promptName, args);
+        
+        // Return the result in the format expected by MCP
+        return {
+          messages: result.messages,
+          _meta: {},
+        };
+      } catch (err) {
+        const e = err as Error;
+        console.error('Prompt error:', e.message);
+        return {
+          isError: true,
+          content: [{ type: 'text', text: e.message }],
+        };
+      }
+    });
+  } else {
+    // Keep the empty handler if prompts disabled
+    srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
+  }
 
+  // Existing handlers
   srv.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
-  srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
   srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [CODE_REASONING_TOOL] }));
   srv.setRequestHandler(CallToolRequestSchema, req =>
     req.params.name === CODE_REASONING_TOOL.name
