@@ -35,3 +35,5 @@ Thumbs.db
 logs/
 test-results/
 test/prompt-evaluation/reports/
+
+**/.claude/settings.local.json
