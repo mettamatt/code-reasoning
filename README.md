@@ -6,14 +6,18 @@ A Model Context Protocol (MCP) server that enhances Claude's ability to solve co
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@mettamatt/code-reasoning/badge" alt="Code Reasoning Server MCP server" />
 </a>
 
+[![npm version](https://img.shields.io/npm/v/@mettamatt/code-reasoning.svg)](https://www.npmjs.com/package/@mettamatt/code-reasoning)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/mettamatt/code-reasoning/actions/workflows/ci.yml/badge.svg)](https://github.com/mettamatt/code-reasoning/actions/workflows/ci.yml)
+
 ## What Is This?
 
 Code Reasoning is a tool that helps Claude break down complex programming problems into manageable steps using sequential thinking methodology. It enables:
 
-- Step-by-step reasoning about code problems
-- Exploring alternative approaches through branching
-- Revising earlier reasoning when needed
-- Detailed logging of the thinking process
+- **Step-by-step reasoning** about code problems with numbered thoughts
+- **Branch exploration** of alternative approaches (🌿)
+- **Thought revision** to correct earlier reasoning (🔄)
+- **Detailed thinking logs** for transparency and debugging
 
 While based on the sequential thinking approach, this server is specifically optimized for programming tasks and code analysis, hence the name "Code Reasoning".
 
@@ -30,7 +34,10 @@ npm install -g @mettamatt/code-reasoning
 ## Using with Claude
 
 1. Configure Claude Desktop by editing:
-   `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+   - Linux: `~/.config/Claude/claude_desktop_config.json`
 
    ```json
    {
@@ -43,10 +50,10 @@ npm install -g @mettamatt/code-reasoning
    }
    ```
 
-2. Ask Claude to use sequential thinking in your prompts:
+1. Ask Claude to use sequential thinking in your prompts:
 
    ```
-   Please analyze this code using sequential-thinking to break down the solution step by step.
+   Please analyze this code using sequential thinking to break down the solution step by step.
    ```
 
 ## Command Line Options
@@ -71,18 +78,6 @@ Detailed documentation available in the docs directory:
 - [Configuration Guide](./docs/configuration.md): All configuration options
 - [Publishing Guide](./docs/publishing.md): Version management and publishing
 - [Testing Framework](./docs/testing.md): Testing information
-
-## Advanced Installation
-
-To install from source:
-
-```bash
-git clone https://github.com/mettamatt/code-reasoning.git
-cd code-reasoning
-npm install
-npm run build
-npm link
-```
 
 ## Project Structure
 
@@ -172,6 +167,40 @@ The HYBRID_DESIGN prompt marginally demonstrated both the highest average soluti
 Personally, I think the biggest improvement was adding this to the end of the prompt: "✍️ End each thought by asking: "What am I missing or need to reconsider?"
 
 See [Testing Framework](./docs/testing.md) for more details on the prompt evaluation system.
+
+## Contributing
+
+Contributions to the Code Reasoning MCP Server are welcome! Here's how to contribute:
+
+1. **Fork the repository**
+2. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. **Make your changes**
+4. **Run tests locally**:
+   ```bash
+   npm run test:validate
+   ```
+5. **Commit your changes**:
+   ```bash
+   git commit -m "Add your meaningful commit message"
+   ```
+6. **Push to your branch**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+7. **Create a Pull Request**
+
+When you create a pull request, the CI workflow will automatically run to verify your changes. This includes linting, format checking, building, and testing. Your PR will show the status of these checks.
+
+### Continuous Integration
+
+This project uses GitHub Actions for CI/CD:
+
+- **CI Workflow**: Runs automatically on pull requests and pushes to `main`
+- **Release Workflow**: Runs when a new release is created or a version tag is pushed
+- **Dependabot**: Automatically opens PRs for dependency updates
 
 ## License
 
