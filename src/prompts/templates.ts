@@ -2,18 +2,26 @@
  * @fileoverview Prompt templates for code reasoning.
  *
  * This file defines a set of prompt templates specifically designed for
- * code reasoning tasks.
+ * code reasoning tasks. All prompts support sequential thinking.
  */
 
-import { Prompt, PromptResult } from './types.js';
+import { PromptResult } from './types.js';
+import { ReasoningPrompt, ReasoningType } from './reasoning-types.js';
 
 /**
  * Collection of code reasoning prompts.
+ * All prompts are reasoning-aware and support sequential thinking.
  */
-export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
+export const CODE_REASONING_PROMPTS: Record<string, ReasoningPrompt> = {
   'bug-analysis': {
     name: 'bug-analysis',
     description: 'Systematic approach to analyzing and fixing bugs',
+    reasoningType: ReasoningType.INITIALIZATION,
+    thoughtTemplate: {
+      format:
+        '# Bug Analysis\n\nBug behavior: {{bug_behavior}}\nExpected behavior: {{expected_behavior}}\nAffected components: {{affected_components}}\n\nLet me analyze this systematically.',
+      suggestedTotalThoughts: 6,
+    },
     arguments: [
       {
         name: 'bug_behavior',
@@ -40,6 +48,12 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
   'feature-planning': {
     name: 'feature-planning',
     description: 'Structured approach to planning new feature implementation',
+    reasoningType: ReasoningType.INITIALIZATION,
+    thoughtTemplate: {
+      format:
+        '# Feature Planning\n\nProblem statement: {{problem_statement}}\nTarget users: {{target_users}}\nSuccess criteria: {{success_criteria}}\n\nLet me plan this feature systematically.',
+      suggestedTotalThoughts: 7,
+    },
     arguments: [
       {
         name: 'problem_statement',
@@ -66,6 +80,12 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
   'code-review': {
     name: 'code-review',
     description: 'Comprehensive template for code review',
+    reasoningType: ReasoningType.INITIALIZATION,
+    thoughtTemplate: {
+      format:
+        '# Code Review\n\nLet me review this code systematically:\n\n```{{language}}\n{{code}}\n```\n\nRequirements: {{requirements}}',
+      suggestedTotalThoughts: 6,
+    },
     arguments: [
       {
         name: 'code',
@@ -87,6 +107,12 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
   'refactoring-plan': {
     name: 'refactoring-plan',
     description: 'Structured approach to code refactoring',
+    reasoningType: ReasoningType.INITIALIZATION,
+    thoughtTemplate: {
+      format:
+        '# Refactoring Plan\n\nCurrent issues: {{current_issues}}\nGoals: {{goals}}\n\nLet me develop a refactoring plan step by step.',
+      suggestedTotalThoughts: 6,
+    },
     arguments: [
       {
         name: 'current_issues',
@@ -103,6 +129,12 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
   'architecture-decision': {
     name: 'architecture-decision',
     description: 'Framework for making and documenting architecture decisions',
+    reasoningType: ReasoningType.INITIALIZATION,
+    thoughtTemplate: {
+      format:
+        '# Architecture Decision\n\nDecision context: {{decision_context}}\nConstraints: {{constraints}}\nOptions: {{options}}\n\nLet me evaluate this architectural decision systematically.',
+      suggestedTotalThoughts: 7,
+    },
     arguments: [
       {
         name: 'decision_context',

@@ -28,6 +28,7 @@ export class PromptManager {
 
   /**
    * Registers a new prompt and its template function.
+   * Note: All prompts are considered capable of sequential thinking
    *
    * @param prompt The prompt definition
    * @param template The template function that applies arguments to generate a result
@@ -36,6 +37,13 @@ export class PromptManager {
     this.prompts[prompt.name] = prompt;
     this.templates[prompt.name] = template;
     console.error(`Registered prompt: ${prompt.name}`);
+
+    // Log a warning if this is not a reasoning prompt
+    if (!('reasoningType' in prompt)) {
+      console.error(
+        `Warning: Prompt ${prompt.name} is not a reasoning prompt. It will be auto-converted when used.`
+      );
+    }
   }
 
   /**
