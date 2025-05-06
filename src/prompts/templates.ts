@@ -30,6 +30,11 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
         description: 'Options being considered',
         required: false,
       },
+      {
+        name: 'working_directory',
+        description: 'Path to the current project directory',
+        required: false,
+      },
     ],
   },
   'bug-analysis': {
@@ -56,6 +61,11 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
         description: 'Steps to reproduce the bug',
         required: false,
       },
+      {
+        name: 'working_directory',
+        description: 'Path to the current project directory',
+        required: false,
+      },
     ],
   },
   'code-review': {
@@ -75,6 +85,11 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       {
         name: 'language',
         description: 'Programming language of the code',
+        required: false,
+      },
+      {
+        name: 'working_directory',
+        description: 'Path to the current project directory',
         required: false,
       },
     ],
@@ -103,6 +118,11 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
         description: 'Existing components that will need modification',
         required: false,
       },
+      {
+        name: 'working_directory',
+        description: 'Path to the current project directory',
+        required: false,
+      },
     ],
   },
   'refactoring-plan': {
@@ -118,6 +138,11 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
         name: 'goals',
         description: 'Goals of the refactoring effort',
         required: true,
+      },
+      {
+        name: 'working_directory',
+        description: 'Path to the current project directory',
+        required: false,
       },
     ],
   },
@@ -136,7 +161,11 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
           type: 'text',
           text: `# Architecture Decision Record
 
+${args.working_directory ? `Working Directory: ${args.working_directory}\n` : ''}
+
 Please use reflective problem-solving through sequential thinking to analyze this architectural decision. Use the code-reasoning mcp tool to break down your analysis into structured steps.
+
+Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Context**
    - Decision context: ${args.decision_context || 'N/A'}
@@ -182,7 +211,11 @@ This critical architectural decision deserves thorough analysis. Use the code-re
           type: 'text',
           text: `# Bug Analysis Process
 
+${args.working_directory ? `Working Directory: ${args.working_directory}\n` : ''}
+
 Please use reflective problem-solving through sequential thinking to analyze this bug thoroughly. Use the code-reasoning mcp tool to break down your analysis into structured steps.
+
+Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Understand the reported behavior**
    - Bug behavior: ${args.bug_behavior || 'N/A'}
@@ -219,7 +252,11 @@ Remember to use the code-reasoning mcp tool to structure your thinking through t
           type: 'text',
           text: `# Code Review Template
 
+${args.working_directory ? `Working Directory: ${args.working_directory}\n` : ''}
+
 Please use reflective problem-solving through sequential thinking to perform this code review. Use the code-reasoning mcp tool to break down your analysis into structured steps.
+
+Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Code to Review**
 \`\`\`${args.language || ''}
@@ -273,7 +310,11 @@ For this complex code analysis, use the code-reasoning mcp tool to structure you
           type: 'text',
           text: `# Feature Planning Process
 
+${args.working_directory ? `Working Directory: ${args.working_directory}\n` : ''}
+
 Please use reflective problem-solving through sequential thinking to develop this feature plan. Use the code-reasoning mcp tool to break down your planning process into structured steps.
+
+Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Feature Requirements**
    - Problem statement: ${args.problem_statement || 'N/A'}
@@ -318,7 +359,11 @@ This complex planning task will benefit from using the code-reasoning mcp tool t
           type: 'text',
           text: `# Refactoring Plan
 
+${args.working_directory ? `Working Directory: ${args.working_directory}\n` : ''}
+
 Please use reflective problem-solving through sequential thinking to develop this refactoring plan. Use the code-reasoning mcp tool to break down your analysis into structured steps.
+
+Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Current Code Assessment**
    - Current issues: ${args.current_issues || 'N/A'}
