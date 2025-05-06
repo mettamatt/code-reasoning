@@ -28,8 +28,8 @@ export class PromptValueManager {
    * @param configDir The directory where configuration files are stored
    */
   constructor(configDir: string) {
-    // Expand tilde in config directory path if present
-    const expandedConfigDir = expandTildePath(configDir);
+    // Expand tilde in config directory path if present and ensure directory exists
+    const expandedConfigDir = expandTildePath(configDir, true);
     this.valuesFilePath = path.join(expandedConfigDir, 'prompt_values.json');
     console.error(`PromptValueManager using file path: ${this.valuesFilePath}`);
     this.values = this.loadValues();
@@ -49,8 +49,15 @@ export class PromptValueManager {
           prompts: {},
         };
 
-        // Write default file
-        fs.writeFileSync(this.valuesFilePath, JSON.stringify(defaultValues, null, 2));
+        // Write default file - the directory should already exist
+        // from the constructor call to expandTildePath with createDir=true
+        try {
+          fs.writeFileSync(this.valuesFilePath, JSON.stringify(defaultValues, null, 2));
+          console.error(`Created default prompt values file at: ${this.valuesFilePath}`);
+        } catch (writeErr) {
+          console.error(`Could not create prompt values file: ${writeErr}`);
+        }
+
         return defaultValues;
       }
 
@@ -69,6 +76,7 @@ export class PromptValueManager {
    */
   private saveValues(): void {
     try {
+      // The directory should already exist from the constructor
       fs.writeFileSync(this.valuesFilePath, JSON.stringify(this.values, null, 2));
     } catch (err) {
       console.error('Error saving prompt values:', err);
@@ -105,23 +113,28 @@ export class PromptValueManager {
       this.values.global.working_directory = args.working_directory;
     }
 
-    // Ensure prompt entry exists
-    if (!this.values.prompts[promptName]) {
-      this.values.prompts[promptName] = {};
-    }
-
-    // Update prompt-specific values (excluding global ones)
-    const promptValues = this.values.prompts[promptName];
-    const globalKeys = Object.keys(this.values.global);
-
-    Object.entries(args).forEach(([key, value]) => {
-      // Skip global keys and empty values
-      if (!globalKeys.includes(key) && value.trim() !== '') {
-        promptValues[key] = value;
+    try {
+      // Ensure prompt entry exists
+      if (!this.values.prompts[promptName]) {
+        this.values.prompts[promptName] = {};
       }
-    });
 
-    // Save updated values
-    this.saveValues();
+      // Update prompt-specific values (excluding global ones)
+      const promptValues = this.values.prompts[promptName];
+      const globalKeys = Object.keys(this.values.global);
+
+      Object.entries(args).forEach(([key, value]) => {
+        // Skip global keys and empty values
+        if (!globalKeys.includes(key) && value.trim() !== '') {
+          promptValues[key] = value;
+        }
+      });
+
+      // Save updated values
+      this.saveValues();
+    } catch (err) {
+      console.error('Error saving prompt values:', err);
+      // Don't throw, just log the error
+    }
   }
 }

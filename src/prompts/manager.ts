@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
@@ -34,24 +35,23 @@ export class PromptManager {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
     // Initialize value manager with config directory
-    // If configDir is provided, expand any tilde characters
+    // If configDir is provided, expand any tilde characters and create directory if needed
     // Otherwise use a directory relative to the application
     const resolvedConfigDir = configDir
-      ? expandTildePath(configDir)
-      : path.join(__dirname, '..', '..', 'config');
+      ? expandTildePath(configDir, true)
+      : expandTildePath(path.join(__dirname, '..', '..', 'config'), true);
 
     console.error(`Using config directory: ${resolvedConfigDir}`);
 
-    // Create config directory if it doesn't exist
-    if (!fs.existsSync(resolvedConfigDir)) {
-      try {
-        fs.mkdirSync(resolvedConfigDir, { recursive: true });
-      } catch (err) {
-        console.error(`Failed to create config directory: ${resolvedConfigDir}`, err);
-      }
+    try {
+      this.valueManager = new PromptValueManager(resolvedConfigDir);
+    } catch (err) {
+      console.error(`Error initializing PromptValueManager: ${err}`);
+      // Create a dummy value manager that doesn't actually save anything
+      // Create a placeholder value manager using a fake config path
+      // This will not throw errors when trying to write files that we know will fail
+      this.valueManager = new PromptValueManager(os.tmpdir());
     }
-
-    this.valueManager = new PromptValueManager(resolvedConfigDir);
 
     console.error('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
   }
