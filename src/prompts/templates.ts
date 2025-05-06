@@ -11,6 +11,27 @@ import { Prompt, PromptResult } from './types.js';
  * Collection of code reasoning prompts.
  */
 export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
+  'architecture-decision': {
+    name: 'architecture-decision',
+    description: 'Framework for making and documenting architecture decisions',
+    arguments: [
+      {
+        name: 'decision_context',
+        description: 'The architectural decision that needs to be made',
+        required: true,
+      },
+      {
+        name: 'constraints',
+        description: 'Constraints that impact the decision',
+        required: false,
+      },
+      {
+        name: 'options',
+        description: 'Options being considered',
+        required: false,
+      },
+    ],
+  },
   'bug-analysis': {
     name: 'bug-analysis',
     description: 'Systematic approach to analyzing and fixing bugs',
@@ -33,6 +54,27 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       {
         name: 'reproduction_steps',
         description: 'Steps to reproduce the bug',
+        required: false,
+      },
+    ],
+  },
+  'code-review': {
+    name: 'code-review',
+    description: 'Comprehensive template for code review',
+    arguments: [
+      {
+        name: 'code',
+        description: 'Code to be reviewed',
+        required: true,
+      },
+      {
+        name: 'requirements',
+        description: 'Requirements that the code should implement',
+        required: false,
+      },
+      {
+        name: 'language',
+        description: 'Programming language of the code',
         required: false,
       },
     ],
@@ -63,27 +105,6 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       },
     ],
   },
-  'code-review': {
-    name: 'code-review',
-    description: 'Comprehensive template for code review',
-    arguments: [
-      {
-        name: 'code',
-        description: 'Code to be reviewed',
-        required: true,
-      },
-      {
-        name: 'requirements',
-        description: 'Requirements that the code should implement',
-        required: false,
-      },
-      {
-        name: 'language',
-        description: 'Programming language of the code',
-        required: false,
-      },
-    ],
-  },
   'refactoring-plan': {
     name: 'refactoring-plan',
     description: 'Structured approach to code refactoring',
@@ -100,27 +121,6 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       },
     ],
   },
-  'architecture-decision': {
-    name: 'architecture-decision',
-    description: 'Framework for making and documenting architecture decisions',
-    arguments: [
-      {
-        name: 'decision_context',
-        description: 'The architectural decision that needs to be made',
-        required: true,
-      },
-      {
-        name: 'constraints',
-        description: 'Constraints that impact the decision',
-        required: false,
-      },
-      {
-        name: 'options',
-        description: 'Options being considered',
-        required: false,
-      },
-    ],
-  },
 };
 
 /**
@@ -128,6 +128,52 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
  * Each function takes a record of argument values and returns a prompt result.
  */
 export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => PromptResult> = {
+  'architecture-decision': args => ({
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `# Architecture Decision Record
+
+Please use reflective problem-solving through sequential thinking to analyze this architectural decision. Use the code-reasoning mcp tool to break down your analysis into structured steps.
+
+1. **Context**
+   - Decision context: ${args.decision_context || 'N/A'}
+   - Constraints: ${args.constraints || 'N/A'}
+   - Options: ${args.options || 'N/A'}
+
+2. **Options Considered**
+   - What alternatives have we identified?
+   - For each alternative:
+     - What are its key characteristics?
+     - What are its advantages?
+     - What are its disadvantages?
+     - What risks does it present?
+
+3. **Decision Criteria**
+   - What factors are most important for this decision?
+   - How do we weigh different concerns (performance, maintainability, etc.)?
+
+4. **Evaluation**
+   - How does each option perform against our criteria?
+   - What trade-offs does each option represent?
+
+5. **Decision**
+   - Which option do we select and why?
+   - What were the key factors in this decision?
+
+6. **Consequences**
+   - What are the implications of this decision?
+   - What becomes easier or harder as a result?
+   - What new constraints does this create?
+   - What follow-up decisions will be needed?
+
+This critical architectural decision deserves thorough analysis. Use the code-reasoning mcp tool to structure your thinking and explore different perspectives step by step.`,
+        },
+      },
+    ],
+  }),
   'bug-analysis': args => ({
     messages: [
       {
@@ -135,6 +181,8 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
         content: {
           type: 'text',
           text: `# Bug Analysis Process
+
+Please use reflective problem-solving through sequential thinking to analyze this bug thoroughly. Use the code-reasoning mcp tool to break down your analysis into structured steps.
 
 1. **Understand the reported behavior**
    - Bug behavior: ${args.bug_behavior || 'N/A'}
@@ -156,48 +204,9 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
 6. **Propose fix**
    - Once cause is identified, what's the recommended fix?
    - What side effects might this fix have?
-   - How can we verify the fix works?`,
-        },
-      },
-    ],
-  }),
-  'feature-planning': args => ({
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: `# Feature Planning Process
+   - How can we verify the fix works?
 
-1. **Feature Requirements**
-   - Problem statement: ${args.problem_statement || 'N/A'}
-   - Target users: ${args.target_users || 'N/A'}
-   - Success criteria: ${args.success_criteria || 'N/A'}
-
-2. **Architectural Considerations**
-   - Affected components: ${args.affected_components || 'N/A'}
-   - What new components might be needed?
-   - Are there any API changes required?
-
-3. **Implementation Strategy**
-   - Break down the feature into implementation tasks
-   - Identify dependencies between tasks
-   - Estimate complexity and effort
-   - Plan an implementation sequence
-
-4. **Testing Strategy**
-   - What unit tests will be needed?
-   - What integration tests will be needed?
-   - How will we validate user requirements are met?
-
-5. **Risks and Mitigations**
-   - What technical risks exist?
-   - What product/user risks exist?
-   - How can we mitigate each risk?
-
-6. **Acceptance Criteria**
-   - Define clear criteria for when this feature is complete
-   - Include performance and quality expectations`,
+Remember to use the code-reasoning mcp tool to structure your thinking through this complex debugging task.`,
         },
       },
     ],
@@ -209,6 +218,8 @@ export const PROMPT_TEMPLATES: Record<string, (args: Record<string, string>) => 
         content: {
           type: 'text',
           text: `# Code Review Template
+
+Please use reflective problem-solving through sequential thinking to perform this code review. Use the code-reasoning mcp tool to break down your analysis into structured steps.
 
 1. **Code to Review**
 \`\`\`${args.language || ''}
@@ -247,7 +258,54 @@ ${args.requirements || 'No specific requirements provided.'}
 8. **Summary and Recommendations**
    - Overall assessment
    - Key issues to address (prioritized)
-   - Suggestions for improvement`,
+   - Suggestions for improvement
+
+For this complex code analysis, use the code-reasoning mcp tool to structure your thinking and document your review process step by step.`,
+        },
+      },
+    ],
+  }),
+  'feature-planning': args => ({
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `# Feature Planning Process
+
+Please use reflective problem-solving through sequential thinking to develop this feature plan. Use the code-reasoning mcp tool to break down your planning process into structured steps.
+
+1. **Feature Requirements**
+   - Problem statement: ${args.problem_statement || 'N/A'}
+   - Target users: ${args.target_users || 'N/A'}
+   - Success criteria: ${args.success_criteria || 'N/A'}
+
+2. **Architectural Considerations**
+   - Affected components: ${args.affected_components || 'N/A'}
+   - What new components might be needed?
+   - Are there any API changes required?
+
+3. **Implementation Strategy**
+   - Break down the feature into implementation tasks
+   - Identify dependencies between tasks
+   - Estimate complexity and effort
+   - Plan an implementation sequence
+
+4. **Testing Strategy**
+   - What unit tests will be needed?
+   - What integration tests will be needed?
+   - How will we validate user requirements are met?
+
+5. **Risks and Mitigations**
+   - What technical risks exist?
+   - What product/user risks exist?
+   - How can we mitigate each risk?
+
+6. **Acceptance Criteria**
+   - Define clear criteria for when this feature is complete
+   - Include performance and quality expectations
+
+This complex planning task will benefit from using the code-reasoning mcp tool to structure your thinking process.`,
         },
       },
     ],
@@ -259,6 +317,8 @@ ${args.requirements || 'No specific requirements provided.'}
         content: {
           type: 'text',
           text: `# Refactoring Plan
+
+Please use reflective problem-solving through sequential thinking to develop this refactoring plan. Use the code-reasoning mcp tool to break down your analysis into structured steps.
 
 1. **Current Code Assessment**
    - Current issues: ${args.current_issues || 'N/A'}
@@ -288,49 +348,9 @@ ${args.requirements || 'No specific requirements provided.'}
 6. **Implementation Plan**
    - Sequence of changes
    - Estimated effort
-   - Verification points`,
-        },
-      },
-    ],
-  }),
-  'architecture-decision': args => ({
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: `# Architecture Decision Record
+   - Verification points
 
-1. **Context**
-   - Decision context: ${args.decision_context || 'N/A'}
-   - Constraints: ${args.constraints || 'N/A'}
-   - Options: ${args.options || 'N/A'}
-
-2. **Options Considered**
-   - What alternatives have we identified?
-   - For each alternative:
-     - What are its key characteristics?
-     - What are its advantages?
-     - What are its disadvantages?
-     - What risks does it present?
-
-3. **Decision Criteria**
-   - What factors are most important for this decision?
-   - How do we weigh different concerns (performance, maintainability, etc.)?
-
-4. **Evaluation**
-   - How does each option perform against our criteria?
-   - What trade-offs does each option represent?
-
-5. **Decision**
-   - Which option do we select and why?
-   - What were the key factors in this decision?
-
-6. **Consequences**
-   - What are the implications of this decision?
-   - What becomes easier or harder as a result?
-   - What new constraints does this create?
-   - What follow-up decisions will be needed?`,
+This complex refactoring task requires careful analysis. Use the code-reasoning mcp tool to structure your thought process for developing a safe and effective approach.`,
         },
       },
     ],
