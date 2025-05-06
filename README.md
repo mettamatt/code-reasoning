@@ -56,6 +56,16 @@ npm install -g @mettamatt/code-reasoning
    Please analyze this code using sequential thinking to break down the solution step by step.
    ```
 
+1. Access ready-to-use prompts:
+
+   - Click the "+" icon in the Claude Desktop chat window
+   - Select "Code Reasoning Tool" from the available tools
+   - Choose a prompt template and fill in the required information
+   - Submit the form to add the prompt to your chat message
+   - Send the message to Claude
+
+See the [Prompts Guide](./docs/prompts.md) for details on using the prompt templates.
+
 ## Command Line Options
 
 - `--debug`: Enable detailed logging
@@ -69,6 +79,9 @@ npm install -g @mettamatt/code-reasoning
 - **Thought Revision**: Refine earlier reasoning as understanding improves
 - **Safety Limits**: Automatically stops after 20 thought steps to prevent loops
 - **Advanced Debugging**: Comprehensive logging system
+- **Ready-to-Use Prompts**: Pre-defined templates for common development tasks
+- **Value Persistence**: Remembers argument values between prompt uses
+- **Filesystem Integration**: Easy access to project files
 
 ## Documentation
 
@@ -76,6 +89,7 @@ Detailed documentation available in the docs directory:
 
 - [Usage Examples](./docs/examples.md): Examples of sequential thinking
 - [Configuration Guide](./docs/configuration.md): All configuration options
+- [Prompts Guide](./docs/prompts.md): Using and customizing prompts
 - [Publishing Guide](./docs/publishing.md): Version management and publishing
 - [Testing Framework](./docs/testing.md): Testing information
 

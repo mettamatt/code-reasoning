@@ -10,6 +10,7 @@ This document provides detailed information about all configuration options avai
   - [VS Code Integration](#vs-code-integration)
 - [Component Configuration](#component-configuration)
   - [Logging Configuration](#logging-configuration)
+  - [Prompt Configuration](#prompt-configuration)
   - [Testing Configuration](#testing-configuration)
     - [Integrated Test Runner](#integrated-test-runner)
     - [Prompt Evaluation System](#prompt-evaluation-system)
@@ -18,10 +19,11 @@ This document provides detailed information about all configuration options avai
 
 The Code-Reasoning MCP Server supports the following command-line options:
 
-| Option         | Description                                   | Default | Example                  |
-| -------------- | --------------------------------------------- | ------- | ------------------------ |
-| `--debug`      | Enable debug logging with more verbose output | `false` | `code-reasoning --debug` |
-| `--help`, `-h` | Show help information                         | -       | `code-reasoning --help`  |
+| Option         | Description                                   | Default  | Example                                       |
+| -------------- | --------------------------------------------- | -------- | --------------------------------------------- |
+| `--debug`      | Enable debug logging with more verbose output | `false`  | `code-reasoning --debug`                      |
+| `--help`, `-h` | Show help information                         | -        | `code-reasoning --help`                       |
+| `--config-dir` | Specify the configuration directory           | `config` | `code-reasoning --config-dir=/path/to/config` |
 
 ### Usage Examples
 
@@ -150,6 +152,66 @@ const SERVER_CONFIG: CodeReasoningConfig = {
 ```
 
 The `debug` flag is set based on the command-line argument passed to the server.
+
+### Prompt Configuration
+
+The Code-Reasoning MCP Server includes a prompt system with the following configuration options:
+
+#### Command-Line Options
+
+| Option                 | Description                           | Default     | Example                                                |
+| ---------------------- | ------------------------------------- | ----------- | ------------------------------------------------------ |
+| `--config-dir`         | Directory for configuration files     | `./config`  | `code-reasoning --config-dir=/path/to/config`          |
+| `--custom-prompts-dir` | Directory for custom prompt templates | `undefined` | `code-reasoning --custom-prompts-dir=/path/to/prompts` |
+
+#### SERVER_CONFIG Options
+
+The prompt configuration is controlled by the SERVER_CONFIG object in `src/server.ts`:
+
+```typescript
+export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
+  // Existing config...
+
+  // Prompt config with defaults
+  promptsEnabled: true,
+  customPromptsDir: undefined, // No custom prompts directory by default
+  configDir: path.join(process.cwd(), 'config'), // Default config directory
+});
+```
+
+#### Prompt Value Persistence
+
+The server automatically stores prompt argument values in a JSON file to reduce repetitive data entry:
+
+- **Storage Location**: Values are stored in `[config_dir]/prompt_values.json`
+- **Global Values**: Some values like `working_directory` are shared across all prompts
+- **Prompt-Specific Values**: Other values are stored for each specific prompt
+
+The structure of the stored values file:
+
+```json
+{
+  "global": {
+    "working_directory": "/path/to/project"
+  },
+  "prompts": {
+    "architecture-decision": {
+      "decision_context": "Previous value",
+      "constraints": "Previous constraints",
+      "options": "Previous options"
+    }
+    // Other prompts...
+  }
+}
+```
+
+This system automatically:
+
+1. Stores values when prompts are used
+2. Retrieves values when prompts are applied
+3. Merges stored values with user-provided values (user input takes precedence)
+
+See the [Prompts Guide](./prompts.md) for more details on using the prompt templates.
 
 ### Testing Configuration
 

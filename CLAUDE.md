@@ -36,4 +36,5 @@ Always run `npm run lint` and `npm run format` before committing changes.
 - Main documentation: [README.md](./README.md)
 - Detailed examples: [docs/examples.md](./docs/examples.md)
 - Configuration options: [docs/configuration.md](./docs/configuration.md)
+- Prompt system: [docs/prompts.md](./docs/prompts.md)
 - Testing framework: [docs/testing.md](./docs/testing.md)
