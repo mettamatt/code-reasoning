@@ -46,6 +46,7 @@
  */
 
 import process from 'node:process';
+import path from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
@@ -84,6 +85,7 @@ interface CodeReasoningConfig {
   // Prompt-related configuration
   promptsEnabled: boolean;
   customPromptsDir?: string; // Directory for custom prompt templates
+  configDir?: string; // Directory for configuration files including stored prompt values
 }
 
 export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
@@ -96,6 +98,7 @@ export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   // Prompt config with defaults
   promptsEnabled: true,
   customPromptsDir: undefined, // No custom prompts directory by default
+  configDir: path.join(process.cwd(), 'config'), // Default config directory
 });
 
 /* -------------------------------------------------------------------------- */
@@ -453,7 +456,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
   if (config.promptsEnabled) {
-    promptManager = new PromptManager();
+    promptManager = new PromptManager(config.configDir);
     console.error('Prompts capability enabled');
 
     // Load custom prompts if configured

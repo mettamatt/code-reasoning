@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
+import { PromptValueManager } from './valueManager.js';
 
 /**
  * Manages prompt templates and their operations.
@@ -16,13 +17,31 @@ import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
 export class PromptManager {
   private prompts: Record<string, Prompt>;
   private templates: Record<string, (args: Record<string, string>) => PromptResult>;
+  private valueManager: PromptValueManager;
 
   /**
    * Creates a new PromptManager instance with default code reasoning prompts.
+   *
+   * @param configDir Optional directory for configuration files. Defaults to 'config' in the current working directory.
    */
-  constructor() {
+  constructor(configDir?: string) {
     this.prompts = { ...CODE_REASONING_PROMPTS };
     this.templates = { ...PROMPT_TEMPLATES };
+
+    // Initialize value manager with config directory
+    const resolvedConfigDir = configDir || path.join(process.cwd(), 'config');
+
+    // Create config directory if it doesn't exist
+    if (!fs.existsSync(resolvedConfigDir)) {
+      try {
+        fs.mkdirSync(resolvedConfigDir, { recursive: true });
+      } catch (err) {
+        console.error(`Failed to create config directory: ${resolvedConfigDir}`, err);
+      }
+    }
+
+    this.valueManager = new PromptValueManager(resolvedConfigDir);
+
     console.error('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
   }
 
@@ -71,8 +90,14 @@ export class PromptManager {
       throw new Error(`Prompt not found: ${name}`);
     }
 
+    // Get stored values for this prompt
+    const storedValues = this.valueManager.getStoredValues(name);
+
+    // Merge stored values with provided args (provided args take precedence)
+    const mergedArgs = { ...storedValues, ...args };
+
     // Validate arguments
-    const validationErrors = this.validatePromptArguments(prompt, args);
+    const validationErrors = this.validatePromptArguments(prompt, mergedArgs);
     if (validationErrors.length > 0) {
       throw new Error(`Validation errors:\n${validationErrors.join('\n')}`);
     }
@@ -83,8 +108,11 @@ export class PromptManager {
       throw new Error(`Template implementation not found for prompt: ${name}`);
     }
 
-    // Apply the template
-    return templateFn(args);
+    // Update stored values with the new ones
+    this.valueManager.updateStoredValues(name, mergedArgs);
+
+    // Apply the template with merged args
+    return templateFn(mergedArgs);
   }
 
   /**
