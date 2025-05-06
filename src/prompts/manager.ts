@@ -7,9 +7,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
 import { PromptValueManager } from './valueManager.js';
+import { expandTildePath } from '../utils/paths.js';
 
 /**
  * Manages prompt templates and their operations.
@@ -22,14 +24,23 @@ export class PromptManager {
   /**
    * Creates a new PromptManager instance with default code reasoning prompts.
    *
-   * @param configDir Optional directory for configuration files. Defaults to 'config' in the current working directory.
+   * @param configDir Optional directory for configuration files. Defaults to 'config' relative to the application directory.
    */
   constructor(configDir?: string) {
     this.prompts = { ...CODE_REASONING_PROMPTS };
     this.templates = { ...PROMPT_TEMPLATES };
 
+    // Get the current file's directory path
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
     // Initialize value manager with config directory
-    const resolvedConfigDir = configDir || path.join(process.cwd(), 'config');
+    // If configDir is provided, expand any tilde characters
+    // Otherwise use a directory relative to the application
+    const resolvedConfigDir = configDir
+      ? expandTildePath(configDir)
+      : path.join(__dirname, '..', '..', 'config');
+
+    console.error(`Using config directory: ${resolvedConfigDir}`);
 
     // Create config directory if it doesn't exist
     if (!fs.existsSync(resolvedConfigDir)) {

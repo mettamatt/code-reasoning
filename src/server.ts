@@ -47,6 +47,7 @@
 
 import process from 'node:process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
@@ -88,6 +89,9 @@ interface CodeReasoningConfig {
   configDir?: string; // Directory for configuration files including stored prompt values
 }
 
+// Get the current file's directory path
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   maxThoughtLength: 20_000, // https://github.com/modelcontextprotocol/servers/issues/751
   timeoutMs: 60_000,
@@ -98,7 +102,7 @@ export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   // Prompt config with defaults
   promptsEnabled: true,
   customPromptsDir: undefined, // No custom prompts directory by default
-  configDir: path.join(process.cwd(), 'config'), // Default config directory
+  configDir: path.join(__dirname, '..', 'config'), // Config directory relative to src folder
 });
 
 /* -------------------------------------------------------------------------- */
