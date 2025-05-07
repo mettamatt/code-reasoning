@@ -88,7 +88,7 @@ export class PromptManager {
         'Argument name must contain only alphanumeric characters and underscores'
       ),
     description: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
-    required: z.boolean().strict(), // Ensure strict boolean type
+    required: z.boolean(), // Removed .strict() as it's not available in this Zod version
   });
 
   // Schema for the entire prompt data with template sanitization
@@ -262,7 +262,11 @@ export class PromptManager {
               {
                 name: promptData.name,
                 description: promptData.description,
-                arguments: promptData.arguments,
+                arguments: promptData.arguments.map(arg => ({
+                  name: String(arg.name),
+                  description: String(arg.description),
+                  required: Boolean(arg.required),
+                })),
               },
               args => ({
                 messages: [
