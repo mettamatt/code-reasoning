@@ -440,11 +440,9 @@ export async function runServer(debugFlag = false): Promise<void> {
     promptManager = new PromptManager(CONFIG_DIR);
     console.error('Prompts capability enabled');
 
-    // Load custom prompts if configured
-    if (config.customPromptsDir) {
-      console.error(`Loading custom prompts from ${config.customPromptsDir}`);
-      await promptManager.loadCustomPrompts(config.customPromptsDir);
-    }
+    // Load custom prompts from the standard location
+    console.error(`Loading custom prompts from ${CUSTOM_PROMPTS_DIR}`);
+    await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
 
     // Add prompt handlers
     srv.setRequestHandler(ListPromptsRequestSchema, async () => {

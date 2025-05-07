@@ -20,7 +20,6 @@ export interface CodeReasoningConfig {
 
   // Prompt-related configuration
   promptsEnabled: boolean;
-  customPromptsDir?: string;
 
   // Any additional custom settings
   [key: string]: unknown;
@@ -69,7 +68,6 @@ class ConfigManager {
       maxThoughts: 20,
       debug: false,
       promptsEnabled: true,
-      customPromptsDir: path.join(CONFIG_DIR, 'prompts'),
     };
   }
 
