@@ -53,7 +53,8 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       },
       {
         name: 'affected_components',
-        description: 'Primary components affected by the bug',
+        description:
+          'Primary components affected by the bug (file paths, function names, or module identifiers)',
         required: true,
       },
       {
@@ -73,8 +74,8 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
     description: 'Comprehensive template for code review',
     arguments: [
       {
-        name: 'code',
-        description: 'Code to be reviewed',
+        name: 'code_path',
+        description: 'File path or directory to review (will be accessed via filesystem tools)',
         required: true,
       },
       {
@@ -84,7 +85,8 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       },
       {
         name: 'language',
-        description: 'Programming language of the code',
+        description:
+          'Programming language of the code (optional, will be inferred from file extension)',
         required: false,
       },
       {
@@ -115,7 +117,8 @@ export const CODE_REASONING_PROMPTS: Record<string, Prompt> = {
       },
       {
         name: 'affected_components',
-        description: 'Existing components that will need modification',
+        description:
+          'Existing components that will need modification (file paths, function names, or module identifiers)',
         required: false,
       },
       {
@@ -226,18 +229,23 @@ Note: You can access and modify files using the filesystem tool mcp.
 
 3. **Isolate affected components**
    - Affected components: ${args.affected_components || 'N/A'}
+   - Note: Components can be file paths (e.g., 'src/utils/parser.ts'), function names (e.g., 'parseConfig()'), or module identifiers (e.g., 'Authentication Module')
+   - First step: Use filesystem tools to examine the identified components
 
 4. **Form hypotheses**
    - What are potential root causes? List hypotheses in priority order.
+   - Analyze affected components using relevant filesystem tools (read_file, search_code, etc.)
 
 5. **Test hypotheses**
    - How can we validate each hypothesis?
    - What experiments or tests will help confirm the cause?
+   - Consider suggesting specific files to modify for testing
 
 6. **Propose fix**
    - Once cause is identified, what's the recommended fix?
    - What side effects might this fix have?
    - How can we verify the fix works?
+   - Provide specific code changes if appropriate
 
 Remember to use the code-reasoning mcp tool to structure your thinking through this complex debugging task.`,
         },
@@ -259,9 +267,13 @@ Please use reflective problem-solving through sequential thinking to perform thi
 Note: You can access and modify files using the filesystem tool mcp.
 
 1. **Code to Review**
-\`\`\`${args.language || ''}
-${args.code || ''}
-\`\`\`
+   - File/Directory Path: ${args.code_path || 'N/A'}
+   - Language: ${args.language || 'To be inferred from file extension'}
+   
+   First steps:
+   - Use the filesystem tool to access the code (read_file, list_directory, etc.)
+   - If reviewing a directory, identify key files to analyze first
+   - For larger files, use search_code to find important patterns or components
 
 2. **Requirements**
 ${args.requirements || 'No specific requirements provided.'}
@@ -288,7 +300,7 @@ ${args.requirements || 'No specific requirements provided.'}
    - Are sensitive operations properly secured?
 
 7. **Testing Review**
-   - Is test coverage adequate?
+   - Is test coverage adequate? 
    - Do tests cover edge cases and error conditions?
    - Are tests clear and maintainable?
 
@@ -296,6 +308,7 @@ ${args.requirements || 'No specific requirements provided.'}
    - Overall assessment
    - Key issues to address (prioritized)
    - Suggestions for improvement
+   - Specific code changes to consider
 
 For this complex code analysis, use the code-reasoning mcp tool to structure your thinking and document your review process step by step.`,
         },
@@ -323,28 +336,34 @@ Note: You can access and modify files using the filesystem tool mcp.
 
 2. **Architectural Considerations**
    - Affected components: ${args.affected_components || 'N/A'}
+   - Note: Components can be file paths (e.g., 'src/utils/parser.ts'), function names (e.g., 'parseConfig()'), or module identifiers (e.g., 'Authentication Module')
+   - Use filesystem tools to examine affected components and understand current implementation
    - What new components might be needed?
    - Are there any API changes required?
 
 3. **Implementation Strategy**
    - Break down the feature into implementation tasks
    - Identify dependencies between tasks
-   - Estimate complexity and effort
+   - Estimate complexity and effort based on codebase analysis
    - Plan an implementation sequence
+   - Suggest specific files to modify, create, or delete
 
 4. **Testing Strategy**
    - What unit tests will be needed?
    - What integration tests will be needed?
    - How will we validate user requirements are met?
+   - Identify existing test files that should be updated
 
 5. **Risks and Mitigations**
    - What technical risks exist?
    - What product/user risks exist?
    - How can we mitigate each risk?
+   - Suggest specific risk mitigation approaches based on codebase analysis
 
 6. **Acceptance Criteria**
    - Define clear criteria for when this feature is complete
    - Include performance and quality expectations
+   - Specify key files/components that must pass review
 
 This complex planning task will benefit from using the code-reasoning mcp tool to structure your thinking process.`,
         },

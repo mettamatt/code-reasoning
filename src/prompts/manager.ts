@@ -346,7 +346,7 @@ export class PromptManager {
    */
   private getSchemaForArg(argName: string, promptName: string): z.ZodType<string> {
     // Choose schema based on arg name and context (prompt name)
-    if (argName === 'code' || argName === 'language') {
+    if (argName === 'code_path' || argName === 'language') {
       return this.codeSchema;
     } else if (argName === 'working_directory') {
       return this.workingDirectorySchema;
