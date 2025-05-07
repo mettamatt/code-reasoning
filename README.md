@@ -54,10 +54,12 @@ A Model Context Protocol (MCP) server that enhances Claude's ability to solve co
 
 2. Use ready-to-go prompts that trigger Code-Reasoning:
 
-   - Click the "+" icon in the Claude Desktop chat window, or in Claude Code type `/help` to see the specific commands.
-   - Select "Add from Code Reasoning" from the available tools
-   - Choose a prompt template and fill in the required information
-   - Submit the form to add the prompt to your chat message and hit return
+![Code Reasoning Prompts](./docs/prompts.png)
+
+- Click the "+" icon in the Claude Desktop chat window, or in Claude Code type `/help` to see the specific commands.
+- Select "Add from Code Reasoning" from the available tools
+- Choose a prompt template and fill in the required information
+- Submit the form to add the prompt to your chat message and hit return
 
 See the [Prompts Guide](./docs/prompts.md) for details on using the prompt templates.
 
