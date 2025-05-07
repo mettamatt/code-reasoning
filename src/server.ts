@@ -49,6 +49,7 @@ import process from 'node:process';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
+  CompleteRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
@@ -419,6 +420,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   const capabilities: Partial<ServerCapabilities> = {
     tools: {},
     resources: {},
+    completions: {}, // Add completions capability
   };
 
   // Only add prompts capability if enabled
@@ -479,9 +481,66 @@ export async function runServer(debugFlag = false): Promise<void> {
         };
       }
     });
+
+    // Add handler for completion/complete requests
+    srv.setRequestHandler(CompleteRequestSchema, async req => {
+      try {
+        if (!promptManager) {
+          throw new Error('Prompt manager not initialized');
+        }
+
+        // Check if this is a prompt reference
+        if (req.params.ref.type !== 'ref/prompt') {
+          return {
+            completion: {
+              values: [],
+            },
+          };
+        }
+
+        const promptName = req.params.ref.name;
+        const argName = req.params.argument.name;
+
+        console.error(`Completing argument: ${argName} for prompt: ${promptName}`);
+
+        // Get stored values for this prompt using the public method
+        const storedValues = promptManager.getStoredValues(promptName);
+
+        // Return the stored value for this argument if available
+        if (storedValues[argName]) {
+          return {
+            completion: {
+              values: [storedValues[argName]],
+            },
+          };
+        }
+
+        // Return empty array if no stored value
+        return {
+          completion: {
+            values: [],
+          },
+        };
+      } catch (err) {
+        const e = err as Error;
+        console.error('Completion error:', e.message);
+        return {
+          completion: {
+            values: [],
+          },
+        };
+      }
+    });
   } else {
-    // Keep the empty handler if prompts disabled
+    // Keep the empty handlers if prompts disabled
     srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
+
+    // Add empty handler for completion requests as well when prompts are disabled
+    srv.setRequestHandler(CompleteRequestSchema, async () => ({
+      completion: {
+        values: [],
+      },
+    }));
   }
 
   // Existing handlers
