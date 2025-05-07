@@ -17,6 +17,7 @@ This directory contains documentation for the Code-Reasoning MCP Server, a tool 
 To get started with the Code-Reasoning MCP Server, follow these steps:
 
 1. **Install the server**:
+
    ```bash
    # Option 1: Use with npx (recommended for most users)
    npx @mettamatt/code-reasoning
@@ -27,6 +28,7 @@ To get started with the Code-Reasoning MCP Server, follow these steps:
 
 2. **Configure Claude Desktop**:
    Edit your Claude Desktop configuration file to include the Code-Reasoning MCP Server:
+
    ```json
    {
      "mcpServers": {
@@ -40,6 +42,7 @@ To get started with the Code-Reasoning MCP Server, follow these steps:
 
 3. **Use with Claude**:
    Ask Claude to use sequential thinking in your prompts:
+
    ```
    Please analyze this code using sequential thinking to break down the solution step by step.
    ```
