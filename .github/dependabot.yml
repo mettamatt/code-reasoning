@@ -15,10 +15,8 @@ updates:
     open-pull-requests-limit: 10
     # Assign labels to pull requests
     labels:
-      - "dependencies"
-    # Set reviewers for pull requests
-    reviewers:
-      - "mettamatt"  # Using the GitHub username from package.json
+      - "enhancement"
+    # Reviewers are now managed via CODEOWNERS file
 
   # Check for updates to GitHub Actions
   - package-ecosystem: "github-actions"
@@ -26,5 +24,4 @@ updates:
     schedule:
       interval: "weekly"
     labels:
-      - "dependencies"
-      - "github-actions"
+      - "enhancement"
