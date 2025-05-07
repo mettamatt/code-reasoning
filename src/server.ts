@@ -49,15 +49,21 @@ import process from 'node:process';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
+  CompleteRequestSchema,
+  GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ServerCapabilities,
   Tool,
   type ServerResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { PromptManager } from './prompts/manager.js';
+import { configManager, type CodeReasoningConfig } from './utils/config-manager.js';
+import { CONFIG_DIR, MAX_THOUGHT_LENGTH, MAX_THOUGHTS } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -70,22 +76,6 @@ export enum LogLevel {
   INFO = 2,
   DEBUG = 3,
 }
-
-interface CodeReasoningConfig {
-  maxThoughtLength: number;
-  timeoutMs: number;
-  maxThoughts: number;
-  logLevel: LogLevel;
-  debug: boolean;
-}
-
-export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
-  maxThoughtLength: 20_000, // https://github.com/modelcontextprotocol/servers/issues/751
-  timeoutMs: 60_000,
-  maxThoughts: 20,
-  logLevel: LogLevel.INFO,
-  debug: false,
-});
 
 /* -------------------------------------------------------------------------- */
 /*                               DATA SCHEMAS                                 */
@@ -109,10 +99,7 @@ const ThoughtDataSchema = z
       .string()
       .trim()
       .min(1, 'Thought cannot be empty.')
-      .max(
-        SERVER_CONFIG.maxThoughtLength,
-        `Thought exceeds ${SERVER_CONFIG.maxThoughtLength} chars.`
-      ),
+      .max(MAX_THOUGHT_LENGTH, `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`),
     thought_number: z.number().int().positive(),
     total_thoughts: z.number().int().positive(),
     next_thought_needed: z.boolean(),
@@ -344,7 +331,7 @@ class CodeReasoningServer {
       // Provide specific guidance based on error path
       const firstPath = error.errors[0]?.path.join('.');
       if (firstPath?.includes('thought') && !firstPath.includes('number')) {
-        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${this.cfg.maxThoughtLength} characters.`;
+        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${MAX_THOUGHT_LENGTH} characters.`;
       } else if (firstPath?.includes('thought_number')) {
         guidance = 'Ensure thought_number is a positive integer and increments correctly.';
       } else if (firstPath?.includes('branch')) {
@@ -355,9 +342,9 @@ class CodeReasoningServer {
           'When revising, set is_revision=true and provide revises_thought (positive number). Do not combine with branching.';
       }
     } else if (errorMessage.includes('length')) {
-      guidance = `The thought is too long. Keep it under ${this.cfg.maxThoughtLength} characters.`;
+      guidance = `The thought is too long. Keep it under ${MAX_THOUGHT_LENGTH} characters.`;
     } else if (errorMessage.includes('Max thought_number exceeded')) {
-      guidance = `The maximum thought limit (${this.cfg.maxThoughts}) was reached.`;
+      guidance = `The maximum thought limit (${MAX_THOUGHTS}) was reached.`;
     }
 
     const payload = {
@@ -379,8 +366,8 @@ class CodeReasoningServer {
       const data = ThoughtDataSchema.parse(input);
 
       // Sanity limits -------------------------------------------------------
-      if (data.thought_number > this.cfg.maxThoughts) {
-        throw new Error(`Max thought_number exceeded (${this.cfg.maxThoughts}).`);
+      if (data.thought_number > MAX_THOUGHTS) {
+        throw new Error(`Max thought_number exceeded (${MAX_THOUGHTS}).`);
       }
       if (data.branch_from_thought && data.branch_from_thought > this.thoughtHistory.length) {
         throw new Error(`Invalid branch_from_thought ${data.branch_from_thought}.`);
@@ -418,14 +405,146 @@ class CodeReasoningServer {
 /* -------------------------------------------------------------------------- */
 
 export async function runServer(debugFlag = false): Promise<void> {
-  const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
+  // Initialize config manager and get config
+  await configManager.init();
+  const config = await configManager.getConfig();
+
+  // Apply debug flag if specified
+  if (debugFlag) {
+    await configManager.setValue('debug', true);
+  }
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
-  const srv = new Server(serverMeta, { capabilities: { tools: {}, resources: {}, prompts: {} } });
+
+  // Configure server capabilities based on config
+  const capabilities: Partial<ServerCapabilities> = {
+    tools: {},
+    resources: {},
+    completions: {}, // Add completions capability
+  };
+
+  // Only add prompts capability if enabled
+  if (config.promptsEnabled) {
+    capabilities.prompts = {
+      list: true,
+      get: true,
+    };
+  }
+
+  const srv = new Server(serverMeta, { capabilities });
   const logic = new CodeReasoningServer(config);
 
+  // Initialize prompt manager if enabled
+  let promptManager: PromptManager | undefined;
+  if (config.promptsEnabled) {
+    promptManager = new PromptManager(CONFIG_DIR);
+    console.error('Prompts capability enabled');
+
+    // Load custom prompts if configured
+    if (config.customPromptsDir) {
+      console.error(`Loading custom prompts from ${config.customPromptsDir}`);
+      await promptManager.loadCustomPrompts(config.customPromptsDir);
+    }
+
+    // Add prompt handlers
+    srv.setRequestHandler(ListPromptsRequestSchema, async () => {
+      const prompts = promptManager?.getAllPrompts() || [];
+      console.error(`Returning ${prompts.length} prompts`);
+      return { prompts };
+    });
+
+    srv.setRequestHandler(GetPromptRequestSchema, async req => {
+      try {
+        if (!promptManager) {
+          throw new Error('Prompt manager not initialized');
+        }
+
+        const promptName = req.params.name;
+        const args = req.params.arguments || {};
+
+        console.error(`Getting prompt: ${promptName} with args:`, args);
+
+        // Get the prompt result
+        const result = promptManager.applyPrompt(promptName, args);
+
+        // Return the result in the format expected by MCP
+        return {
+          messages: result.messages,
+          _meta: {},
+        };
+      } catch (err) {
+        const e = err as Error;
+        console.error('Prompt error:', e.message);
+        return {
+          isError: true,
+          content: [{ type: 'text', text: e.message }],
+        };
+      }
+    });
+
+    // Add handler for completion/complete requests
+    srv.setRequestHandler(CompleteRequestSchema, async req => {
+      try {
+        if (!promptManager) {
+          throw new Error('Prompt manager not initialized');
+        }
+
+        // Check if this is a prompt reference
+        if (req.params.ref.type !== 'ref/prompt') {
+          return {
+            completion: {
+              values: [],
+            },
+          };
+        }
+
+        const promptName = req.params.ref.name;
+        const argName = req.params.argument.name;
+
+        console.error(`Completing argument: ${argName} for prompt: ${promptName}`);
+
+        // Get stored values for this prompt using the public method
+        const storedValues = promptManager.getStoredValues(promptName);
+
+        // Return the stored value for this argument if available
+        if (storedValues[argName]) {
+          return {
+            completion: {
+              values: [storedValues[argName]],
+            },
+          };
+        }
+
+        // Return empty array if no stored value
+        return {
+          completion: {
+            values: [],
+          },
+        };
+      } catch (err) {
+        const e = err as Error;
+        console.error('Completion error:', e.message);
+        return {
+          completion: {
+            values: [],
+          },
+        };
+      }
+    });
+  } else {
+    // Keep the empty handlers if prompts disabled
+    srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
+
+    // Add empty handler for completion requests as well when prompts are disabled
+    srv.setRequestHandler(CompleteRequestSchema, async () => ({
+      completion: {
+        values: [],
+      },
+    }));
+  }
+
+  // Existing handlers
   srv.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
-  srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
   srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [CODE_REASONING_TOOL] }));
   srv.setRequestHandler(CallToolRequestSchema, req =>
     req.params.name === CODE_REASONING_TOOL.name
