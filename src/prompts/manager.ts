@@ -198,8 +198,17 @@ export class PromptManager {
     // Get stored values for this prompt
     const storedValues = this.valueManager.getStoredValues(name);
 
-    // Merge stored values with provided args (provided args take precedence)
-    const mergedArgs = { ...storedValues, ...args };
+    // Filter out empty args to prevent them from overriding non-empty stored values
+    const filteredArgs: Record<string, string> = {};
+    Object.entries(args).forEach(([key, value]) => {
+      // Only include non-empty values
+      if (value.trim() !== '') {
+        filteredArgs[key] = value;
+      }
+    });
+
+    // Merge stored values with filtered args (filtered args take precedence)
+    const mergedArgs = { ...storedValues, ...filteredArgs };
 
     // Validate arguments
     const validationErrors = this.validatePromptArguments(prompt, mergedArgs);
