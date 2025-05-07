@@ -1,31 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 (2025-05-07)
 
 ### Features
 
 - Added comprehensive MCP prompts system with predefined templates
   - Includes architecture-decision, bug-analysis, code-review, feature-planning, and refactoring-plan prompts
-  - Added prompt value persistence functionality for better user experience
+  - The last prompt value is saved so that it can be used again but it will not show until Claude Desktop and Claude Code implement MCP CompleteRequestSchema. See https://github.com/anthropics/claude-code/issues/986
   - Added support for custom prompt templates via JSON files
   - Added Zod-based input sanitization to template processing
-- Added centralized configuration system with in-memory management
-  - New config manager for better configuration control
-  - Support for config directory to store persistent data
-- Added completions capability for prompt arguments
-  - Implemented handler for completion/complete requests to support auto-completion
-  - Added stored values retrieval for pre-filling prompt arguments
 
 ### Improvements
 
-- Added detailed documentation for prompt features and usage
-- Updated server and prompts to use the centralized configuration
-- Enhanced config directory handling to prevent ENOENT errors
-- Added path utilities and better error handling for filesystem operations
-- Fixed duplicate export in config-manager.ts
-- Removed deprecated paths utility
-- Enhanced prompt management by including stored values in prompt metadata
-- Added defaultValues field to Prompt interface to support pre-filling form fields
+- Added centralized configuration system with in-memory management
+  - New config manager for better configuration control
+  - Support for config directory to store persistent data
 
 ## 0.6.2 (2025-05-04)
 
