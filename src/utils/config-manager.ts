@@ -1,12 +1,12 @@
 /**
  * @fileoverview Configuration manager for code-reasoning server
- * 
+ *
  * This module provides a singleton configuration manager that handles
  * configuration settings for the code-reasoning server.
  */
 
 import path from 'path';
-import { CONFIG_DIR, PROMPT_VALUES_FILE } from './config.js';
+import { CONFIG_DIR } from './config.js';
 
 /**
  * Structure of the server configuration
@@ -18,12 +18,12 @@ export interface CodeReasoningConfig {
   maxThoughts: number;
   debug: boolean;
 
-  // Prompt-related configuration  
+  // Prompt-related configuration
   promptsEnabled: boolean;
   customPromptsDir?: string;
-  
+
   // Any additional custom settings
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -43,7 +43,7 @@ class ConfigManager {
    */
   async init(): Promise<void> {
     if (this.initialized) return;
-    
+
     try {
       // Create config directory if it doesn't exist
       if (!CONFIG_DIR) {
@@ -92,7 +92,10 @@ class ConfigManager {
   /**
    * Set a specific configuration value
    */
-  async setValue<K extends keyof CodeReasoningConfig>(key: K, value: CodeReasoningConfig[K]): Promise<void> {
+  async setValue<K extends keyof CodeReasoningConfig>(
+    key: K,
+    value: CodeReasoningConfig[K]
+  ): Promise<void> {
     await this.init();
     this.config[key] = value;
   }

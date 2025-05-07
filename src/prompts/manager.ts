@@ -11,7 +11,7 @@ import * as os from 'os';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
 import { PromptValueManager } from './valueManager.js';
-import { CONFIG_DIR, CUSTOM_PROMPTS_DIR, PROMPT_VALUES_FILE } from '../utils/config.js';
+import { CONFIG_DIR } from '../utils/config.js';
 
 /**
  * Manages prompt templates and their operations.
@@ -32,7 +32,7 @@ export class PromptManager {
 
     // Use provided config directory or default to CONFIG_DIR
     const resolvedConfigDir = configDir || CONFIG_DIR;
-    
+
     // Create directory if it doesn't exist
     if (!fs.existsSync(resolvedConfigDir)) {
       try {

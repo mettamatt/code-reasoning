@@ -46,8 +46,6 @@
  */
 
 import process from 'node:process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
@@ -64,7 +62,7 @@ import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
 import { configManager, type CodeReasoningConfig } from './utils/config-manager.js';
-import { CUSTOM_PROMPTS_DIR, CONFIG_DIR, MAX_THOUGHT_LENGTH, MAX_THOUGHTS } from './utils/config.js';
+import { CONFIG_DIR, MAX_THOUGHT_LENGTH, MAX_THOUGHTS } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -77,9 +75,6 @@ export enum LogLevel {
   INFO = 2,
   DEBUG = 3,
 }
-
-// Get the current file's directory path
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /* -------------------------------------------------------------------------- */
 /*                               DATA SCHEMAS                                 */
@@ -103,10 +98,7 @@ const ThoughtDataSchema = z
       .string()
       .trim()
       .min(1, 'Thought cannot be empty.')
-      .max(
-        MAX_THOUGHT_LENGTH,
-        `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`
-      ),
+      .max(MAX_THOUGHT_LENGTH, `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`),
     thought_number: z.number().int().positive(),
     total_thoughts: z.number().int().positive(),
     next_thought_needed: z.boolean(),
@@ -415,7 +407,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   // Initialize config manager and get config
   await configManager.init();
   const config = await configManager.getConfig();
-  
+
   // Apply debug flag if specified
   if (debugFlag) {
     await configManager.setValue('debug', true);

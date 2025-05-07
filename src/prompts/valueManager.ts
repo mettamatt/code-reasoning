@@ -30,10 +30,11 @@ export class PromptValueManager {
   constructor(configDir: string) {
     // Use the specified config directory
     // Use the centralized PROMPT_VALUES_FILE if no specific configDir is provided
-    this.valuesFilePath = configDir === path.dirname(PROMPT_VALUES_FILE) 
-      ? PROMPT_VALUES_FILE 
-      : path.join(configDir, 'prompt_values.json');
-    
+    this.valuesFilePath =
+      configDir === path.dirname(PROMPT_VALUES_FILE)
+        ? PROMPT_VALUES_FILE
+        : path.join(configDir, 'prompt_values.json');
+
     console.error(`PromptValueManager using file path: ${this.valuesFilePath}`);
     this.values = this.loadValues();
   }
