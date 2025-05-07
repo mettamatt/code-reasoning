@@ -12,6 +12,9 @@
 - Added centralized configuration system with in-memory management
   - New config manager for better configuration control
   - Support for config directory to store persistent data
+- Added completions capability for prompt arguments
+  - Implemented handler for completion/complete requests to support auto-completion
+  - Added stored values retrieval for pre-filling prompt arguments
 
 ### Improvements
 
@@ -21,6 +24,8 @@
 - Added path utilities and better error handling for filesystem operations
 - Fixed duplicate export in config-manager.ts
 - Removed deprecated paths utility
+- Enhanced prompt management by including stored values in prompt metadata
+- Added defaultValues field to Prompt interface to support pre-filling form fields
 
 ## 0.6.2 (2025-05-04)
 
