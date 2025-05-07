@@ -139,19 +139,12 @@ You can customize the built-in prompts or create your own by adding JSON files t
 
 ### Custom Prompts Directory
 
-To use custom prompts:
+Custom prompts are automatically loaded from the `~/.code-reasoning/prompts` directory. To use custom prompts:
 
-1. Set the `customPromptsDir` option in your configuration:
+1. Create the prompts directory if it doesn't exist:
 
-   ```json
-   {
-     "mcpServers": {
-       "code-reasoning": {
-         "command": "npx",
-         "args": ["-y", "@mettamatt/code-reasoning", "--custom-prompts-dir=/path/to/prompts"]
-       }
-     }
-   }
+   ```bash
+   mkdir -p ~/.code-reasoning/prompts
    ```
 
 2. Create JSON files in the specified directory with the following format:

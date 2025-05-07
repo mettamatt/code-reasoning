@@ -157,10 +157,9 @@ The Code-Reasoning MCP Server includes a prompt system with the following config
 
 #### Command-Line Options
 
-| Option                 | Description                           | Default     | Example                                                |
-| ---------------------- | ------------------------------------- | ----------- | ------------------------------------------------------ |
-| `--config-dir`         | Directory for configuration files     | `./config`  | `code-reasoning --config-dir=/path/to/config`          |
-| `--custom-prompts-dir` | Directory for custom prompt templates | `undefined` | `code-reasoning --custom-prompts-dir=/path/to/prompts` |
+| Option         | Description                       | Default    | Example                              |
+| -------------- | --------------------------------- | ---------- | ------------------------------------ |
+| `--config-dir` | Directory for configuration files | `./config` | `code-reasoning --config-dir=/path/to/config` |
 
 #### SERVER_CONFIG Options
 
@@ -172,8 +171,8 @@ export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
 
   // Prompt config with defaults
   promptsEnabled: true,
-  customPromptsDir: undefined, // No custom prompts directory by default
-  configDir: path.join(process.cwd(), 'config'), // Default config directory
+  // Custom prompts are always loaded from CONFIG_DIR/prompts
+  // as defined in src/utils/config.ts
 });
 ```
 
