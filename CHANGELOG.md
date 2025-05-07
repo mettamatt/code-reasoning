@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Added comprehensive MCP prompts system with predefined templates
+  - Includes architecture-decision, bug-analysis, code-review, feature-planning, and refactoring-plan prompts
+  - Added prompt value persistence functionality for better user experience
+  - Added support for custom prompt templates via JSON files
+- Added centralized configuration system with in-memory management
+  - New config manager for better configuration control
+  - Support for config directory to store persistent data
+
+### Improvements
+
+- Added detailed documentation for prompt features and usage
+- Updated server and prompts to use the centralized configuration
+- Enhanced config directory handling to prevent ENOENT errors
+- Added path utilities and better error handling for filesystem operations
+- Fixed duplicate export in config-manager.ts
+- Removed deprecated paths utility
+
 ## 0.6.2 (2025-05-04)
 
 ### Features
