@@ -3,6 +3,9 @@
  *
  * This class handles the management of prompts, including registration,
  * validation, and application of prompt templates.
+ *
+ * It implements the standard MCP CompleteRequestSchema protocol for
+ * providing auto-completion of prompt arguments with previously stored values.
  */
 
 import * as fs from 'fs';
@@ -23,6 +26,7 @@ const MAX_TEMPLATE_LENGTH = 10000;
 
 /**
  * Manages prompt templates and their operations.
+ * Uses the CompleteRequestSchema MCP protocol for argument completion.
  */
 export class PromptManager {
   private prompts: Record<string, Prompt>;
@@ -165,20 +169,14 @@ export class PromptManager {
   /**
    * Gets all available prompts.
    *
+   * Note: Previously stored values for prompt arguments are provided through
+   * the CompleteRequestSchema MCP protocol, not through the prompt objects.
+   *
    * @returns An array of all registered prompts
    */
   getAllPrompts(): Prompt[] {
-    // Return prompts with stored values included in defaultValues field
-    return Object.values(this.prompts).map(prompt => {
-      // Get stored values for this prompt
-      const storedValues = this.valueManager.getStoredValues(prompt.name);
-
-      // Add defaultValues field to the prompt
-      return {
-        ...prompt,
-        defaultValues: storedValues,
-      };
-    });
+    // Simply return the prompts without adding defaultValues
+    return Object.values(this.prompts);
   }
 
   /**
@@ -193,6 +191,8 @@ export class PromptManager {
 
   /**
    * Gets stored values for a specific prompt.
+   * This method is used by the CompleteRequestSchema handler to provide
+   * auto-completion of prompt arguments.
    *
    * @param name The name of the prompt
    * @returns The stored values for the prompt
@@ -202,7 +202,36 @@ export class PromptManager {
   }
 
   /**
+   * Merges provided arguments with stored values, with provided args taking precedence.
+   * This is a helper method to simplify the applyPrompt method.
+   *
+   * @param promptName The name of the prompt
+   * @param args The provided arguments
+   * @returns The merged arguments
+   */
+  private mergeWithStoredValues(
+    promptName: string,
+    args: Record<string, string>
+  ): Record<string, string> {
+    // Get stored values
+    const storedValues = this.getStoredValues(promptName);
+
+    // Filter out empty args
+    const filteredArgs: Record<string, string> = {};
+    Object.entries(args).forEach(([key, value]) => {
+      if (value.trim() !== '') {
+        filteredArgs[key] = value;
+      }
+    });
+
+    // Merge stored values with filtered args (filtered args take precedence)
+    return { ...storedValues, ...filteredArgs };
+  }
+
+  /**
    * Applies a prompt with the given arguments.
+   * Merges provided arguments with previously stored values,
+   * with provided arguments taking precedence.
    *
    * @param name The name of the prompt to apply
    * @param args The arguments to apply to the prompt template
@@ -215,20 +244,8 @@ export class PromptManager {
       throw new Error(`Prompt not found: ${name}`);
     }
 
-    // Get stored values for this prompt
-    const storedValues = this.valueManager.getStoredValues(name);
-
-    // Filter out empty args to prevent them from overriding non-empty stored values
-    const filteredArgs: Record<string, string> = {};
-    Object.entries(args).forEach(([key, value]) => {
-      // Only include non-empty values
-      if (value.trim() !== '') {
-        filteredArgs[key] = value;
-      }
-    });
-
-    // Merge stored values with filtered args (filtered args take precedence)
-    const mergedArgs = { ...storedValues, ...filteredArgs };
+    // Merge with stored values
+    const mergedArgs = this.mergeWithStoredValues(name, args);
 
     // Validate arguments
     const validationErrors = this.validatePromptArguments(prompt, mergedArgs);
