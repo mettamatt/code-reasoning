@@ -117,7 +117,3 @@ class ConfigManager {
 
 // Export singleton instance
 export const configManager = new ConfigManager();
-
-
-// Export singleton instance
-export const configManager = new ConfigManager();
