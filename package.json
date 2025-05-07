@@ -2,20 +2,40 @@
   "name": "@mettamatt/code-reasoning",
   "version": "0.6.2",
   "description": "Enhanced MCP server for code reasoning using sequential thinking methodology, optimized for programming tasks",
+  "author": "Matt Westgate",
   "license": "MIT",
-  "author": "Matt Westgate <mavatar@gmail.com>",
-  "homepage": "https://modelcontextprotocol.io",
+  "type": "module",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-reasoning",
+    "sequential-thinking",
+    "programming",
+    "claude",
+    "ai",
+    "coding-assistant",
+    "reasoning",
+    "problem-solving",
+    "systematic-thinking",
+    "code-analysis",
+    "debugging",
+    "anthropic",
+    "llm-tools",
+    "branching",
+    "revision",
+    "reflective-thinking"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mettamatt/code-reasoning.git"
   },
-  "type": "module",
   "bin": {
     "code-reasoning": "dist/index.js"
   },
   "files": [
     "dist"
   ],
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc && chmod +x dist/*.js dist/**/*.js",
     "clean": "rm -rf dist",
