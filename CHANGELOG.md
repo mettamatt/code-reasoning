@@ -8,6 +8,7 @@
   - Includes architecture-decision, bug-analysis, code-review, feature-planning, and refactoring-plan prompts
   - Added prompt value persistence functionality for better user experience
   - Added support for custom prompt templates via JSON files
+  - Added Zod-based input sanitization to template processing
 - Added centralized configuration system with in-memory management
   - New config manager for better configuration control
   - Support for config directory to store persistent data
