@@ -12,8 +12,6 @@ This document provides detailed information about all configuration options avai
   - [Logging Configuration](#logging-configuration)
   - [Prompt Configuration](#prompt-configuration)
   - [Testing Configuration](#testing-configuration)
-    - [Integrated Test Runner](#integrated-test-runner)
-    - [Prompt Evaluation System](#prompt-evaluation-system)
 
 ## Command-Line Options
 
@@ -215,16 +213,11 @@ See the [Prompts Guide](./prompts.md) for more details on using the prompt templ
 
 ### Testing Configuration
 
-The Code-Reasoning MCP Server includes two testing frameworks:
+The Code-Reasoning MCP Server includes testing functionality for developers who are extending or modifying the server. Most users do not need to be concerned with these testing capabilities.
 
-1. The Integrated Test Runner - For testing the server functionality
-2. The Prompt Evaluation System - For evaluating prompt effectiveness
+#### Basic Testing Commands
 
-#### Integrated Test Runner
-
-The Integrated Test Runner solves the visibility issues with StdioClientTransport and properly handles JSON-RPC protocol requirements. With this approach, you don't need to worry about managing separate terminals or dealing with communication challenges.
-
-For most testing needs, use these simple commands:
+To test the MCP server:
 
 ```bash
 # Run basic tests
@@ -237,110 +230,15 @@ npm run test:verbose
 npm run test:basic
 npm run test:branch
 npm run test:revision
-npm run test:error
-npm run test:perf
 ```
 
-The Integrated Test Runner:
+#### Prompt Evaluation
 
-1. Starts the server automatically
-2. Runs the test client connecting to that server
-3. Captures all communication between them
-4. Logs everything to dedicated files
-5. Provides a clear summary of test results
-
-#### Test Command-Line Options
-
-| Option                   | Description                        | Default | Example                           |
-| ------------------------ | ---------------------------------- | ------- | --------------------------------- |
-| `--verbose`, `-v`        | Show detailed output for each test | `false` | `npm run test -- --verbose`       |
-| `--save-results`, `-s`   | Save test results to JSON file     | `false` | `npm run test -- --save-results`  |
-| `--debug`                | Start server in debug mode         | `false` | `npm run test -- --debug`         |
-| `--timeout=MILLISECONDS` | Set test timeout                   | `30000` | `npm run test -- --timeout=60000` |
-
-#### Specific Test Scenarios
-
-| Scenario   | Description                  | Example                 |
-| ---------- | ---------------------------- | ----------------------- |
-| `all`      | Run all test scenarios       | `npm run test`          |
-| `basic`    | Run basic thought flow tests | `npm run test:basic`    |
-| `branch`   | Run thought branching tests  | `npm run test:branch`   |
-| `revision` | Run thought revision tests   | `npm run test:revision` |
-| `error`    | Run error handling tests     | `npm run test:error`    |
-| `perf`     | Run performance tests        | `npm run test:perf`     |
-
-#### Combined Examples
-
-Run basic tests with verbose output:
-
-```bash
-npm run test:basic -- --verbose
-```
-
-Run performance tests with a longer timeout:
-
-```bash
-npm run test:perf -- --timeout=60000
-```
-
-Run all tests with debug mode and save results:
-
-```bash
-npm run test -- --debug --save-results
-```
-
-#### Prompt Evaluation System
-
-The Code-Reasoning MCP Server includes a specialized prompt evaluation system designed to assess Claude's ability to follow the code reasoning prompts. This system is located in the `test/prompt-evaluation` directory.
-
-##### Purpose and Capabilities
-
-The prompt evaluation system allows you to:
-
-- Test different prompt variations against scenario problems
-- Verify Claude's adherence to parameter format requirements
-- Score solution quality for different scenarios
-- Generate comprehensive reports of evaluation results
-
-##### Usage
-
-To use the prompt evaluation system:
+The server also includes a prompt evaluation system:
 
 ```bash
 # Run the prompt evaluator
 npm run eval
-
-# Same command, alias for running the evaluator
-npm run eval:view
 ```
 
-The interactive CLI will guide you through:
-
-- Selecting different core prompts
-- Running evaluations on specific scenarios or all scenarios
-- Viewing available scenarios
-- Generating reports
-
-##### Setup Requirements
-
-To use the prompt evaluation system, you need:
-
-1. An Anthropic API key
-2. A `.env` file in the `test/prompt-evaluation` directory:
-   ```
-   ANTHROPIC_API_KEY=your_api_key_here
-   CLAUDE_MODEL=claude-3-7-sonnet-20250219
-   MAX_TOKENS=4000
-   TEMPERATURE=0.2
-   ```
-
-##### Report Generation
-
-The system automatically generates comprehensive reports that include:
-
-- Parameter adherence results
-- Quality scores
-- Complete thought chains
-- All prompts used in the evaluation
-
-Reports are saved in the `test/prompt-evaluation/reports` directory.
+For more detailed information about testing, refer to the [Testing Guide](./testing.md).
