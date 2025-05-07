@@ -87,10 +87,9 @@ See the [Prompts Guide](./docs/prompts.md) for details on using the prompt templ
 
 Detailed documentation available in the docs directory:
 
-- [Usage Examples](./docs/examples.md): Examples of sequential thinking
-- [Configuration Guide](./docs/configuration.md): All configuration options
-- [Prompts Guide](./docs/prompts.md): Using and customizing prompts
-- [Publishing Guide](./docs/publishing.md): Version management and publishing
+- [Usage Examples](./docs/examples.md): Examples of sequential thinking with the MCP server
+- [Configuration Guide](./docs/configuration.md): All configuration options for the MCP server
+- [Prompts Guide](./docs/prompts.md): Using and customizing prompts with the MCP server
 - [Testing Framework](./docs/testing.md): Testing information
 
 ## Project Structure
