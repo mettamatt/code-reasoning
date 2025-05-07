@@ -157,8 +157,8 @@ The Code-Reasoning MCP Server includes a prompt system with the following config
 
 #### Command-Line Options
 
-| Option         | Description                       | Default    | Example                              |
-| -------------- | --------------------------------- | ---------- | ------------------------------------ |
+| Option         | Description                       | Default    | Example                                       |
+| -------------- | --------------------------------- | ---------- | --------------------------------------------- |
 | `--config-dir` | Directory for configuration files | `./config` | `code-reasoning --config-dir=/path/to/config` |
 
 #### SERVER_CONFIG Options
