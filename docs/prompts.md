@@ -87,7 +87,7 @@ The Code Reasoning MCP server now includes a feature to persist prompt argument 
 1. **Value Storage**:
 
    - When you use a prompt, the argument values are saved to a JSON file
-   - The file is stored in the `config/prompt_values.json` directory
+   - The file is stored in the `~/.code-reasoning/` directory
    - Values are organized by prompt name for easy retrieval
 
 2. **Global Values**:
@@ -106,7 +106,7 @@ The Code Reasoning MCP server now includes a feature to persist prompt argument 
 Prompt values are stored in:
 
 ```
-[installation_directory]/config/prompt_values.json
+~/.code-reasoning/prompt_values.json
 ```
 
 If you want to reset stored values, you can simply delete this file or modify it directly.
