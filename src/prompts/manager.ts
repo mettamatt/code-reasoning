@@ -168,7 +168,17 @@ export class PromptManager {
    * @returns An array of all registered prompts
    */
   getAllPrompts(): Prompt[] {
-    return Object.values(this.prompts);
+    // Return prompts with stored values included in defaultValues field
+    return Object.values(this.prompts).map(prompt => {
+      // Get stored values for this prompt
+      const storedValues = this.valueManager.getStoredValues(prompt.name);
+
+      // Add defaultValues field to the prompt
+      return {
+        ...prompt,
+        defaultValues: storedValues,
+      };
+    });
   }
 
   /**
@@ -179,6 +189,16 @@ export class PromptManager {
    */
   getPrompt(name: string): Prompt | undefined {
     return this.prompts[name];
+  }
+
+  /**
+   * Gets stored values for a specific prompt.
+   *
+   * @param name The name of the prompt
+   * @returns The stored values for the prompt
+   */
+  getStoredValues(name: string): Record<string, string> {
+    return this.valueManager.getStoredValues(name);
   }
 
   /**
