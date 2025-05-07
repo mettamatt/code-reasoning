@@ -21,6 +21,11 @@ export interface Prompt {
   name: string;
   description: string;
   arguments?: PromptArgument[];
+  /**
+   * Default values for prompt arguments, used for pre-filling form fields.
+   * This is a custom extension to the standard MCP protocol.
+   */
+  defaultValues?: Record<string, string>;
 }
 
 /**
