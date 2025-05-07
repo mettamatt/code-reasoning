@@ -42,7 +42,7 @@ await configManager.setValue('debug', true);
 // Update multiple values at once
 await configManager.updateConfig({
   debug: true,
-  timeoutMs: 120000
+  timeoutMs: 120000,
 });
 
 // Reset to defaults
@@ -54,7 +54,7 @@ await configManager.resetConfig();
 The configuration includes:
 
 - `maxThoughtLength` - Maximum length of a thought in characters
-- `timeoutMs` - Timeout for operations in milliseconds 
+- `timeoutMs` - Timeout for operations in milliseconds
 - `maxThoughts` - Maximum number of thoughts allowed
 - `debug` - Enable debug mode
 - `promptsEnabled` - Whether prompts capability is enabled
