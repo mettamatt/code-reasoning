@@ -3,6 +3,8 @@
  *
  * These types define the structure of prompts according to the Model Context Protocol (MCP).
  * Prompts are reusable templates that can be discovered and used by MCP clients.
+ * This implementation uses the standard CompleteRequestSchema MCP protocol for providing
+ * auto-completion of prompt arguments.
  */
 
 /**
@@ -21,11 +23,8 @@ export interface Prompt {
   name: string;
   description: string;
   arguments?: PromptArgument[];
-  /**
-   * Default values for prompt arguments, used for pre-filling form fields.
-   * This is a custom extension to the standard MCP protocol.
-   */
-  defaultValues?: Record<string, string>;
+  // The defaultValues property has been removed in favor of the standard
+  // CompleteRequestSchema MCP protocol for argument completion
 }
 
 /**
