@@ -63,6 +63,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
+import { configManager, type CodeReasoningConfig } from './utils/config-manager.js';
+import { CUSTOM_PROMPTS_DIR, CONFIG_DIR, MAX_THOUGHT_LENGTH, MAX_THOUGHTS } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -76,34 +78,8 @@ export enum LogLevel {
   DEBUG = 3,
 }
 
-interface CodeReasoningConfig {
-  maxThoughtLength: number;
-  timeoutMs: number;
-  maxThoughts: number;
-  logLevel: LogLevel;
-  debug: boolean;
-
-  // Prompt-related configuration
-  promptsEnabled: boolean;
-  customPromptsDir?: string; // Directory for custom prompt templates
-  configDir?: string; // Directory for configuration files including stored prompt values
-}
-
 // Get the current file's directory path
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
-  maxThoughtLength: 20_000, // https://github.com/modelcontextprotocol/servers/issues/751
-  timeoutMs: 60_000,
-  maxThoughts: 20,
-  logLevel: LogLevel.INFO,
-  debug: false,
-
-  // Prompt config with defaults
-  promptsEnabled: true,
-  customPromptsDir: undefined, // No custom prompts directory by default
-  configDir: path.join(__dirname, '..', 'config'), // Config directory relative to src folder
-});
 
 /* -------------------------------------------------------------------------- */
 /*                               DATA SCHEMAS                                 */
@@ -128,8 +104,8 @@ const ThoughtDataSchema = z
       .trim()
       .min(1, 'Thought cannot be empty.')
       .max(
-        SERVER_CONFIG.maxThoughtLength,
-        `Thought exceeds ${SERVER_CONFIG.maxThoughtLength} chars.`
+        MAX_THOUGHT_LENGTH,
+        `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`
       ),
     thought_number: z.number().int().positive(),
     total_thoughts: z.number().int().positive(),
@@ -362,7 +338,7 @@ class CodeReasoningServer {
       // Provide specific guidance based on error path
       const firstPath = error.errors[0]?.path.join('.');
       if (firstPath?.includes('thought') && !firstPath.includes('number')) {
-        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${this.cfg.maxThoughtLength} characters.`;
+        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${MAX_THOUGHT_LENGTH} characters.`;
       } else if (firstPath?.includes('thought_number')) {
         guidance = 'Ensure thought_number is a positive integer and increments correctly.';
       } else if (firstPath?.includes('branch')) {
@@ -373,9 +349,9 @@ class CodeReasoningServer {
           'When revising, set is_revision=true and provide revises_thought (positive number). Do not combine with branching.';
       }
     } else if (errorMessage.includes('length')) {
-      guidance = `The thought is too long. Keep it under ${this.cfg.maxThoughtLength} characters.`;
+      guidance = `The thought is too long. Keep it under ${MAX_THOUGHT_LENGTH} characters.`;
     } else if (errorMessage.includes('Max thought_number exceeded')) {
-      guidance = `The maximum thought limit (${this.cfg.maxThoughts}) was reached.`;
+      guidance = `The maximum thought limit (${MAX_THOUGHTS}) was reached.`;
     }
 
     const payload = {
@@ -397,8 +373,8 @@ class CodeReasoningServer {
       const data = ThoughtDataSchema.parse(input);
 
       // Sanity limits -------------------------------------------------------
-      if (data.thought_number > this.cfg.maxThoughts) {
-        throw new Error(`Max thought_number exceeded (${this.cfg.maxThoughts}).`);
+      if (data.thought_number > MAX_THOUGHTS) {
+        throw new Error(`Max thought_number exceeded (${MAX_THOUGHTS}).`);
       }
       if (data.branch_from_thought && data.branch_from_thought > this.thoughtHistory.length) {
         throw new Error(`Invalid branch_from_thought ${data.branch_from_thought}.`);
@@ -436,7 +412,14 @@ class CodeReasoningServer {
 /* -------------------------------------------------------------------------- */
 
 export async function runServer(debugFlag = false): Promise<void> {
-  const config = debugFlag ? { ...SERVER_CONFIG, debug: true } : SERVER_CONFIG;
+  // Initialize config manager and get config
+  await configManager.init();
+  const config = await configManager.getConfig();
+  
+  // Apply debug flag if specified
+  if (debugFlag) {
+    await configManager.setValue('debug', true);
+  }
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
 
@@ -460,7 +443,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
   if (config.promptsEnabled) {
-    promptManager = new PromptManager(config.configDir);
+    promptManager = new PromptManager(CONFIG_DIR);
     console.error('Prompts capability enabled');
 
     // Load custom prompts if configured

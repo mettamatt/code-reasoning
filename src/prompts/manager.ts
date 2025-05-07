@@ -8,11 +8,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { fileURLToPath } from 'url';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
 import { PromptValueManager } from './valueManager.js';
-import { expandTildePath } from '../utils/paths.js';
+import { CONFIG_DIR, CUSTOM_PROMPTS_DIR, PROMPT_VALUES_FILE } from '../utils/config.js';
 
 /**
  * Manages prompt templates and their operations.
@@ -25,21 +24,24 @@ export class PromptManager {
   /**
    * Creates a new PromptManager instance with default code reasoning prompts.
    *
-   * @param configDir Optional directory for configuration files. Defaults to 'config' relative to the application directory.
+   * @param configDir Optional directory for configuration files. Defaults to the centralized CONFIG_DIR.
    */
   constructor(configDir?: string) {
     this.prompts = { ...CODE_REASONING_PROMPTS };
     this.templates = { ...PROMPT_TEMPLATES };
 
-    // Get the current file's directory path
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-    // Initialize value manager with config directory
-    // If configDir is provided, expand any tilde characters and create directory if needed
-    // Otherwise use a directory relative to the application
-    const resolvedConfigDir = configDir
-      ? expandTildePath(configDir, true)
-      : expandTildePath(path.join(__dirname, '..', '..', 'config'), true);
+    // Use provided config directory or default to CONFIG_DIR
+    const resolvedConfigDir = configDir || CONFIG_DIR;
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(resolvedConfigDir)) {
+      try {
+        fs.mkdirSync(resolvedConfigDir, { recursive: true });
+        console.error(`Created directory: ${resolvedConfigDir}`);
+      } catch (err) {
+        console.error(`Failed to create directory: ${resolvedConfigDir}`, err);
+      }
+    }
 
     console.error(`Using config directory: ${resolvedConfigDir}`);
 
@@ -48,8 +50,6 @@ export class PromptManager {
     } catch (err) {
       console.error(`Error initializing PromptValueManager: ${err}`);
       // Create a dummy value manager that doesn't actually save anything
-      // Create a placeholder value manager using a fake config path
-      // This will not throw errors when trying to write files that we know will fail
       this.valueManager = new PromptValueManager(os.tmpdir());
     }
 

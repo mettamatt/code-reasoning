@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { expandTildePath } from '../utils/paths.js';
+import { PROMPT_VALUES_FILE } from '../utils/config.js';
 
 // Structure for stored prompt values
 interface StoredPromptValues {
@@ -28,9 +28,12 @@ export class PromptValueManager {
    * @param configDir The directory where configuration files are stored
    */
   constructor(configDir: string) {
-    // Expand tilde in config directory path if present and ensure directory exists
-    const expandedConfigDir = expandTildePath(configDir, true);
-    this.valuesFilePath = path.join(expandedConfigDir, 'prompt_values.json');
+    // Use the specified config directory
+    // Use the centralized PROMPT_VALUES_FILE if no specific configDir is provided
+    this.valuesFilePath = configDir === path.dirname(PROMPT_VALUES_FILE) 
+      ? PROMPT_VALUES_FILE 
+      : path.join(configDir, 'prompt_values.json');
+    
     console.error(`PromptValueManager using file path: ${this.valuesFilePath}`);
     this.values = this.loadValues();
   }
