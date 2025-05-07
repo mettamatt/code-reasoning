@@ -5,7 +5,6 @@
  * configuration settings for the code-reasoning server.
  */
 
-import path from 'path';
 import { CONFIG_DIR } from './config.js';
 
 /**

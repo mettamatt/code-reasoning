@@ -63,7 +63,12 @@ import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
 import { configManager, type CodeReasoningConfig } from './utils/config-manager.js';
-import { CONFIG_DIR, MAX_THOUGHT_LENGTH, MAX_THOUGHTS } from './utils/config.js';
+import {
+  CONFIG_DIR,
+  MAX_THOUGHT_LENGTH,
+  MAX_THOUGHTS,
+  CUSTOM_PROMPTS_DIR,
+} from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
