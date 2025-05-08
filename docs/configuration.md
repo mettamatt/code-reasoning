@@ -135,21 +135,25 @@ The server uses the following streamlined approach:
 - The LogLevel enum is still used for compatibility but with simplified implementation
 - No log file rotation or custom log directories are supported
 
-#### SERVER_CONFIG
+#### Configuration Manager
 
-Logging behavior is controlled by the SERVER_CONFIG object in `src/server.ts`:
+The server uses an in-memory configuration manager (`configManager`) defined in `src/utils/config-manager.ts`:
 
 ```typescript
-const SERVER_CONFIG: CodeReasoningConfig = {
-  maxThoughtLength: 20000,
-  timeoutMs: 30_000,
-  maxThoughts: 20,
-  logLevel: LogLevel.INFO, // Kept for compatibility
-  debug: false, // Will be set to true if --debug flag is passed
-};
+// Initialize config manager and get config
+await configManager.init();
+const config = await configManager.getConfig();
+
+// Apply debug flag if specified
+if (debugFlag) {
+  await configManager.setValue('debug', true);
+}
 ```
 
-The `debug` flag is set based on the command-line argument passed to the server.
+Key characteristics:
+- **In-Memory Only**: Configuration is stored entirely in memory and does not persist between server restarts
+- **Type Safety**: Uses TypeScript interfaces for configuration structure
+- **Programmatic API**: Simple, promise-based API for getting and setting configuration values
 
 ### Prompt Configuration
 
@@ -161,19 +165,28 @@ The Code-Reasoning MCP Server includes a prompt system with the following config
 | -------------- | --------------------------------- | ---------- | --------------------------------------------- |
 | `--config-dir` | Directory for configuration files | `./config` | `code-reasoning --config-dir=/path/to/config` |
 
-#### SERVER_CONFIG Options
+#### Configuration Manager Options
 
-The prompt configuration is controlled by the SERVER_CONFIG object in `src/server.ts`:
+The prompt configuration is controlled via the in-memory configuration manager:
 
 ```typescript
-export const SERVER_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
-  // Existing config...
+// Check if prompts are enabled
+if (config.promptsEnabled) {
+  promptManager = new PromptManager(CONFIG_DIR);
+  console.error('Prompts capability enabled');
 
-  // Prompt config with defaults
-  promptsEnabled: true,
-  // Custom prompts are always loaded from CONFIG_DIR/prompts
-  // as defined in src/utils/config.ts
-});
+  // Load custom prompts from the standard location
+  console.error(`Loading custom prompts from ${CUSTOM_PROMPTS_DIR}`);
+  await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
+}
+```
+
+Default configuration values:
+```typescript
+{
+  promptsEnabled: true,  // Enables prompt functionality
+  // Other configuration values...
+}
 ```
 
 #### Prompt Value Persistence
