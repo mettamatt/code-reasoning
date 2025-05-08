@@ -140,7 +140,7 @@ export class PromptManager {
         console.error(`Failed to create main config directory: ${resolvedConfigDir}`, err);
       }
     }
-    
+
     // Create prompts subdirectory if it doesn't exist
     const promptsDir = path.join(resolvedConfigDir, 'prompts');
     if (!fs.existsSync(promptsDir)) {

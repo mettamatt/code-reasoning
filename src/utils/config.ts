@@ -4,7 +4,7 @@
  * This file defines:
  * 1. Filesystem paths for components that need filesystem access (prompts)
  * 2. Default application constants
- * 
+ *
  * Note: The main configuration system is in-memory only and doesn't use
  * filesystem persistence for configuration values. The filesystem paths
  * defined here are only used for prompt-related functionality.

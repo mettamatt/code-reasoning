@@ -151,6 +151,7 @@ if (debugFlag) {
 ```
 
 Key characteristics:
+
 - **In-Memory Only**: Configuration is stored entirely in memory and does not persist between server restarts
 - **Type Safety**: Uses TypeScript interfaces for configuration structure
 - **Programmatic API**: Simple, promise-based API for getting and setting configuration values
@@ -182,6 +183,7 @@ if (config.promptsEnabled) {
 ```
 
 Default configuration values:
+
 ```typescript
 {
   promptsEnabled: true,  // Enables prompt functionality
