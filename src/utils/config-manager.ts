@@ -2,10 +2,8 @@
  * @fileoverview Configuration manager for code-reasoning server
  *
  * This module provides a singleton configuration manager that handles
- * configuration settings for the code-reasoning server.
+ * configuration settings for the code-reasoning server in memory.
  */
-
-import { CONFIG_DIR } from './config.js';
 
 /**
  * Structure of the server configuration
@@ -43,11 +41,7 @@ class ConfigManager {
     if (this.initialized) return;
 
     try {
-      // Create config directory if it doesn't exist
-      if (!CONFIG_DIR) {
-        // No need to create directory for in-memory only config
-      }
-
+      // In-memory only configuration, no filesystem operations needed
       this.initialized = true;
     } catch (error) {
       console.error('Failed to initialize config:', error);
