@@ -131,13 +131,24 @@ export class PromptManager {
     // Use provided config directory or default to CONFIG_DIR
     const resolvedConfigDir = configDir || CONFIG_DIR;
 
-    // Create directory if it doesn't exist
+    // Create main config directory if it doesn't exist
     if (!fs.existsSync(resolvedConfigDir)) {
       try {
         fs.mkdirSync(resolvedConfigDir, { recursive: true });
-        console.error(`Created directory: ${resolvedConfigDir}`);
+        console.error(`Created main config directory: ${resolvedConfigDir}`);
       } catch (err) {
-        console.error(`Failed to create directory: ${resolvedConfigDir}`, err);
+        console.error(`Failed to create main config directory: ${resolvedConfigDir}`, err);
+      }
+    }
+    
+    // Create prompts subdirectory if it doesn't exist
+    const promptsDir = path.join(resolvedConfigDir, 'prompts');
+    if (!fs.existsSync(promptsDir)) {
+      try {
+        fs.mkdirSync(promptsDir, { recursive: true });
+        console.error(`Created prompts directory: ${promptsDir}`);
+      } catch (err) {
+        console.error(`Failed to create prompts directory: ${promptsDir}`, err);
       }
     }
 
@@ -274,8 +285,13 @@ export class PromptManager {
   async loadCustomPrompts(directory: string): Promise<void> {
     try {
       if (!fs.existsSync(directory)) {
-        console.error(`Custom prompts directory not found: ${directory}`);
-        return;
+        try {
+          fs.mkdirSync(directory, { recursive: true });
+          console.error(`Created custom prompts directory: ${directory}`);
+        } catch (err) {
+          console.error(`Failed to create custom prompts directory: ${directory}`, err);
+          return;
+        }
       }
 
       const files = fs.readdirSync(directory);
