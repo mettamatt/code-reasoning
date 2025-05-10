@@ -41,7 +41,7 @@
  * }
  * ```
  *
- * @version 0.6.2
+ * @version 0.7.0
  * @mcp-sdk-version 1.11.0
  */
 
@@ -419,7 +419,7 @@ export async function runServer(debugFlag = false): Promise<void> {
     await configManager.setValue('debug', true);
   }
 
-  const serverMeta = { name: 'code-reasoning-server', version: '0.6.2' } as const;
+  const serverMeta = { name: 'code-reasoning-server', version: '0.7.0' } as const;
 
   // Configure server capabilities based on config
   const capabilities: Partial<ServerCapabilities> = {

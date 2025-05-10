@@ -1,6 +1,6 @@
 {
   "name": "@mettamatt/code-reasoning",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Enhanced MCP server for code reasoning using sequential thinking methodology, optimized for programming tasks",
   "author": "Matt Westgate",
   "license": "MIT",

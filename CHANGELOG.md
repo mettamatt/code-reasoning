@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 (2025-05-07)
+## 0.7.0 (2025-05-10)
 
 ### Features
 
@@ -9,12 +9,6 @@
   - The last prompt value is saved so that it can be used again but it will not show until Claude Desktop and Claude Code implement MCP CompleteRequestSchema. See https://github.com/anthropics/claude-code/issues/986
   - Added support for custom prompt templates via JSON files
   - Added Zod-based input sanitization to template processing
-
-### Improvements
-
-- Added centralized configuration system with in-memory management
-  - New config manager for better configuration control
-  - Support for config directory to store persistent data
 
 ## 0.6.2 (2025-05-04)
 
