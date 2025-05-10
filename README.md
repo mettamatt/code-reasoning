@@ -101,7 +101,6 @@ The Code Reasoning MCP Server includes a prompt evaluation system that assesses 
 - Testing different prompt variations against scenario problems
 - Verifying parameter format adherence
 - Scoring solution quality
-- Generating comprehensive reports
 
 To use the prompt evaluation system, run:
 
