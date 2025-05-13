@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- Updated dependencies to latest versions:
+  - @modelcontextprotocol/sdk: ^1.10.2 → ^1.11.2 (fixes Zod object detection logic, adds scope parameter to startAuthorization)
+  - @anthropic-ai/sdk: ^0.40.0 → ^0.50.4 (includes web search capabilities and several bug fixes)
+  - @types/node: ^22.15.14 → ^22.15.17
+  - @typescript-eslint/eslint-plugin: ^8.31.1 → ^8.32.1
+  - @typescript-eslint/parser: ^8.31.1 → ^8.32.1
+  - eslint-config-prettier: ^10.1.3 → ^10.1.5
+
 ## 0.7.0 (2025-05-10)
 
 ### Features
