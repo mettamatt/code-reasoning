@@ -125,16 +125,16 @@ Our evaluation across seven diverse programming scenarios showed that HYBRID_DES
 
 | Scenario                   | HYBRID_DESIGN | CODE_REASONING_0_30 | DEFAULT | SEQUENTIAL |
 | -------------------------- | ------------- | ------------------- | ------- | ---------- |
-| Algorithm Selection        | 87%           | 82%                 | 88%     | 82%        |
-| Bug Identification         | 87%           | 91%                 | 88%     | 92%        |
-| Multi-Stage Implementation | 83%           | 67%                 | 79%     | 82%        |
-| System Design Analysis     | 82%           | 87%                 | 78%     | 82%        |
-| Code Debugging Task        | 92%           | 87%                 | 92%     | 92%        |
-| Compiler Optimization      | 83%           | 78%                 | 67%     | 73%        |
-| Cache Strategy             | 86%           | 88%                 | 82%     | 87%        |
-| **Average**                | **86%**       | **83%**             | **82%** | **84%**    |
+| Algorithm Selection        | 89%           | 82%                 | 92%     | 88%        |
+| Bug Identification         | 92%           | 91%                 | 88%     | 94%        |
+| Multi-Stage Implementation | 87%           | 67%                 | 82%     | 87%        |
+| System Design Analysis     | 87%           | 87%                 | 83%     | 82%        |
+| Code Debugging Task        | 96%           | 87%                 | 91%     | 93%        |
+| Compiler Optimization      | 83%           | 78%                 | 72%     | 78%        |
+| Cache Strategy             | 87%           | 88%                 | 89%     | 87%        |
+| **Average**                | **89%**       | **83%**             | **85%** | **87%**    |
 
-The HYBRID_DESIGN prompt marginally demonstrated both the highest average solution quality (86%) and the most consistent performance across all scenarios, with no scores below 80%. It also prodouced the most thoughts. The `src/server.ts` file has been updated to use this optimal prompt design.
+The HYBRID_DESIGN prompt demonstrates the highest average solution quality (89%) and the most consistent performance across all scenarios, with no scores below 80%. It also produces the most thoughts. The `src/server.ts` file has been updated to use this optimal prompt design.
 
 Personally, I think the biggest improvement was adding this to the end of the prompt: "✍️ End each thought by asking: "What am I missing or need to reconsider?"
 
