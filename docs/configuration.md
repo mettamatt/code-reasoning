@@ -78,7 +78,6 @@ Claude Desktop uses a configuration file to manage MCP server settings. This fil
 VS Code integration can be configured in two ways:
 
 1. User Settings (applies to all workspaces):
-
    - Open VS Code settings: `Ctrl+Shift+P` (or `Cmd+Shift+P` on macOS) and type `Preferences: Open Settings (JSON)`
    - Add MCP configuration
 

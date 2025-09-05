@@ -42,22 +42,18 @@ All prompts also support a `working_directory` parameter that specifies the path
 To use Code Reasoning prompts with Claude Desktop:
 
 1. **Access the Prompts Menu**:
-
    - Click the "+" icon in the Claude Desktop chat window
    - Select "Code Reasoning Tool" from the available tools
 
 2. **Select a Prompt**:
-
    - Choose one of the available prompts from the list
    - A dialog window will appear with fields for the prompt arguments
 
 3. **Fill in the Arguments**:
-
    - Enter the required information in each field
    - Include your working directory if needed (e.g., `~/projects/my-app`)
 
 4. **Submit the Prompt**:
-
    - Click the submit button in the dialog
    - The prompt with your variables will be attached to the chat message as a pasted file
 
@@ -85,13 +81,11 @@ The Code Reasoning MCP server now includes a feature to persist prompt argument 
 ### How It Works
 
 1. **Value Storage**:
-
    - When you use a prompt, the argument values are saved to a JSON file
    - The file is stored in the `~/.code-reasoning/` directory
    - Values are organized by prompt name for easy retrieval
 
 2. **Global Values**:
-
    - Some values like `working_directory` are stored globally
    - These global values are shared across all prompts
    - This means you only need to set your working directory once

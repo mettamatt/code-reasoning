@@ -13,7 +13,6 @@ A Model Context Protocol (MCP) server that enhances Claude's ability to solve co
 ## Quick Installation
 
 1. Configure Claude Desktop by editing:
-
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
    - Linux: `~/.config/Claude/claude_desktop_config.json`
