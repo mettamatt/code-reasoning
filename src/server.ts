@@ -5,7 +5,7 @@
  *
  * This server provides a tool for reflective problem-solving in software development,
  * allowing decomposition of tasks into sequential, revisable, and branchable thoughts.
- * It adheres to the Model Context Protocol (MCP) using SDK version 1.11.0 and is designed
+ * It adheres to the Model Context Protocol (MCP) using SDK version 1.18.1 and is designed
  * to integrate seamlessly with Claude Desktop or similar MCP-compliant clients.
  *
  * ## Key Features
@@ -42,7 +42,7 @@
  * ```
  *
  * @version 0.7.0
- * @mcp-sdk-version 1.11.0
+ * @mcp-sdk-version 1.18.1
  */
 
 import process from 'node:process';
@@ -56,6 +56,7 @@ import {
   ListToolsRequestSchema,
   ServerCapabilities,
   Tool,
+  type LoggingLevel,
   type ServerResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -161,8 +162,11 @@ const THOUGHT_DATA_JSON_SCHEMA = Object.freeze(
 /*                                  TOOL DEF                                  */
 /* -------------------------------------------------------------------------- */
 
-const CODE_REASONING_TOOL: Tool = {
-  name: 'code-reasoning',
+const TOOL_NAME = 'code-reasoning' as const;
+
+const createCodeReasoningTool = (serverVersion: string): Tool => ({
+  name: TOOL_NAME,
+  title: 'Code Reasoning',
   description: `🧠 A detailed tool for dynamic and reflective problem-solving through sequential thinking.
 
 This tool helps you analyze problems through a flexible thinking process that can adapt and evolve.
@@ -194,10 +198,16 @@ Each thought can build on, question, or revise previous insights as understandin
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inputSchema: THOUGHT_DATA_JSON_SCHEMA as any, // SDK expects unknown JSON schema shape
   annotations: {
-    title: 'Code Reasoning',
     readOnlyHint: true,
+    openWorldHint: false,
   },
-};
+  _meta: {
+    schema_version: '1.0.0',
+    server_version: serverVersion,
+    categories: ['reasoning', 'analysis'],
+    recommended_prompt: 'code-reasoning/default',
+  },
+});
 
 /* -------------------------------------------------------------------------- */
 /*                              SERVER IMPLEMENTATION                         */
@@ -208,6 +218,53 @@ type ThoughtTracker = {
   ensureBranchIsValid: (branchFromThought?: number) => void;
   branches: () => string[];
   count: () => number;
+};
+
+interface ServerLogger {
+  debug: (message: string, details?: unknown) => void;
+  info: (message: string, details?: unknown) => void;
+  notice: (message: string, details?: unknown) => void;
+  warn: (message: string, details?: unknown) => void;
+  error: (message: string, details?: unknown) => void;
+  enableRemoteLogging: () => void;
+}
+
+const createServerLogger = (srv: Server, debug: boolean): ServerLogger => {
+  let remoteLoggingEnabled = false;
+
+  const emit = (level: LoggingLevel, message: string, details?: unknown) => {
+    const data = details === undefined ? { message } : { message, details };
+
+    if (debug || level !== 'debug') {
+      const prefix = `[${level}]`;
+      if (message.startsWith('\n')) {
+        console.error(message);
+      } else if (details !== undefined) {
+        console.error(`${prefix} ${message}`, details);
+      } else {
+        console.error(`${prefix} ${message}`);
+      }
+    }
+
+    if (remoteLoggingEnabled) {
+      void srv.sendLoggingMessage({ level, logger: 'code-reasoning', data }).catch(err => {
+        if (debug) {
+          console.error('[error] Failed to send logging notification', err);
+        }
+      });
+    }
+  };
+
+  return {
+    debug: (message, details) => emit('debug', message, details),
+    info: (message, details) => emit('info', message, details),
+    notice: (message, details) => emit('notice', message, details),
+    warn: (message, details) => emit('warning', message, details),
+    error: (message, details) => emit('error', message, details),
+    enableRemoteLogging: () => {
+      remoteLoggingEnabled = true;
+    },
+  };
 };
 
 const createThoughtTracker = (): ThoughtTracker => {
@@ -308,13 +365,15 @@ const buildSuccess = (t: ValidatedThoughtData, tracker: ThoughtTracker): ServerR
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: false };
 };
 
-const buildError = (error: Error, debug: boolean): ServerResult => {
+const buildError = (error: Error, debug: boolean, logger: ServerLogger): ServerResult => {
   let errorMessage = error.message;
   let guidance = 'Check the tool description and schema for correct usage.';
   const example = getExampleThought(errorMessage);
 
   if (error instanceof ZodError) {
-    if (debug) console.error(error.errors);
+    if (debug) {
+      logger.debug('Zod validation errors', error.errors);
+    }
     errorMessage = `Validation Error: ${error.errors
       .map(e => `${e.path.join('.')}: ${e.message}`)
       .join(', ')}`;
@@ -347,9 +406,9 @@ const buildError = (error: Error, debug: boolean): ServerResult => {
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
 };
 
-const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>) => {
+const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: ServerLogger) => {
   const tracker = createThoughtTracker();
-  console.error('Code-Reasoning logic ready', { cfg });
+  logger.info('Code-Reasoning logic ready', { config: cfg });
 
   return async (input: unknown): Promise<ServerResult> => {
     const t0 = performance.now();
@@ -364,8 +423,8 @@ const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>) => {
       tracker.ensureBranchIsValid(data.branch_from_thought);
       tracker.add(data);
 
-      console.error(formatThought(data));
-      console.error('✔️  processed', {
+      logger.info(formatThought(data));
+      logger.debug('Thought metrics', {
         num: data.thought_number,
         elapsedMs: +(performance.now() - t0).toFixed(1),
       });
@@ -373,11 +432,11 @@ const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>) => {
       return buildSuccess(data, tracker);
     } catch (err) {
       const e = err as Error;
-      console.error('❌ error', {
-        err: e.message,
+      logger.error('Thought processing failed', {
+        error: e.message,
         elapsedMs: +(performance.now() - t0).toFixed(1),
       });
-      return buildError(e, cfg.debug);
+      return buildError(e, cfg.debug, logger);
     }
   };
 };
@@ -396,33 +455,36 @@ export async function runServer(debugFlag = false): Promise<void> {
     tools: {},
     resources: {},
     completions: {}, // Add completions capability
+    logging: {},
   };
 
   // Only add prompts capability if enabled
   if (config.promptsEnabled) {
-    capabilities.prompts = {
-      list: true,
-      get: true,
-    };
+    capabilities.prompts = {};
   }
 
   const srv = new Server(serverMeta, { capabilities });
-  const processThought = createThoughtProcessor(config);
+  const logger = createServerLogger(srv, config.debug);
+  const processThought = createThoughtProcessor(config, logger);
+  logger.info('Server initialized', {
+    version: serverMeta.version,
+    promptsEnabled: config.promptsEnabled,
+  });
 
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
   if (config.promptsEnabled) {
     promptManager = new PromptManager(CONFIG_DIR);
-    console.error('Prompts capability enabled');
+    logger.info('Prompts capability enabled');
 
     // Load custom prompts from the standard location
-    console.error(`Loading custom prompts from ${CUSTOM_PROMPTS_DIR}`);
+    logger.info('Loading custom prompts', { directory: CUSTOM_PROMPTS_DIR });
     await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
 
     // Add prompt handlers
     srv.setRequestHandler(ListPromptsRequestSchema, async () => {
       const prompts = promptManager?.getAllPrompts() || [];
-      console.error(`Returning ${prompts.length} prompts`);
+      logger.debug('Returning prompts', { total: prompts.length });
       return { prompts };
     });
 
@@ -435,7 +497,7 @@ export async function runServer(debugFlag = false): Promise<void> {
         const promptName = req.params.name;
         const args = req.params.arguments || {};
 
-        console.error(`Getting prompt: ${promptName} with args:`, args);
+        logger.debug('Getting prompt', { promptName, args });
 
         // Get the prompt result
         const result = promptManager.applyPrompt(promptName, args);
@@ -443,11 +505,15 @@ export async function runServer(debugFlag = false): Promise<void> {
         // Return the result in the format expected by MCP
         return {
           messages: result.messages,
-          _meta: {},
+          _meta: {
+            prompt_name: promptName,
+            applied_arguments: Object.keys(args),
+            server_version: serverMeta.version,
+          },
         };
       } catch (err) {
         const e = err as Error;
-        console.error('Prompt error:', e.message);
+        logger.error('Prompt error', { message: e.message });
         return {
           isError: true,
           content: [{ type: 'text', text: e.message }],
@@ -474,7 +540,7 @@ export async function runServer(debugFlag = false): Promise<void> {
         const promptName = req.params.ref.name;
         const argName = req.params.argument.name;
 
-        console.error(`Completing argument: ${argName} for prompt: ${promptName}`);
+        logger.debug('Completing prompt argument', { promptName, argument: argName });
 
         // Get stored values for this prompt using the public method
         const storedValues = promptManager.getStoredValues(promptName);
@@ -496,7 +562,7 @@ export async function runServer(debugFlag = false): Promise<void> {
         };
       } catch (err) {
         const e = err as Error;
-        console.error('Completion error:', e.message);
+        logger.error('Completion error', { message: e.message });
         return {
           completion: {
             values: [],
@@ -518,9 +584,11 @@ export async function runServer(debugFlag = false): Promise<void> {
 
   // Existing handlers
   srv.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
-  srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [CODE_REASONING_TOOL] }));
+  srv.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [createCodeReasoningTool(serverMeta.version)],
+  }));
   srv.setRequestHandler(CallToolRequestSchema, req =>
-    req.params.name === CODE_REASONING_TOOL.name
+    req.params.name === TOOL_NAME
       ? processThought(req.params.arguments)
       : Promise.resolve({
           isError: true,
@@ -535,10 +603,11 @@ export async function runServer(debugFlag = false): Promise<void> {
 
   const transport = new StdioServerTransport();
   await srv.connect(transport);
-  console.error('🚀 Code-Reasoning MCP Server ready.');
+  logger.enableRemoteLogging();
+  logger.notice('🚀 Code-Reasoning MCP Server ready.');
 
   const shutdown = async (sig: string) => {
-    console.error(`↩︎ shutdown on ${sig}`);
+    logger.info('Shutdown signal received', { signal: sig });
     await srv.close();
     await transport.close();
     process.exit(0);
@@ -546,11 +615,11 @@ export async function runServer(debugFlag = false): Promise<void> {
 
   ['SIGINT', 'SIGTERM'].forEach(s => process.on(s, () => shutdown(s)));
   process.on('uncaughtException', err => {
-    console.error('💥 uncaught', err);
+    logger.error('💥 uncaught exception', err);
     shutdown('uncaughtException');
   });
   process.on('unhandledRejection', r => {
-    console.error('💥 unhandledRejection', r);
+    logger.error('💥 unhandledPromiseRejection', r);
     shutdown('unhandledRejection');
   });
 }
