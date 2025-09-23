@@ -27,6 +27,7 @@
 - Reduced bundle size by removing unused `chalk`.
 - Enhanced server error handling and validation with manual cross-field rule enforcement.
 - Improved shutdown procedure with better error handling and proper exit codes.
+- **Validation Architecture**: Refactored to dual-schema approach with Zod-inferred types for improved type safety and validation flow.
 
 ### Breaking Changes
 
@@ -36,6 +37,7 @@
 - Replaced `zodToJsonSchema` with direct schema definitions.
 - Eliminated CLI options and debug flag handling.
 - **Removed custom prompts loading**: Eliminated `loadCustomPrompts` method and `CUSTOM_PROMPTS_DIR` configuration for security and consistency.
+- **Schema Architecture**: Replaced manual ThoughtData interface with Zod-inferred types and introduced strict/loose validation schemas.
 
 ### Bug Fixes
 
