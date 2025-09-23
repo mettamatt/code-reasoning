@@ -2,49 +2,49 @@
 
 ## Unreleased
 
+## 0.8.0 (2025-09-23)
+
 ### Major Changes
 
-- **Architecture Refactor**: Migrated from class-based `SequentialThinkingServer` to functional `McpServer` with modern registration patterns.
-- **Configuration Simplification**: Replaced `config-manager` with lightweight `buildConfig` focused on path constants.
-- **Testing Overhaul**: Introduced MCP regression framework with 147 new cases, plus improved documentation.
-- **Prompt System**: Consolidated `PromptManager` for value management, filtering, and validation.
-- **MCP SDK Migration**: Upgraded to MCP SDK `v1.18.1` with latest protocol features.
-- **Security Enhancement**: Removed custom prompt loading for improved security and consistency.
+- Migrated from class-based `SequentialThinkingServer` to functional `McpServer`.
+- Simplified config: replaced `config-manager` with lightweight `buildConfig`.
+- Introduced MCP regression framework (147 tests) with improved docs.
+- Consolidated prompt handling into `PromptManager` with filtering and validation.
+- Upgraded to MCP SDK `v1.18.1`.
+- Removed custom prompt loading for security and consistency.
 
 ### Features
 
-- Structured server logging with improved tool metadata and error handling.
-- Prompt argument filtering for stored global values.
-- Tests for preserving literal braces in prompt templates.
+- Structured logging with tool metadata and error handling.
+- Prompt argument filtering for global values.
+- Added tests for literal braces in templates.
 
 ### Improvements
 
-- Updated all npm dependencies to latest stable versions.
-- Debug logs now output to `stderr` for clearer separation.
-- Simplified entry point: removed `parseArgs` and command-line options.
-- Updated schema handling with `ThoughtDataInputShape` validation.
-- Documentation updated to match simplified architecture.
-- Reduced bundle size by removing unused `chalk`.
-- Enhanced server error handling and validation with manual cross-field rule enforcement.
-- Improved shutdown procedure with better error handling and proper exit codes.
-- **Validation Architecture**: Refactored to dual-schema approach with Zod-inferred types for improved type safety and validation flow.
+- Updated npm dependencies.
+- Debug logs now go to `stderr`.
+- Simplified entry point (removed `parseArgs` and CLI options).
+- Updated schema handling with `ThoughtDataInputShape`.
+- Docs aligned with new architecture.
+- Reduced bundle size (removed `chalk`).
+- Refined validation with dual-schema/Zod-inferred types.
+- Better shutdown handling with proper exit codes.
 
 ### Breaking Changes
 
-- Removed end-to-end test runner, prompt evaluation system, and related infrastructure (\~2,200 LOC).
+- Removed end-to-end test runner, prompt evaluation, and related infra (\~2,200 LOC).
 - Dropped `valueManager` (merged into `PromptManager`).
 - Removed custom transport handling.
-- Replaced `zodToJsonSchema` with direct schema definitions.
+- Replaced `zodToJsonSchema` with direct schemas.
 - Eliminated CLI options and debug flag handling.
-- **Removed custom prompts loading**: Eliminated `loadCustomPrompts` method and `CUSTOM_PROMPTS_DIR` configuration for security and consistency.
-- **Schema Architecture**: Replaced manual ThoughtData interface with Zod-inferred types and introduced strict/loose validation schemas.
+- Replaced manual `ThoughtData` interface with Zod-inferred types and strict/loose schemas.
 
 ### Bug Fixes
 
-- Fixed debug logging stream to avoid MCP interference.
-- Improved prompt value filtering to respect declared arguments.
+- Fixed debug logging stream (no MCP interference).
+- Improved prompt filtering to respect declared args.
 - Strengthened error handling and type safety (`CallToolResult` replaces `ServerResult`).
-- Removed overly aggressive template injection neutralization.
+- Removed overzealous template injection neutralization.
 
 ## 0.7.0 (2025-05-10)
 
