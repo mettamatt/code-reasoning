@@ -26,8 +26,7 @@ import('./src/server.js')
   .then(module => {
     // Debug flag is passed to runServer
     if (values.debug) {
-      // eslint-disable-next-line no-console
-      console.log('Starting server in debug mode');
+      console.error('Starting server in debug mode');
     }
 
     module.runServer(values.debug);
