@@ -62,14 +62,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
-import {
-  CONFIG_DIR,
-  CUSTOM_PROMPTS_DIR,
-  MAX_THOUGHT_LENGTH,
-  MAX_THOUGHTS,
-  buildConfig,
-  type CodeReasoningConfig,
-} from './utils/config.js';
+import { CONFIG_DIR, CUSTOM_PROMPTS_DIR } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -82,6 +75,24 @@ export enum LogLevel {
   INFO = 2,
   DEBUG = 3,
 }
+
+const MAX_THOUGHT_LENGTH = 20000;
+const MAX_THOUGHTS = 20;
+
+interface CodeReasoningConfig {
+  debug: boolean;
+  promptsEnabled: boolean;
+}
+
+const DEFAULT_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
+  debug: false,
+  promptsEnabled: true,
+});
+
+const createConfig = (overrides: Partial<CodeReasoningConfig> = {}): CodeReasoningConfig => ({
+  ...DEFAULT_CONFIG,
+  ...overrides,
+});
 
 /* -------------------------------------------------------------------------- */
 /*                               DATA SCHEMAS                                 */
@@ -192,181 +203,191 @@ Each thought can build on, question, or revise previous insights as understandin
 /*                              SERVER IMPLEMENTATION                         */
 /* -------------------------------------------------------------------------- */
 
-class CodeReasoningServer {
-  private readonly thoughtHistory: ValidatedThoughtData[] = [];
-  private readonly branches = new Map<string, ValidatedThoughtData[]>();
+type ThoughtTracker = {
+  add: (thought: ValidatedThoughtData) => void;
+  ensureBranchIsValid: (branchFromThought?: number) => void;
+  branches: () => string[];
+  count: () => number;
+};
 
-  constructor(private readonly cfg: Readonly<CodeReasoningConfig>) {
-    console.error('Code-Reasoning logic ready', { cfg });
-  }
+const createThoughtTracker = (): ThoughtTracker => {
+  const thoughtHistory: ValidatedThoughtData[] = [];
+  const branches = new Map<string, ValidatedThoughtData[]>();
 
-  /* ----------------------------- Helper Methods ---------------------------- */
+  return {
+    add: thought => {
+      thoughtHistory.push(thought);
+      if (thought.branch_id) {
+        const branchThoughts = branches.get(thought.branch_id) ?? [];
+        branchThoughts.push(thought);
+        branches.set(thought.branch_id, branchThoughts);
+      }
+    },
+    ensureBranchIsValid: branchFromThought => {
+      if (branchFromThought && branchFromThought > thoughtHistory.length) {
+        throw new Error(`Invalid branch_from_thought ${branchFromThought}.`);
+      }
+    },
+    branches: () => Array.from(branches.keys()),
+    count: () => thoughtHistory.length,
+  };
+};
 
-  private formatThought(t: ValidatedThoughtData): string {
-    const {
-      thought_number,
-      total_thoughts,
-      thought,
-      is_revision,
-      revises_thought,
-      branch_id,
-      branch_from_thought,
-    } = t;
+const formatThought = (t: ValidatedThoughtData): string => {
+  const {
+    thought_number,
+    total_thoughts,
+    thought,
+    is_revision,
+    revises_thought,
+    branch_id,
+    branch_from_thought,
+  } = t;
 
-    const header = is_revision
-      ? `🔄 Revision ${thought_number}/${total_thoughts} (of ${revises_thought})`
-      : branch_id
-        ? `🌿 Branch ${thought_number}/${total_thoughts} (from ${branch_from_thought}, id:${branch_id})`
-        : `💭 Thought ${thought_number}/${total_thoughts}`;
+  const header = is_revision
+    ? `🔄 Revision ${thought_number}/${total_thoughts} (of ${revises_thought})`
+    : branch_id
+      ? `🌿 Branch ${thought_number}/${total_thoughts} (from ${branch_from_thought}, id:${branch_id})`
+      : `💭 Thought ${thought_number}/${total_thoughts}`;
 
-    const body = thought
-      .split('\n')
-      .map(l => `  ${l}`)
-      .join('\n');
+  const body = thought
+    .split('\n')
+    .map(l => `  ${l}`)
+    .join('\n');
 
-    return `\n${header}\n---\n${body}\n---`;
-  }
+  return `\n${header}\n---\n${body}\n---`;
+};
 
-  /**
-   * Provides example thought data based on error message to help users correct input.
-   */
-  private getExampleThought(errorMsg: string): Partial<ThoughtData> {
-    if (errorMsg.includes('branch')) {
-      return {
-        thought: 'Exploring alternative: Consider algorithm X.',
-        thought_number: 3,
-        total_thoughts: 7,
-        next_thought_needed: true,
-        branch_from_thought: 2,
-        branch_id: 'alternative-algo-x',
-      };
-    } else if (errorMsg.includes('revis')) {
-      return {
-        thought: 'Revisiting earlier point: Assumption Y was flawed.',
-        thought_number: 4,
-        total_thoughts: 6,
-        next_thought_needed: true,
-        is_revision: true,
-        revises_thought: 2,
-      };
-    } else if (errorMsg.includes('length') || errorMsg.includes('Thought cannot be empty')) {
-      return {
-        thought: 'Breaking down the thought into smaller parts...',
-        thought_number: 2,
-        total_thoughts: 5,
-        next_thought_needed: true,
-      };
-    }
-    // Default fallback
+const getExampleThought = (errorMsg: string): Partial<ThoughtData> => {
+  if (errorMsg.includes('branch')) {
     return {
-      thought: 'Initial exploration of the problem.',
-      thought_number: 1,
+      thought: 'Exploring alternative: Consider algorithm X.',
+      thought_number: 3,
+      total_thoughts: 7,
+      next_thought_needed: true,
+      branch_from_thought: 2,
+      branch_id: 'alternative-algo-x',
+    };
+  }
+  if (errorMsg.includes('revis')) {
+    return {
+      thought: 'Revisiting earlier point: Assumption Y was flawed.',
+      thought_number: 4,
+      total_thoughts: 6,
+      next_thought_needed: true,
+      is_revision: true,
+      revises_thought: 2,
+    };
+  }
+  if (errorMsg.includes('length') || errorMsg.includes('Thought cannot be empty')) {
+    return {
+      thought: 'Breaking down the thought into smaller parts...',
+      thought_number: 2,
       total_thoughts: 5,
       next_thought_needed: true,
     };
   }
+  return {
+    thought: 'Initial exploration of the problem.',
+    thought_number: 1,
+    total_thoughts: 5,
+    next_thought_needed: true,
+  };
+};
 
-  private buildSuccess(t: ValidatedThoughtData): ServerResult {
-    const payload = {
-      status: 'processed',
-      thought_number: t.thought_number,
-      total_thoughts: t.total_thoughts,
-      next_thought_needed: t.next_thought_needed,
-      branches: Array.from(this.branches.keys()),
-      thought_history_length: this.thoughtHistory.length,
-    } as const;
+const buildSuccess = (t: ValidatedThoughtData, tracker: ThoughtTracker): ServerResult => {
+  const payload = {
+    status: 'processed',
+    thought_number: t.thought_number,
+    total_thoughts: t.total_thoughts,
+    next_thought_needed: t.next_thought_needed,
+    branches: tracker.branches(),
+    thought_history_length: tracker.count(),
+  } as const;
 
-    return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: false };
-  }
+  return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: false };
+};
 
-  private buildError(error: Error): ServerResult {
-    let errorMessage = error.message;
-    let guidance = 'Check the tool description and schema for correct usage.';
-    const example = this.getExampleThought(errorMessage);
+const buildError = (error: Error, debug: boolean): ServerResult => {
+  let errorMessage = error.message;
+  let guidance = 'Check the tool description and schema for correct usage.';
+  const example = getExampleThought(errorMessage);
 
-    if (error instanceof ZodError) {
-      errorMessage = `Validation Error: ${error.errors
-        .map(e => `${e.path.join('.')}: ${e.message}`)
-        .join(', ')}`;
+  if (error instanceof ZodError) {
+    if (debug) console.error(error.errors);
+    errorMessage = `Validation Error: ${error.errors
+      .map(e => `${e.path.join('.')}: ${e.message}`)
+      .join(', ')}`;
 
-      // Provide specific guidance based on error path
-      const firstPath = error.errors[0]?.path.join('.');
-      if (firstPath?.includes('thought') && !firstPath.includes('number')) {
-        guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${MAX_THOUGHT_LENGTH} characters.`;
-      } else if (firstPath?.includes('thought_number')) {
-        guidance = 'Ensure thought_number is a positive integer and increments correctly.';
-      } else if (firstPath?.includes('branch')) {
-        guidance =
-          'When branching, provide both "branch_from_thought" (number) and "branch_id" (string), and do not combine with revision.';
-      } else if (firstPath?.includes('revision')) {
-        guidance =
-          'When revising, set is_revision=true and provide revises_thought (positive number). Do not combine with branching.';
-      }
-    } else if (errorMessage.includes('length')) {
-      guidance = `The thought is too long. Keep it under ${MAX_THOUGHT_LENGTH} characters.`;
-    } else if (errorMessage.includes('Max thought_number exceeded')) {
-      guidance = `The maximum thought limit (${MAX_THOUGHTS}) was reached.`;
+    const firstPath = error.errors[0]?.path.join('.');
+    if (firstPath?.includes('thought') && !firstPath.includes('number')) {
+      guidance = `The 'thought' field is empty or invalid. Must be a non-empty string below ${MAX_THOUGHT_LENGTH} characters.`;
+    } else if (firstPath?.includes('thought_number')) {
+      guidance = 'Ensure thought_number is a positive integer and increments correctly.';
+    } else if (firstPath?.includes('branch')) {
+      guidance =
+        'When branching, provide both "branch_from_thought" (number) and "branch_id" (string), and do not combine with revision.';
+    } else if (firstPath?.includes('revision')) {
+      guidance =
+        'When revising, set is_revision=true and provide revises_thought (positive number). Do not combine with branching.';
     }
-
-    const payload = {
-      status: 'failed',
-      error: errorMessage,
-      guidance,
-      example,
-    };
-
-    return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
+  } else if (errorMessage.includes('length')) {
+    guidance = `The thought is too long. Keep it under ${MAX_THOUGHT_LENGTH} characters.`;
+  } else if (errorMessage.includes('Max thought_number exceeded')) {
+    guidance = `The maximum thought limit (${MAX_THOUGHTS}) was reached.`;
   }
 
-  /* ------------------------------ Main Handler ----------------------------- */
+  const payload = {
+    status: 'failed',
+    error: errorMessage,
+    guidance,
+    example,
+  };
 
-  public async processThought(input: unknown): Promise<ServerResult> {
+  return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
+};
+
+const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>) => {
+  const tracker = createThoughtTracker();
+  console.error('Code-Reasoning logic ready', { cfg });
+
+  return async (input: unknown): Promise<ServerResult> => {
     const t0 = performance.now();
 
     try {
       const data = ThoughtDataSchema.parse(input);
 
-      // Sanity limits -------------------------------------------------------
       if (data.thought_number > MAX_THOUGHTS) {
         throw new Error(`Max thought_number exceeded (${MAX_THOUGHTS}).`);
       }
-      if (data.branch_from_thought && data.branch_from_thought > this.thoughtHistory.length) {
-        throw new Error(`Invalid branch_from_thought ${data.branch_from_thought}.`);
-      }
 
-      // Stats & storage -----------------------------------------------------
-      this.thoughtHistory.push(data);
-      if (data.branch_id) {
-        const arr = this.branches.get(data.branch_id) ?? [];
-        arr.push(data);
-        this.branches.set(data.branch_id, arr);
-      }
+      tracker.ensureBranchIsValid(data.branch_from_thought);
+      tracker.add(data);
 
-      console.error(this.formatThought(data));
+      console.error(formatThought(data));
       console.error('✔️  processed', {
         num: data.thought_number,
         elapsedMs: +(performance.now() - t0).toFixed(1),
       });
 
-      return this.buildSuccess(data);
+      return buildSuccess(data, tracker);
     } catch (err) {
       const e = err as Error;
       console.error('❌ error', {
         err: e.message,
         elapsedMs: +(performance.now() - t0).toFixed(1),
       });
-      if (err instanceof ZodError && this.cfg.debug) console.error(err.errors);
-      return this.buildError(e);
+      return buildError(e, cfg.debug);
     }
-  }
-}
+  };
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                BOOTSTRAP                                   */
 /* -------------------------------------------------------------------------- */
 
 export async function runServer(debugFlag = false): Promise<void> {
-  const config = buildConfig(debugFlag ? { debug: true } : undefined);
+  const config = createConfig(debugFlag ? { debug: true } : undefined);
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.7.0' } as const;
 
@@ -386,7 +407,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   }
 
   const srv = new Server(serverMeta, { capabilities });
-  const logic = new CodeReasoningServer(config);
+  const processThought = createThoughtProcessor(config);
 
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
@@ -500,7 +521,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   srv.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [CODE_REASONING_TOOL] }));
   srv.setRequestHandler(CallToolRequestSchema, req =>
     req.params.name === CODE_REASONING_TOOL.name
-      ? logic.processThought(req.params.arguments)
+      ? processThought(req.params.arguments)
       : Promise.resolve({
           isError: true,
           content: [
