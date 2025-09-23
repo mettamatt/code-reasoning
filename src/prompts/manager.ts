@@ -11,17 +11,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { z } from 'zod';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
 import { CONFIG_DIR, PROMPT_VALUES_FILE } from '../utils/config.js';
-
-// Constants for validation and sanitization
-const MAX_STRING_LENGTH = 5000;
-const MAX_CODE_LENGTH = 20000;
-const MAX_NAME_LENGTH = 100;
-const MAX_DESCRIPTION_LENGTH = 1000;
-const MAX_TEMPLATE_LENGTH = 10000;
 
 interface StoredPromptValues {
   global: Record<string, string>;
@@ -39,88 +31,6 @@ export class PromptManager {
   private valuesFilePath?: string;
   private persistenceEnabled = false;
 
-  // Zod schemas for input sanitization
-  private readonly baseStringSchema = z
-    .string()
-    .max(MAX_STRING_LENGTH, `Input exceeds maximum length of ${MAX_STRING_LENGTH} characters`)
-    .transform(val => (val ? val.trim() : ''))
-    .transform(val => {
-      // Escape HTML/Markdown special characters
-      return val
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    })
-    .transform(val => {
-      // Remove potentially dangerous patterns (credit card numbers, private keys, etc.)
-      return val
-        .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[REDACTED]') // Credit cards
-        .replace(
-          /-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----/g,
-          '[REDACTED KEY]'
-        ); // Private keys
-    });
-
-  private readonly codeSchema = z
-    .string()
-    .max(MAX_CODE_LENGTH, `Code exceeds maximum length of ${MAX_CODE_LENGTH} characters`)
-    .transform(val => (val ? val.trim() : ''));
-
-  private readonly workingDirectorySchema = z
-    .string()
-    .max(
-      MAX_STRING_LENGTH,
-      `Working directory path exceeds maximum length of ${MAX_STRING_LENGTH} characters`
-    )
-    .transform(val => (val ? val.trim() : ''))
-    .transform(val => {
-      // For working directory, we can keep path separators and basic structure
-      // but sanitize to prevent potential path traversal or command injection
-      return val
-        .replace(/\.\./g, '') // Remove path traversal sequences
-        .replace(/[;&|`$]/g, ''); // Remove shell command operators
-    });
-
-  // Schema for PromptArgument with added validation
-  private readonly PromptArgumentSchema = z.object({
-    name: z
-      .string()
-      .min(1)
-      .max(MAX_NAME_LENGTH)
-      .regex(
-        /^[a-zA-Z0-9_]+$/,
-        'Argument name must contain only alphanumeric characters and underscores'
-      ),
-    description: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
-    required: z.boolean(), // Removed .strict() as it's not available in this Zod version
-  });
-
-  // Schema for the entire prompt data with template sanitization
-  private readonly PromptDataSchema = z
-    .object({
-      name: z
-        .string()
-        .min(1)
-        .max(MAX_NAME_LENGTH)
-        .regex(
-          /^[a-zA-Z0-9_-]+$/,
-          'Prompt name must contain only alphanumeric characters, underscores, and hyphens'
-        ),
-      description: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
-      template: z
-        .string()
-        .min(1)
-        .max(MAX_TEMPLATE_LENGTH)
-        .transform(val => {
-          // Basic template sanitization - could be expanded
-          return val.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-        }),
-      arguments: z.array(this.PromptArgumentSchema).optional().default([]),
-    })
-    .strict(); // Ensure no unknown properties
-
   /**
    * Creates a new PromptManager instance with default code reasoning prompts.
    *
@@ -134,9 +44,6 @@ export class PromptManager {
     const resolvedConfigDir = configDir || CONFIG_DIR;
 
     this.ensureDirectoryExists(resolvedConfigDir, 'main config directory');
-
-    const promptsDir = path.join(resolvedConfigDir, 'prompts');
-    this.ensureDirectoryExists(promptsDir, 'prompts directory');
 
     console.info(`Using config directory: ${resolvedConfigDir}`);
 
@@ -380,104 +287,6 @@ export class PromptManager {
 
     this.saveStoredValues();
   }
-
-  /**
-   * Loads custom prompts from JSON files in a directory.
-   *
-   * @param directory The directory containing JSON prompt files
-   */
-  async loadCustomPrompts(directory: string): Promise<void> {
-    try {
-      if (!fs.existsSync(directory)) {
-        try {
-          fs.mkdirSync(directory, { recursive: true });
-          console.error(`Created custom prompts directory: ${directory}`);
-        } catch (err) {
-          console.error(`Failed to create custom prompts directory: ${directory}`, err);
-          return;
-        }
-      }
-
-      const files = fs.readdirSync(directory);
-      console.error(`Found ${files.length} files in custom prompts directory`);
-
-      for (const file of files) {
-        if (file.endsWith('.json')) {
-          try {
-            const filePath = path.join(directory, file);
-            const content = fs.readFileSync(filePath, 'utf8');
-
-            // Parse JSON and validate with Zod schema
-            const promptDataResult = this.PromptDataSchema.safeParse(JSON.parse(content));
-
-            if (!promptDataResult.success) {
-              console.error(
-                `Invalid prompt in file ${file}:`,
-                promptDataResult.error.issues
-                  .map(i => `${i.path.join('.')}: ${i.message}`)
-                  .join(', ')
-              );
-              continue;
-            }
-
-            // Extract validated data
-            const promptData = promptDataResult.data;
-
-            // Register the prompt with validated data
-            this.registerPrompt(
-              {
-                name: promptData.name,
-                description: promptData.description,
-                arguments: promptData.arguments.map(arg => ({
-                  name: String(arg.name),
-                  description: String(arg.description),
-                  required: Boolean(arg.required),
-                })),
-              },
-              args => ({
-                messages: [
-                  {
-                    role: 'user',
-                    content: {
-                      type: 'text',
-                      text: this.applyTemplate(promptData.template, args, promptData.name),
-                    },
-                  },
-                ],
-              })
-            );
-            console.error(`Loaded custom prompt: ${promptData.name}`);
-          } catch (err) {
-            console.error(`Error loading prompt from ${file}:`, err);
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`Error loading custom prompts:`, err);
-    }
-  }
-
-  /**
-   * Gets the appropriate schema for a given argument.
-   *
-   * @param argName The name of the argument
-   * @param promptName The name of the prompt
-   * @returns A Zod schema for validating and sanitizing the argument
-   */
-  private getSchemaForArg(argName: string, promptName: string): z.ZodType<string> {
-    // Choose schema based on arg name and context (prompt name)
-    if (argName === 'code_path' || argName === 'language') {
-      return this.codeSchema;
-    } else if (argName === 'working_directory') {
-      return this.workingDirectorySchema;
-    } else if (promptName === 'bug-analysis' && argName === 'bug_behavior') {
-      // For bug reports, we want to preserve more formatting
-      return this.codeSchema;
-    }
-    // Use default string schema for all other args
-    return this.baseStringSchema;
-  }
-
   /**
    * Validates prompt arguments against the prompt definition.
    *
@@ -506,49 +315,5 @@ export class PromptManager {
     });
 
     return errors;
-  }
-
-  /**
-   * Applies a template string with argument values.
-   * Sanitizes input values to prevent template injection and other security issues.
-   *
-   * @param template The template string
-   * @param args The argument values to apply
-   * @param promptName The name of the prompt (for context-aware sanitization)
-   * @returns The template with arguments applied
-   */
-  private applyTemplate(
-    template: string,
-    args: Record<string, string>,
-    promptName: string = ''
-  ): string {
-    let result = template;
-
-    // Replace {arg_name} with sanitized values
-    Object.entries(args).forEach(([key, value]: [string, string]) => {
-      // Get the appropriate schema for this argument
-      const schema = this.getSchemaForArg(key, promptName);
-
-      // Parse and transform the value (sanitize)
-      const sanitizeResult = schema.safeParse(value || '');
-
-      // Apply replacement
-      const regex = new RegExp(`\\{${key}\\}`, 'g');
-
-      if (sanitizeResult.success) {
-        result = result.replace(regex, sanitizeResult.data);
-      } else {
-        // Log validation errors with context for debugging
-        console.error(
-          `Validation failed for argument '${key}' in prompt '${promptName}':`,
-          sanitizeResult.error.issues.map(i => `${i.path}: ${i.message}`).join(', ')
-        );
-
-        // Fallback to empty string or safe default
-        result = result.replace(regex, '');
-      }
-    });
-
-    return result;
   }
 }
