@@ -9,6 +9,7 @@
 - **Testing Overhaul**: Introduced MCP regression framework with 147 new cases, plus improved documentation.
 - **Prompt System**: Consolidated `PromptManager` for value management, filtering, and validation.
 - **MCP SDK Migration**: Upgraded to MCP SDK `v1.18.1` with latest protocol features.
+- **Security Enhancement**: Removed custom prompt loading for improved security and consistency.
 
 ### Features
 
@@ -24,6 +25,8 @@
 - Updated schema handling with `ThoughtDataInputShape` validation.
 - Documentation updated to match simplified architecture.
 - Reduced bundle size by removing unused `chalk`.
+- Enhanced server error handling and validation with manual cross-field rule enforcement.
+- Improved shutdown procedure with better error handling and proper exit codes.
 
 ### Breaking Changes
 
@@ -32,6 +35,7 @@
 - Removed custom transport handling.
 - Replaced `zodToJsonSchema` with direct schema definitions.
 - Eliminated CLI options and debug flag handling.
+- **Removed custom prompts loading**: Eliminated `loadCustomPrompts` method and `CUSTOM_PROMPTS_DIR` configuration for security and consistency.
 
 ### Bug Fixes
 
