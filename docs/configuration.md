@@ -230,28 +230,12 @@ The Code-Reasoning MCP Server includes testing functionality for developers who 
 
 #### Basic Testing Commands
 
-To test the MCP server:
+To run the default quality checks:
 
 ```bash
-# Run basic tests
 npm test
-
-# Run with verbose output
-npm run test:verbose
-
-# Run specific test scenarios
-npm run test:basic
-npm run test:branch
-npm run test:revision
 ```
 
-#### Prompt Evaluation
-
-The server also includes a prompt evaluation system:
-
-```bash
-# Run the prompt evaluator
-npm run eval
-```
+This command currently runs ESLint. For a broader pass that also formats and rebuilds the project, use `npm run validate`.
 
 For more detailed information about testing, refer to the [Testing Guide](./testing.md).
