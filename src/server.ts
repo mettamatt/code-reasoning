@@ -93,18 +93,6 @@ const createConfig = (overrides: Partial<CodeReasoningConfig> = {}): CodeReasoni
 /*                               DATA SCHEMAS                                 */
 /* -------------------------------------------------------------------------- */
 
-export interface ThoughtData {
-  thought: string;
-  thought_number: number;
-  total_thoughts: number;
-  next_thought_needed: boolean;
-  is_revision?: boolean;
-  revises_thought?: number;
-  branch_from_thought?: number;
-  branch_id?: string;
-  needs_more_thoughts?: boolean;
-}
-
 const createStrictThoughtShape = () => ({
   thought: z
     .string()
@@ -121,10 +109,24 @@ const createStrictThoughtShape = () => ({
   needs_more_thoughts: z.boolean().optional(),
 });
 
-const ThoughtDataInputShape = createStrictThoughtShape();
+const createLooseThoughtShape = () => ({
+  thought: z.string().trim(),
+  thought_number: z.number().int(),
+  total_thoughts: z.number().int(),
+  next_thought_needed: z.boolean(),
+  is_revision: z.boolean().optional(),
+  revises_thought: z.number().int().optional(),
+  branch_from_thought: z.number().int().optional(),
+  branch_id: z.string().trim().optional(),
+  needs_more_thoughts: z.boolean().optional(),
+});
 
+const ThoughtDataInputShape = createLooseThoughtShape();
+const StrictThoughtSchema = z.object(createStrictThoughtShape());
+
+export type ThoughtData = z.infer<typeof StrictThoughtSchema>;
 export type ValidatedThoughtData = ThoughtData;
-type ParsedThoughtData = ThoughtData;
+type ParsedThoughtData = z.infer<z.ZodObject<typeof ThoughtDataInputShape>>;
 
 /* -------------------------------------------------------------------------- */
 /*                                  TOOL DEF                                  */
@@ -371,7 +373,7 @@ const buildError = (error: Error, debug: boolean, logger: ServerLogger): CallToo
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
 };
 
-const enforceCrossFieldRules = (data: ParsedThoughtData): ValidatedThoughtData => {
+const enforceCrossFieldRules = (data: ThoughtData): ValidatedThoughtData => {
   if (data.is_revision) {
     if (typeof data.revises_thought !== 'number' || data.branch_id || data.branch_from_thought) {
       throw new Error('If is_revision=true, provide revises_thought and omit branch_* fields.');
@@ -391,7 +393,7 @@ const enforceCrossFieldRules = (data: ParsedThoughtData): ValidatedThoughtData =
     }
   }
 
-  return data as ValidatedThoughtData;
+  return data;
 };
 
 const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: ServerLogger) => {
@@ -402,7 +404,8 @@ const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: Serv
     const t0 = performance.now();
 
     try {
-      const data = enforceCrossFieldRules(input);
+      const parsed = StrictThoughtSchema.parse(input);
+      const data = enforceCrossFieldRules(parsed);
 
       if (data.thought_number > MAX_THOUGHTS) {
         throw new Error(`Max thought_number exceeded (${MAX_THOUGHTS}).`);
