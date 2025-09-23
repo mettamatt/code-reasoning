@@ -134,40 +134,29 @@ The server uses the following streamlined approach:
 - The LogLevel enum is still used for compatibility but with simplified implementation
 - No log file rotation or custom log directories are supported
 
-#### Configuration Manager
+#### Configuration Defaults
 
-The server uses an in-memory configuration manager (`configManager`) defined in `src/utils/config-manager.ts`:
+Configuration is defined in `src/utils/config.ts` using the `buildConfig` helper:
 
 ```typescript
-// Initialize config manager and get config
-await configManager.init();
-const config = await configManager.getConfig();
+import { buildConfig } from './utils/config.js';
 
-// Apply debug flag if specified
-if (debugFlag) {
-  await configManager.setValue('debug', true);
-}
+const config = buildConfig(debugFlag ? { debug: true } : undefined);
 ```
 
 Key characteristics:
 
-- **In-Memory Only**: Configuration is stored entirely in memory and does not persist between server restarts
-- **Type Safety**: Uses TypeScript interfaces for configuration structure
-- **Programmatic API**: Simple, promise-based API for getting and setting configuration values
+- **Stateless**: `buildConfig` returns a plain object; no runtime persistence or async initialization
+- **Type Safe**: The `CodeReasoningConfig` interface documents every option
+- **Override Friendly**: Pass a partial object to override defaults (e.g., enable debug mode)
 
 ### Prompt Configuration
 
 The Code-Reasoning MCP Server includes a prompt system with the following configuration options:
 
-#### Command-Line Options
+#### Enabling Prompts
 
-| Option         | Description                       | Default    | Example                                       |
-| -------------- | --------------------------------- | ---------- | --------------------------------------------- |
-| `--config-dir` | Directory for configuration files | `./config` | `code-reasoning --config-dir=/path/to/config` |
-
-#### Configuration Manager Options
-
-The prompt configuration is controlled via the in-memory configuration manager:
+Prompt functionality is controlled through the config object returned by `buildConfig`:
 
 ```typescript
 // Check if prompts are enabled
