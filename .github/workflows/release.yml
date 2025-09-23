@@ -29,7 +29,7 @@ jobs:
       run: npm run validate
     
     - name: Run tests
-      run: npm run test:all
+      run: npm run test
     
     - name: Publish to npm
       run: npm publish
