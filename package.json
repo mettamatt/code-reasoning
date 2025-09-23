@@ -54,7 +54,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
-    "chalk": "^5.3.0",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
