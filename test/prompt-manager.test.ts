@@ -50,3 +50,41 @@ test('merging stored values skips undeclared global arguments', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('custom prompt arguments preserve literal braces', async () => {
+  const tempDir = createTempConfigDir();
+
+  try {
+    const promptsDir = path.join(tempDir, 'prompts');
+    fs.mkdirSync(promptsDir, { recursive: true });
+
+    const customPrompt = {
+      name: 'brace-sample',
+      description: 'Prompt to verify braces survive sanitization',
+      template: '{snippet}',
+      arguments: [
+        {
+          name: 'snippet',
+          description: 'Code snippet to inject',
+          required: true,
+        },
+      ],
+    };
+
+    const promptPath = path.join(promptsDir, 'brace-sample.json');
+    fs.writeFileSync(promptPath, JSON.stringify(customPrompt));
+
+    const manager = new PromptManager(tempDir);
+    await manager.loadCustomPrompts(promptsDir);
+
+    const codeSample = 'function test() { return 42; }';
+    const result = manager.applyPrompt('brace-sample', { snippet: codeSample });
+
+    assert.equal(result.messages.length, 1, 'expected a single message');
+    const [message] = result.messages;
+    assert.equal(message.content.type, 'text', 'expected text content');
+    assert.equal(message.content.text, codeSample, 'expected braces to remain intact');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
