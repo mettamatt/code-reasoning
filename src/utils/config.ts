@@ -17,16 +17,13 @@ import os from 'os';
 export const USER_HOME = os.homedir();
 export const CONFIG_DIR = path.join(USER_HOME, '.code-reasoning');
 export const PROMPT_VALUES_FILE = path.join(CONFIG_DIR, 'prompt_values.json');
-export const CUSTOM_PROMPTS_DIR = path.join(CONFIG_DIR, 'prompts');
 
 export interface ConfigPaths {
   configDir: string;
   promptFile: string;
-  customPromptDir: string;
 }
 
 export const PATHS: ConfigPaths = Object.freeze({
   configDir: CONFIG_DIR,
   promptFile: PROMPT_VALUES_FILE,
-  customPromptDir: CUSTOM_PROMPTS_DIR,
 });

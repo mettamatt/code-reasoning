@@ -51,31 +51,32 @@ test('merging stored values skips undeclared global arguments', () => {
   }
 });
 
-test('custom prompt arguments preserve literal braces', async () => {
+test('custom prompt arguments preserve literal braces', () => {
   const tempDir = createTempConfigDir();
 
   try {
-    const promptsDir = path.join(tempDir, 'prompts');
-    fs.mkdirSync(promptsDir, { recursive: true });
-
-    const customPrompt = {
-      name: 'brace-sample',
-      description: 'Prompt to verify braces survive sanitization',
-      template: '{snippet}',
-      arguments: [
-        {
-          name: 'snippet',
-          description: 'Code snippet to inject',
-          required: true,
-        },
-      ],
-    };
-
-    const promptPath = path.join(promptsDir, 'brace-sample.json');
-    fs.writeFileSync(promptPath, JSON.stringify(customPrompt));
-
     const manager = new PromptManager(tempDir);
-    await manager.loadCustomPrompts(promptsDir);
+    manager.registerPrompt(
+      {
+        name: 'brace-sample',
+        description: 'Prompt to verify braces survive sanitization',
+        arguments: [
+          {
+            name: 'snippet',
+            description: 'Code snippet to inject',
+            required: true,
+          },
+        ],
+      },
+      args => ({
+        messages: [
+          {
+            role: 'user',
+            content: { type: 'text', text: args.snippet },
+          },
+        ],
+      })
+    );
 
     const codeSample = 'function test() { return 42; }';
     const result = manager.applyPrompt('brace-sample', { snippet: codeSample });
