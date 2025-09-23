@@ -59,7 +59,8 @@ export class PromptManager {
         console.info(`Created ${description}: ${directoryPath}`);
       }
     } catch (err) {
-      console.error(`Failed to create ${description}: ${directoryPath}`, err);
+      const error = err as Error;
+      throw new Error(`Failed to create ${description}: ${directoryPath}`, { cause: error });
     }
   }
 
@@ -75,6 +76,10 @@ export class PromptManager {
       candidates.push(fallbackPath);
     }
 
+    this.persistenceEnabled = false;
+    this.valuesFilePath = undefined;
+
+    const initializationErrors: Error[] = [];
     for (const candidate of candidates) {
       try {
         this.storedValues = this.loadStoredValues(candidate);
@@ -83,14 +88,16 @@ export class PromptManager {
         console.error(`Prompt values will be stored at: ${candidate}`);
         return;
       } catch (err) {
-        console.error(`Failed to initialize prompt values at ${candidate}:`, err);
+        const error = err as Error;
+        initializationErrors.push(error);
+        console.error(`Failed to initialize prompt values at ${candidate}:`, error);
       }
     }
 
-    this.storedValues = { global: {}, prompts: {} };
-    this.valuesFilePath = undefined;
-    this.persistenceEnabled = false;
-    console.error('Prompt value persistence disabled; falling back to in-memory storage.');
+    throw new AggregateError(
+      initializationErrors,
+      `Unable to initialize prompt value persistence. Tried: ${candidates.join(', ')}`
+    );
   }
 
   private loadStoredValues(filePath: string): StoredPromptValues {
@@ -125,13 +132,16 @@ export class PromptManager {
 
   private saveStoredValues(): void {
     if (!this.persistenceEnabled || !this.valuesFilePath) {
-      return;
+      throw new Error('Prompt value persistence is not configured.');
     }
 
     try {
       fs.writeFileSync(this.valuesFilePath, JSON.stringify(this.storedValues, null, 2));
     } catch (err) {
-      console.error('Error saving prompt values:', err);
+      const error = err as Error;
+      throw new Error(`Error saving prompt values to ${this.valuesFilePath}: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
