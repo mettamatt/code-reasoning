@@ -10,7 +10,6 @@ This document provides detailed information about the prompt system in the Code 
 - [Working Directory Integration](#working-directory-integration)
 - [Prompt Value Persistence](#prompt-value-persistence)
 - [Filesystem Integration](#filesystem-integration)
-- [Customizing Prompts](#customizing-prompts)
 
 ## Overview
 
@@ -22,6 +21,8 @@ Key features of the prompt system:
 - **Persistent Values**: Argument values are saved between sessions to reduce repetitive entry
 - **Working Directory Support**: Automatic handling of your current project directory
 - **Filesystem Integration**: Easy access to files through filesystem MCP tools
+
+> **Note:** Loading additional prompts from disk is no longer supported. The server ships with the curated set documented below.
 
 ## Available Prompts
 
@@ -126,39 +127,3 @@ Typical filesystem operations Claude can perform:
 - `list_directory("/path/to/directory")`
 - `search_code("/path/to/directory", "search pattern")`
 - `edit_block("/path/to/file", "old_text", "new_text")`
-
-## Customizing Prompts
-
-You can customize the built-in prompts or create your own by adding JSON files to a custom prompts directory.
-
-### Custom Prompts Directory
-
-Custom prompts are automatically loaded from the `~/.code-reasoning/prompts` directory. To use custom prompts:
-
-1. Create the prompts directory if it doesn't exist:
-
-   ```bash
-   mkdir -p ~/.code-reasoning/prompts
-   ```
-
-2. Create JSON files in the specified directory with the following format:
-
-   ```json
-   {
-     "name": "custom-prompt-name",
-     "description": "Description of your custom prompt",
-     "arguments": [
-       {
-         "name": "arg_name",
-         "description": "Description of this argument",
-         "required": true
-       }
-       // Other arguments...
-     ],
-     "template": "# Custom Prompt Template\n\nWorking Directory: {working_directory}\n\nYour template text with {arg_name} placeholders..."
-   }
-   ```
-
-3. Restart the server to load your custom prompts
-
-Custom prompts will appear alongside the built-in ones in the Claude Desktop interface.

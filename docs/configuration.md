@@ -163,10 +163,6 @@ Prompt functionality is controlled through the config object returned by `buildC
 if (config.promptsEnabled) {
   promptManager = new PromptManager(CONFIG_DIR);
   console.error('Prompts capability enabled');
-
-  // Load custom prompts from the standard location
-  console.error(`Loading custom prompts from ${CUSTOM_PROMPTS_DIR}`);
-  await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
 }
 ```
 
