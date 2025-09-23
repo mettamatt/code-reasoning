@@ -298,11 +298,22 @@ export class PromptManager {
    * @returns The merged arguments
    */
   private mergeWithStoredValues(
-    promptName: string,
+    prompt: Prompt,
     args: Record<string, string>
   ): Record<string, string> {
     // Get stored values
-    const storedValues = this.getStoredValues(promptName);
+    const storedValues = this.getStoredValues(prompt.name);
+
+    const validArgNames = new Set((prompt.arguments || []).map(arg => arg.name));
+
+    const filteredStoredValues: Record<string, string> = {};
+    Object.entries(storedValues).forEach(([key, value]) => {
+      const isGlobalKey = Object.prototype.hasOwnProperty.call(this.storedValues.global, key);
+      if (isGlobalKey && !validArgNames.has(key)) {
+        return;
+      }
+      filteredStoredValues[key] = value;
+    });
 
     // Filter out empty args
     const filteredArgs: Record<string, string> = {};
@@ -313,7 +324,7 @@ export class PromptManager {
     });
 
     // Merge stored values with filtered args (filtered args take precedence)
-    return { ...storedValues, ...filteredArgs };
+    return { ...filteredStoredValues, ...filteredArgs };
   }
 
   /**
@@ -333,7 +344,7 @@ export class PromptManager {
     }
 
     // Merge with stored values
-    const mergedArgs = this.mergeWithStoredValues(name, args);
+    const mergedArgs = this.mergeWithStoredValues(prompt, args);
 
     // Validate arguments
     const validationErrors = this.validatePromptArguments(prompt, mergedArgs);
