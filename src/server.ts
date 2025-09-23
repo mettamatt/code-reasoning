@@ -22,8 +22,8 @@
  * - In your Claude Desktop settings, add a "tool" definition referencing this server
  * - Ensure the tool name is "code-reasoning"
  * - Configure Claude to use this tool for complex reasoning and problem-solving tasks
- * - Upon connecting, Claude can call the tool with an argument schema matching the
- *   `ThoughtDataSchema` defined in this file
+ * - Upon connecting, Claude can call the tool with arguments matching the
+ *   `ThoughtData` interface defined in this file
  *
  * ## MCP Protocol Communication
  * - IMPORTANT: Local MCP servers must never log to stdout (standard output)
@@ -57,7 +57,7 @@ import {
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z, ZodError } from 'zod';
 import { PromptManager } from './prompts/manager.js';
-import { CONFIG_DIR, CUSTOM_PROMPTS_DIR } from './utils/config.js';
+import { CONFIG_DIR } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
 /*                               CONFIGURATION                                */
@@ -121,30 +121,6 @@ const createStrictThoughtShape = () => ({
   needs_more_thoughts: z.boolean().optional(),
 });
 
-const ThoughtDataSchema = z
-  .object(createStrictThoughtShape())
-  .refine(
-    d =>
-      d.is_revision
-        ? typeof d.revises_thought === 'number' && !d.branch_id && !d.branch_from_thought
-        : true,
-    {
-      message: 'If is_revision=true, provide revises_thought and omit branch_* fields.',
-    }
-  )
-  .refine(d => (!d.is_revision && d.revises_thought === undefined) || d.is_revision, {
-    message: 'revises_thought only allowed when is_revision=true.',
-  })
-  .refine(
-    d =>
-      d.branch_id || d.branch_from_thought
-        ? d.branch_id !== undefined && d.branch_from_thought !== undefined && !d.is_revision
-        : true,
-    {
-      message: 'branch_id and branch_from_thought required together and not with revision.',
-    }
-  );
-
 const ThoughtDataInputShape = (() => {
   const strict = createStrictThoughtShape();
   return {
@@ -176,7 +152,8 @@ const ThoughtDataInputShape = (() => {
   } as const;
 })();
 
-export type ValidatedThoughtData = z.infer<typeof ThoughtDataSchema>;
+export type ValidatedThoughtData = ThoughtData;
+type ParsedThoughtData = ThoughtData;
 
 /* -------------------------------------------------------------------------- */
 /*                                  TOOL DEF                                  */
@@ -423,15 +400,38 @@ const buildError = (error: Error, debug: boolean, logger: ServerLogger): CallToo
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: true };
 };
 
+const enforceCrossFieldRules = (data: ParsedThoughtData): ValidatedThoughtData => {
+  if (data.is_revision) {
+    if (typeof data.revises_thought !== 'number' || data.branch_id || data.branch_from_thought) {
+      throw new Error('If is_revision=true, provide revises_thought and omit branch_* fields.');
+    }
+  } else if (data.revises_thought !== undefined) {
+    throw new Error('revises_thought only allowed when is_revision=true.');
+  }
+
+  const hasBranchFields = data.branch_id !== undefined || data.branch_from_thought !== undefined;
+  if (hasBranchFields) {
+    if (
+      data.branch_id === undefined ||
+      data.branch_from_thought === undefined ||
+      data.is_revision
+    ) {
+      throw new Error('branch_id and branch_from_thought required together and not with revision.');
+    }
+  }
+
+  return data as ValidatedThoughtData;
+};
+
 const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: ServerLogger) => {
   const tracker = createThoughtTracker();
   logger.info('Code-Reasoning logic ready', { config: cfg });
 
-  return async (input: unknown): Promise<CallToolResult> => {
+  return async (input: ParsedThoughtData): Promise<CallToolResult> => {
     const t0 = performance.now();
 
     try {
-      const data = ThoughtDataSchema.parse(input);
+      const data = enforceCrossFieldRules(input);
 
       if (data.thought_number > MAX_THOUGHTS) {
         throw new Error(`Max thought_number exceeded (${MAX_THOUGHTS}).`);
@@ -502,10 +502,6 @@ export async function runServer(debugFlag = false): Promise<void> {
   if (config.promptsEnabled) {
     promptManager = new PromptManager(CONFIG_DIR);
     logger.info('Prompts capability enabled');
-
-    // Load custom prompts from the standard location
-    logger.info('Loading custom prompts', { directory: CUSTOM_PROMPTS_DIR });
-    await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
 
     // Add prompt handlers
     mcp.server.setRequestHandler(ListPromptsRequestSchema, async () => {
@@ -613,21 +609,41 @@ export async function runServer(debugFlag = false): Promise<void> {
   logger.enableRemoteLogging();
   logger.notice('🚀 Code-Reasoning MCP Server ready.');
 
-  const shutdown = async (sig: string) => {
-    logger.info('Shutdown signal received', { signal: sig });
-    await mcp.close();
-    await transport.close();
-    process.exit(0);
+  const shutdown = async (signal_name: string, exit_code = 0) => {
+    logger.info('Shutdown signal received', { signal: signal_name, exit_code });
+
+    try {
+      await mcp.close();
+    } catch (close_error) {
+      const error = close_error as Error;
+      logger.error('Error closing MCP server', { message: error.message });
+    }
+
+    try {
+      await transport.close();
+    } catch (close_error) {
+      const error = close_error as Error;
+      logger.error('Error closing transport', { message: error.message });
+    }
+
+    process.exit(exit_code);
   };
 
-  ['SIGINT', 'SIGTERM'].forEach(s => process.on(s, () => shutdown(s)));
-  process.on('uncaughtException', err => {
-    logger.error('💥 uncaught exception', err);
-    shutdown('uncaughtException');
+  ['SIGINT', 'SIGTERM'].forEach(signal_name => {
+    process.on(signal_name, () => {
+      void shutdown(signal_name);
+    });
   });
-  process.on('unhandledRejection', r => {
-    logger.error('💥 unhandledPromiseRejection', r);
-    shutdown('unhandledRejection');
+
+  process.on('uncaughtException', uncaught_error => {
+    const error = uncaught_error as Error;
+    logger.error('💥 uncaught exception', { message: error.message, stack: error.stack });
+    void shutdown('uncaughtException', 1);
+  });
+
+  process.on('unhandledRejection', rejection_reason => {
+    logger.error('💥 unhandledPromiseRejection', { reason: rejection_reason });
+    void shutdown('unhandledRejection', 1);
   });
 }
 
