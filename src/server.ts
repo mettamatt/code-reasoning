@@ -121,36 +121,7 @@ const createStrictThoughtShape = () => ({
   needs_more_thoughts: z.boolean().optional(),
 });
 
-const ThoughtDataInputShape = (() => {
-  const strict = createStrictThoughtShape();
-  return {
-    thought: strict.thought.catch(ctx => (typeof ctx.input === 'string' ? ctx.input.trim() : '')),
-    thought_number: strict.thought_number.catch(ctx =>
-      typeof ctx.input === 'number' ? ctx.input : Number(ctx.input ?? 0)
-    ),
-    total_thoughts: strict.total_thoughts.catch(ctx =>
-      typeof ctx.input === 'number' ? ctx.input : Number(ctx.input ?? 0)
-    ),
-    next_thought_needed: strict.next_thought_needed.catch(ctx =>
-      typeof ctx.input === 'boolean' ? ctx.input : Boolean(ctx.input)
-    ),
-    is_revision: strict.is_revision?.catch(ctx =>
-      typeof ctx.input === 'boolean' ? ctx.input : undefined
-    ),
-    revises_thought: strict.revises_thought?.catch(ctx =>
-      typeof ctx.input === 'number' ? ctx.input : undefined
-    ),
-    branch_from_thought: strict.branch_from_thought?.catch(ctx =>
-      typeof ctx.input === 'number' ? ctx.input : undefined
-    ),
-    branch_id: strict.branch_id?.catch(ctx =>
-      typeof ctx.input === 'string' ? ctx.input.trim() : undefined
-    ),
-    needs_more_thoughts: strict.needs_more_thoughts?.catch(ctx =>
-      typeof ctx.input === 'boolean' ? ctx.input : undefined
-    ),
-  } as const;
-})();
+const ThoughtDataInputShape = createStrictThoughtShape();
 
 export type ValidatedThoughtData = ThoughtData;
 type ParsedThoughtData = ThoughtData;
