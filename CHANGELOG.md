@@ -8,6 +8,7 @@
 - **Simplified Configuration System**: Streamlined configuration to focus on essential path constants
 - **Enhanced Testing Framework**: Added comprehensive regression tests and improved testing documentation
 - **Prompt System Improvements**: Enhanced prompt value management with better filtering and validation
+- **MCP SDK Migration**: Refactored server to use new MCP SDK API with modern registration patterns
 
 ### Features
 
@@ -15,6 +16,7 @@
 - Enhanced server logging with improved tool metadata and structured error handling
 - Implemented prompt argument filtering for global stored values
 - Added robust prompt value management with PromptManager consolidation
+- Added test for preserving literal braces in prompt templates
 
 ### Improvements
 
@@ -24,6 +26,11 @@
 - **Configuration Simplification**: Removed complex config-manager in favor of simple buildConfig
 - **Debug Logging**: Fixed debug output to use stderr instead of stdout for better separation
 - **Documentation**: Updated configuration and testing documentation to reflect simplified architecture
+- **Server API**: Migrated from Server to McpServer class with mcp.registerTool() helper API
+- **Schema Handling**: Updated to use ThoughtDataInputShape with built-in validation
+- **Entry Point**: Simplified by removing command line argument parsing and parseArgs dependency
+- **Prompt Manager**: Consolidated directory creation logic and improved error handling
+- **Bundle Size**: Removed unused chalk dependency to reduce dependencies
 
 ### Breaking Changes
 
@@ -31,12 +38,16 @@
 - Consolidated PromptManager and removed separate valueManager module
 - Simplified server initialization by removing custom transport handling
 - Removed prompt evaluation content and complex testing infrastructure
+- Removed zodToJsonSchema dependency in favor of direct schema definitions
+- Removed command line options and debug flag handling from entry point
 
 ### Bug Fixes
 
 - Fixed debug logging output stream to prevent interference with MCP communication
 - Improved prompt value filtering to respect argument declarations
 - Enhanced error handling and logging throughout the server
+- Removed overly aggressive template injection neutralization
+- Improved type safety with CallToolResult instead of ServerResult
 
 ## 0.7.0 (2025-05-10)
 
