@@ -54,10 +54,6 @@ export class PromptManager {
         .replace(/'/g, '&#39;');
     })
     .transform(val => {
-      // Neutralize template injection attempts
-      return val.replace(/\{([^}]+)\}/g, '[$1]');
-    })
-    .transform(val => {
       // Remove potentially dangerous patterns (credit card numbers, private keys, etc.)
       return val
         .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[REDACTED]') // Credit cards
@@ -137,32 +133,27 @@ export class PromptManager {
     // Use provided config directory or default to CONFIG_DIR
     const resolvedConfigDir = configDir || CONFIG_DIR;
 
-    // Create main config directory if it doesn't exist
-    if (!fs.existsSync(resolvedConfigDir)) {
-      try {
-        fs.mkdirSync(resolvedConfigDir, { recursive: true });
-        console.error(`Created main config directory: ${resolvedConfigDir}`);
-      } catch (err) {
-        console.error(`Failed to create main config directory: ${resolvedConfigDir}`, err);
-      }
-    }
+    this.ensureDirectoryExists(resolvedConfigDir, 'main config directory');
 
-    // Create prompts subdirectory if it doesn't exist
     const promptsDir = path.join(resolvedConfigDir, 'prompts');
-    if (!fs.existsSync(promptsDir)) {
-      try {
-        fs.mkdirSync(promptsDir, { recursive: true });
-        console.error(`Created prompts directory: ${promptsDir}`);
-      } catch (err) {
-        console.error(`Failed to create prompts directory: ${promptsDir}`, err);
-      }
-    }
+    this.ensureDirectoryExists(promptsDir, 'prompts directory');
 
-    console.error(`Using config directory: ${resolvedConfigDir}`);
+    console.info(`Using config directory: ${resolvedConfigDir}`);
 
     this.initializeValueStorage(resolvedConfigDir);
 
-    console.error('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
+    console.info('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
+  }
+
+  private ensureDirectoryExists(directoryPath: string, description: string): void {
+    try {
+      const createdPath = fs.mkdirSync(directoryPath, { recursive: true });
+      if (createdPath) {
+        console.info(`Created ${description}: ${directoryPath}`);
+      }
+    } catch (err) {
+      console.error(`Failed to create ${description}: ${directoryPath}`, err);
+    }
   }
 
   private initializeValueStorage(configDir: string): void {
