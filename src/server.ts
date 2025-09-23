@@ -46,22 +46,16 @@
  */
 
 import process from 'node:process';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
-  CallToolRequestSchema,
+  type CallToolResult,
   CompleteRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ServerCapabilities,
-  Tool,
   type LoggingLevel,
-  type ServerResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z, ZodError } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
 import { CONFIG_DIR, CUSTOM_PROMPTS_DIR } from './utils/config.js';
 
@@ -111,22 +105,24 @@ export interface ThoughtData {
   needs_more_thoughts?: boolean;
 }
 
+const createStrictThoughtShape = () => ({
+  thought: z
+    .string()
+    .trim()
+    .min(1, 'Thought cannot be empty.')
+    .max(MAX_THOUGHT_LENGTH, `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`),
+  thought_number: z.number().int().positive(),
+  total_thoughts: z.number().int().positive(),
+  next_thought_needed: z.boolean(),
+  is_revision: z.boolean().optional(),
+  revises_thought: z.number().int().positive().optional(),
+  branch_from_thought: z.number().int().positive().optional(),
+  branch_id: z.string().trim().min(1).optional(),
+  needs_more_thoughts: z.boolean().optional(),
+});
+
 const ThoughtDataSchema = z
-  .object({
-    thought: z
-      .string()
-      .trim()
-      .min(1, 'Thought cannot be empty.')
-      .max(MAX_THOUGHT_LENGTH, `Thought exceeds ${MAX_THOUGHT_LENGTH} chars.`),
-    thought_number: z.number().int().positive(),
-    total_thoughts: z.number().int().positive(),
-    next_thought_needed: z.boolean(),
-    is_revision: z.boolean().optional(),
-    revises_thought: z.number().int().positive().optional(),
-    branch_from_thought: z.number().int().positive().optional(),
-    branch_id: z.string().trim().min(1).optional(),
-    needs_more_thoughts: z.boolean().optional(),
-  })
+  .object(createStrictThoughtShape())
   .refine(
     d =>
       d.is_revision
@@ -149,14 +145,38 @@ const ThoughtDataSchema = z
     }
   );
 
-export type ValidatedThoughtData = z.infer<typeof ThoughtDataSchema>;
+const ThoughtDataInputShape = (() => {
+  const strict = createStrictThoughtShape();
+  return {
+    thought: strict.thought.catch(ctx => (typeof ctx.input === 'string' ? ctx.input.trim() : '')),
+    thought_number: strict.thought_number.catch(ctx =>
+      typeof ctx.input === 'number' ? ctx.input : Number(ctx.input ?? 0)
+    ),
+    total_thoughts: strict.total_thoughts.catch(ctx =>
+      typeof ctx.input === 'number' ? ctx.input : Number(ctx.input ?? 0)
+    ),
+    next_thought_needed: strict.next_thought_needed.catch(ctx =>
+      typeof ctx.input === 'boolean' ? ctx.input : Boolean(ctx.input)
+    ),
+    is_revision: strict.is_revision?.catch(ctx =>
+      typeof ctx.input === 'boolean' ? ctx.input : undefined
+    ),
+    revises_thought: strict.revises_thought?.catch(ctx =>
+      typeof ctx.input === 'number' ? ctx.input : undefined
+    ),
+    branch_from_thought: strict.branch_from_thought?.catch(ctx =>
+      typeof ctx.input === 'number' ? ctx.input : undefined
+    ),
+    branch_id: strict.branch_id?.catch(ctx =>
+      typeof ctx.input === 'string' ? ctx.input.trim() : undefined
+    ),
+    needs_more_thoughts: strict.needs_more_thoughts?.catch(ctx =>
+      typeof ctx.input === 'boolean' ? ctx.input : undefined
+    ),
+  } as const;
+})();
 
-/**
- * Cached JSON schema: avoids rebuilding on every ListTools call.
- */
-const THOUGHT_DATA_JSON_SCHEMA = Object.freeze(
-  zodToJsonSchema(ThoughtDataSchema, { target: 'jsonSchema7' }) as Record<string, unknown>
-);
+export type ValidatedThoughtData = z.infer<typeof ThoughtDataSchema>;
 
 /* -------------------------------------------------------------------------- */
 /*                                  TOOL DEF                                  */
@@ -164,8 +184,7 @@ const THOUGHT_DATA_JSON_SCHEMA = Object.freeze(
 
 const TOOL_NAME = 'code-reasoning' as const;
 
-const createCodeReasoningTool = (serverVersion: string): Tool => ({
-  name: TOOL_NAME,
+const createCodeReasoningToolDefinition = (serverVersion: string) => ({
   title: 'Code Reasoning',
   description: `🧠 A detailed tool for dynamic and reflective problem-solving through sequential thinking.
 
@@ -195,8 +214,6 @@ Each thought can build on, question, or revise previous insights as understandin
 - End with a clear, validated conclusion before setting next_thought_needed = false
 
 ✍️ End each thought by asking: "What am I missing or need to reconsider?"`,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  inputSchema: THOUGHT_DATA_JSON_SCHEMA as any, // SDK expects unknown JSON schema shape
   annotations: {
     readOnlyHint: true,
     openWorldHint: false,
@@ -229,7 +246,7 @@ interface ServerLogger {
   enableRemoteLogging: () => void;
 }
 
-const createServerLogger = (srv: Server, debug: boolean): ServerLogger => {
+const createServerLogger = (srv: McpServer, debug: boolean): ServerLogger => {
   let remoteLoggingEnabled = false;
 
   const emit = (level: LoggingLevel, message: string, details?: unknown) => {
@@ -352,7 +369,7 @@ const getExampleThought = (errorMsg: string): Partial<ThoughtData> => {
   };
 };
 
-const buildSuccess = (t: ValidatedThoughtData, tracker: ThoughtTracker): ServerResult => {
+const buildSuccess = (t: ValidatedThoughtData, tracker: ThoughtTracker): CallToolResult => {
   const payload = {
     status: 'processed',
     thought_number: t.thought_number,
@@ -365,7 +382,7 @@ const buildSuccess = (t: ValidatedThoughtData, tracker: ThoughtTracker): ServerR
   return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }], isError: false };
 };
 
-const buildError = (error: Error, debug: boolean, logger: ServerLogger): ServerResult => {
+const buildError = (error: Error, debug: boolean, logger: ServerLogger): CallToolResult => {
   let errorMessage = error.message;
   let guidance = 'Check the tool description and schema for correct usage.';
   const example = getExampleThought(errorMessage);
@@ -410,7 +427,7 @@ const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: Serv
   const tracker = createThoughtTracker();
   logger.info('Code-Reasoning logic ready', { config: cfg });
 
-  return async (input: unknown): Promise<ServerResult> => {
+  return async (input: unknown): Promise<CallToolResult> => {
     const t0 = performance.now();
 
     try {
@@ -450,26 +467,35 @@ export async function runServer(debugFlag = false): Promise<void> {
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.7.0' } as const;
 
-  // Configure server capabilities based on config
-  const capabilities: Partial<ServerCapabilities> = {
-    tools: {},
-    resources: {},
-    completions: {}, // Add completions capability
+  const capabilityOptions: Record<string, unknown> = {
     logging: {},
+    completions: {},
   };
-
-  // Only add prompts capability if enabled
   if (config.promptsEnabled) {
-    capabilities.prompts = {};
+    capabilityOptions.prompts = {};
   }
 
-  const srv = new Server(serverMeta, { capabilities });
-  const logger = createServerLogger(srv, config.debug);
+  const mcp = new McpServer(serverMeta, { capabilities: capabilityOptions });
+  const logger = createServerLogger(mcp, config.debug);
   const processThought = createThoughtProcessor(config, logger);
   logger.info('Server initialized', {
     version: serverMeta.version,
     promptsEnabled: config.promptsEnabled,
   });
+
+  // Register tool with MCP helper APIs
+  const toolDefinition = createCodeReasoningToolDefinition(serverMeta.version);
+  mcp.registerTool(
+    TOOL_NAME,
+    {
+      title: toolDefinition.title,
+      description: toolDefinition.description,
+      annotations: toolDefinition.annotations,
+      _meta: toolDefinition._meta,
+      inputSchema: ThoughtDataInputShape,
+    },
+    async args => processThought(args)
+  );
 
   // Initialize prompt manager if enabled
   let promptManager: PromptManager | undefined;
@@ -482,13 +508,13 @@ export async function runServer(debugFlag = false): Promise<void> {
     await promptManager.loadCustomPrompts(CUSTOM_PROMPTS_DIR);
 
     // Add prompt handlers
-    srv.setRequestHandler(ListPromptsRequestSchema, async () => {
+    mcp.server.setRequestHandler(ListPromptsRequestSchema, async () => {
       const prompts = promptManager?.getAllPrompts() || [];
       logger.debug('Returning prompts', { total: prompts.length });
       return { prompts };
     });
 
-    srv.setRequestHandler(GetPromptRequestSchema, async req => {
+    mcp.server.setRequestHandler(GetPromptRequestSchema, async req => {
       try {
         if (!promptManager) {
           throw new Error('Prompt manager not initialized');
@@ -522,7 +548,7 @@ export async function runServer(debugFlag = false): Promise<void> {
     });
 
     // Add handler for completion/complete requests
-    srv.setRequestHandler(CompleteRequestSchema, async req => {
+    mcp.server.setRequestHandler(CompleteRequestSchema, async req => {
       try {
         if (!promptManager) {
           throw new Error('Prompt manager not initialized');
@@ -572,43 +598,24 @@ export async function runServer(debugFlag = false): Promise<void> {
     });
   } else {
     // Keep the empty handlers if prompts disabled
-    srv.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
+    mcp.server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
 
     // Add empty handler for completion requests as well when prompts are disabled
-    srv.setRequestHandler(CompleteRequestSchema, async () => ({
+    mcp.server.setRequestHandler(CompleteRequestSchema, async () => ({
       completion: {
         values: [],
       },
     }));
   }
 
-  // Existing handlers
-  srv.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
-  srv.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [createCodeReasoningTool(serverMeta.version)],
-  }));
-  srv.setRequestHandler(CallToolRequestSchema, req =>
-    req.params.name === TOOL_NAME
-      ? processThought(req.params.arguments)
-      : Promise.resolve({
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ code: -32601, message: `Unknown tool ${req.params.name}` }),
-            },
-          ],
-        })
-  );
-
   const transport = new StdioServerTransport();
-  await srv.connect(transport);
+  await mcp.connect(transport);
   logger.enableRemoteLogging();
   logger.notice('🚀 Code-Reasoning MCP Server ready.');
 
   const shutdown = async (sig: string) => {
     logger.info('Shutdown signal received', { signal: sig });
-    await srv.close();
+    await mcp.close();
     await transport.close();
     process.exit(0);
   };
