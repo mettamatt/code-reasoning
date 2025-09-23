@@ -4,50 +4,41 @@
 
 ### Major Changes
 
-- **Architecture Refactor**: Complete transformation from class-based to functional server architecture
-- **Simplified Configuration System**: Streamlined configuration to focus on essential path constants
-- **Enhanced Testing Framework**: Added comprehensive regression tests and improved testing documentation
-- **Prompt System Improvements**: Enhanced prompt value management with better filtering and validation
-- **MCP SDK Migration**: Refactored server to use new MCP SDK API with modern registration patterns
+- **Architecture Refactor**: Migrated from class-based `SequentialThinkingServer` to functional `McpServer` with modern registration patterns.
+- **Configuration Simplification**: Replaced `config-manager` with lightweight `buildConfig` focused on path constants.
+- **Testing Overhaul**: Introduced MCP regression framework with 147 new cases, plus improved documentation.
+- **Prompt System**: Consolidated `PromptManager` for value management, filtering, and validation.
+- **MCP SDK Migration**: Upgraded to MCP SDK `v1.18.1` with latest protocol features.
 
 ### Features
 
-- Added comprehensive MCP regression testing framework with 147 new test cases
-- Enhanced server logging with improved tool metadata and structured error handling
-- Implemented prompt argument filtering for global stored values
-- Added robust prompt value management with PromptManager consolidation
-- Added test for preserving literal braces in prompt templates
+- Structured server logging with improved tool metadata and error handling.
+- Prompt argument filtering for stored global values.
+- Tests for preserving literal braces in prompt templates.
 
 ### Improvements
 
-- **MCP SDK Update**: Upgraded to version 1.18.1 for latest protocol features
-- **Dependency Updates**: Updated all npm dependencies to latest stable versions
-- **Server Architecture**: Refactored from SequentialThinkingServer class to functional approach
-- **Configuration Simplification**: Removed complex config-manager in favor of simple buildConfig
-- **Debug Logging**: Fixed debug output to use stderr instead of stdout for better separation
-- **Documentation**: Updated configuration and testing documentation to reflect simplified architecture
-- **Server API**: Migrated from Server to McpServer class with mcp.registerTool() helper API
-- **Schema Handling**: Updated to use ThoughtDataInputShape with built-in validation
-- **Entry Point**: Simplified by removing command line argument parsing and parseArgs dependency
-- **Prompt Manager**: Consolidated directory creation logic and improved error handling
-- **Bundle Size**: Removed unused chalk dependency to reduce dependencies
+- Updated all npm dependencies to latest stable versions.
+- Debug logs now output to `stderr` for clearer separation.
+- Simplified entry point: removed `parseArgs` and command-line options.
+- Updated schema handling with `ThoughtDataInputShape` validation.
+- Documentation updated to match simplified architecture.
+- Reduced bundle size by removing unused `chalk`.
 
 ### Breaking Changes
 
-- Removed end-to-end test runner and prompt evaluation system (2,228 lines removed)
-- Consolidated PromptManager and removed separate valueManager module
-- Simplified server initialization by removing custom transport handling
-- Removed prompt evaluation content and complex testing infrastructure
-- Removed zodToJsonSchema dependency in favor of direct schema definitions
-- Removed command line options and debug flag handling from entry point
+- Removed end-to-end test runner, prompt evaluation system, and related infrastructure (\~2,200 LOC).
+- Dropped `valueManager` (merged into `PromptManager`).
+- Removed custom transport handling.
+- Replaced `zodToJsonSchema` with direct schema definitions.
+- Eliminated CLI options and debug flag handling.
 
 ### Bug Fixes
 
-- Fixed debug logging output stream to prevent interference with MCP communication
-- Improved prompt value filtering to respect argument declarations
-- Enhanced error handling and logging throughout the server
-- Removed overly aggressive template injection neutralization
-- Improved type safety with CallToolResult instead of ServerResult
+- Fixed debug logging stream to avoid MCP interference.
+- Improved prompt value filtering to respect declared arguments.
+- Strengthened error handling and type safety (`CallToolResult` replaces `ServerResult`).
+- Removed overly aggressive template injection neutralization.
 
 ## 0.7.0 (2025-05-10)
 
