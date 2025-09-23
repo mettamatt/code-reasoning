@@ -2,15 +2,41 @@
 
 ## Unreleased
 
+### Major Changes
+
+- **Architecture Refactor**: Complete transformation from class-based to functional server architecture
+- **Simplified Configuration System**: Streamlined configuration to focus on essential path constants
+- **Enhanced Testing Framework**: Added comprehensive regression tests and improved testing documentation
+- **Prompt System Improvements**: Enhanced prompt value management with better filtering and validation
+
+### Features
+
+- Added comprehensive MCP regression testing framework with 147 new test cases
+- Enhanced server logging with improved tool metadata and structured error handling
+- Implemented prompt argument filtering for global stored values
+- Added robust prompt value management with PromptManager consolidation
+
 ### Improvements
 
-- Updated dependencies to latest versions:
-  - @modelcontextprotocol/sdk: ^1.10.2 → ^1.11.2 (fixes Zod object detection logic, adds scope parameter to startAuthorization)
-  - @anthropic-ai/sdk: ^0.40.0 → ^0.50.4 (includes web search capabilities and several bug fixes)
-  - @types/node: ^22.15.14 → ^22.15.17
-  - @typescript-eslint/eslint-plugin: ^8.31.1 → ^8.32.1
-  - @typescript-eslint/parser: ^8.31.1 → ^8.32.1
-  - eslint-config-prettier: ^10.1.3 → ^10.1.5
+- **MCP SDK Update**: Upgraded to version 1.18.1 for latest protocol features
+- **Dependency Updates**: Updated all npm dependencies to latest stable versions
+- **Server Architecture**: Refactored from SequentialThinkingServer class to functional approach
+- **Configuration Simplification**: Removed complex config-manager in favor of simple buildConfig
+- **Debug Logging**: Fixed debug output to use stderr instead of stdout for better separation
+- **Documentation**: Updated configuration and testing documentation to reflect simplified architecture
+
+### Breaking Changes
+
+- Removed end-to-end test runner and prompt evaluation system (2,228 lines removed)
+- Consolidated PromptManager and removed separate valueManager module
+- Simplified server initialization by removing custom transport handling
+- Removed prompt evaluation content and complex testing infrastructure
+
+### Bug Fixes
+
+- Fixed debug logging output stream to prevent interference with MCP communication
+- Improved prompt value filtering to respect argument declarations
+- Enhanced error handling and logging throughout the server
 
 ## 0.7.0 (2025-05-10)
 
