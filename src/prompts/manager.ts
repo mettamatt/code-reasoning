@@ -14,8 +14,7 @@ import * as os from 'os';
 import { z } from 'zod';
 import { Prompt, PromptResult } from './types.js';
 import { CODE_REASONING_PROMPTS, PROMPT_TEMPLATES } from './templates.js';
-import { PromptValueManager } from './valueManager.js';
-import { CONFIG_DIR } from '../utils/config.js';
+import { CONFIG_DIR, PROMPT_VALUES_FILE } from '../utils/config.js';
 
 // Constants for validation and sanitization
 const MAX_STRING_LENGTH = 5000;
@@ -24,6 +23,11 @@ const MAX_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_TEMPLATE_LENGTH = 10000;
 
+interface StoredPromptValues {
+  global: Record<string, string>;
+  prompts: Record<string, Record<string, string>>;
+}
+
 /**
  * Manages prompt templates and their operations.
  * Uses the CompleteRequestSchema MCP protocol for argument completion.
@@ -31,7 +35,9 @@ const MAX_TEMPLATE_LENGTH = 10000;
 export class PromptManager {
   private prompts: Record<string, Prompt>;
   private templates: Record<string, (args: Record<string, string>) => PromptResult>;
-  private valueManager: PromptValueManager;
+  private storedValues: StoredPromptValues = { global: {}, prompts: {} };
+  private valuesFilePath?: string;
+  private persistenceEnabled = false;
 
   // Zod schemas for input sanitization
   private readonly baseStringSchema = z
@@ -154,15 +160,81 @@ export class PromptManager {
 
     console.error(`Using config directory: ${resolvedConfigDir}`);
 
-    try {
-      this.valueManager = new PromptValueManager(resolvedConfigDir);
-    } catch (err) {
-      console.error(`Error initializing PromptValueManager: ${err}`);
-      // Create a dummy value manager that doesn't actually save anything
-      this.valueManager = new PromptValueManager(os.tmpdir());
-    }
+    this.initializeValueStorage(resolvedConfigDir);
 
     console.error('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
+  }
+
+  private initializeValueStorage(configDir: string): void {
+    const defaultPath =
+      configDir === path.dirname(PROMPT_VALUES_FILE)
+        ? PROMPT_VALUES_FILE
+        : path.join(configDir, 'prompt_values.json');
+
+    const fallbackPath = path.join(os.tmpdir(), 'code-reasoning-prompt-values.json');
+    const candidates = [defaultPath];
+    if (!candidates.includes(fallbackPath)) {
+      candidates.push(fallbackPath);
+    }
+
+    for (const candidate of candidates) {
+      try {
+        this.storedValues = this.loadStoredValues(candidate);
+        this.valuesFilePath = candidate;
+        this.persistenceEnabled = true;
+        console.error(`Prompt values will be stored at: ${candidate}`);
+        return;
+      } catch (err) {
+        console.error(`Failed to initialize prompt values at ${candidate}:`, err);
+      }
+    }
+
+    this.storedValues = { global: {}, prompts: {} };
+    this.valuesFilePath = undefined;
+    this.persistenceEnabled = false;
+    console.error('Prompt value persistence disabled; falling back to in-memory storage.');
+  }
+
+  private loadStoredValues(filePath: string): StoredPromptValues {
+    const defaults: StoredPromptValues = { global: {}, prompts: {} };
+
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(defaults, null, 2));
+      return { global: {}, prompts: {} };
+    }
+
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(fileContent) as Partial<StoredPromptValues>;
+
+    const parsedGlobal = parsed.global && typeof parsed.global === 'object' ? parsed.global : {};
+    const parsedPrompts =
+      parsed.prompts && typeof parsed.prompts === 'object' ? parsed.prompts : {};
+
+    const promptsCopy: Record<string, Record<string, string>> = {};
+    Object.entries(parsedPrompts).forEach(([key, value]) => {
+      if (value && typeof value === 'object') {
+        promptsCopy[key] = { ...(value as Record<string, string>) };
+      }
+    });
+
+    return {
+      global: { ...(parsedGlobal as Record<string, string>) },
+      prompts: promptsCopy,
+    };
+  }
+
+  private saveStoredValues(): void {
+    if (!this.persistenceEnabled || !this.valuesFilePath) {
+      return;
+    }
+
+    try {
+      fs.writeFileSync(this.valuesFilePath, JSON.stringify(this.storedValues, null, 2));
+    } catch (err) {
+      console.error('Error saving prompt values:', err);
+    }
   }
 
   /**
@@ -209,7 +281,12 @@ export class PromptManager {
    * @returns The stored values for the prompt
    */
   getStoredValues(name: string): Record<string, string> {
-    return this.valueManager.getStoredValues(name);
+    const result: Record<string, string> = { ...this.storedValues.global };
+    const promptValues = this.storedValues.prompts[name];
+    if (promptValues) {
+      Object.assign(result, promptValues);
+    }
+    return result;
   }
 
   /**
@@ -271,10 +348,35 @@ export class PromptManager {
     }
 
     // Update stored values with the new ones
-    this.valueManager.updateStoredValues(name, mergedArgs);
+    this.updateStoredValues(name, mergedArgs);
 
     // Apply the template with merged args
     return templateFn(mergedArgs);
+  }
+
+  private updateStoredValues(promptName: string, args: Record<string, string>): void {
+    if (args.working_directory && args.working_directory.trim() !== '') {
+      this.storedValues.global.working_directory = args.working_directory;
+    }
+
+    if (!this.storedValues.prompts[promptName]) {
+      this.storedValues.prompts[promptName] = {};
+    }
+
+    const promptValues = this.storedValues.prompts[promptName];
+    const globalKeys = new Set(Object.keys(this.storedValues.global));
+
+    Object.entries(args).forEach(([key, value]) => {
+      if (!value || value.trim() === '') {
+        return;
+      }
+      if (globalKeys.has(key)) {
+        return;
+      }
+      promptValues[key] = value;
+    });
+
+    this.saveStoredValues();
   }
 
   /**
