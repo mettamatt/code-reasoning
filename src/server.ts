@@ -14,7 +14,7 @@
  *   - Branching: Explore alternative approaches from any existing thought
  *   - Revision: Correct or update earlier thoughts when new insights emerge
  * - Implements MCP capabilities for tools, resources, and prompts
- * - Uses custom FilteredStdioServerTransport for improved stability
+ * - Relies on the standard StdioServerTransport provided by the MCP SDK
  * - Provides detailed validation and error handling with helpful guidance
  * - Logs thought evolution to stderr for debugging and visibility
  *
@@ -62,12 +62,13 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z, ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { PromptManager } from './prompts/manager.js';
-import { configManager, type CodeReasoningConfig } from './utils/config-manager.js';
 import {
   CONFIG_DIR,
+  CUSTOM_PROMPTS_DIR,
   MAX_THOUGHT_LENGTH,
   MAX_THOUGHTS,
-  CUSTOM_PROMPTS_DIR,
+  buildConfig,
+  type CodeReasoningConfig,
 } from './utils/config.js';
 
 /* -------------------------------------------------------------------------- */
@@ -186,51 +187,6 @@ Each thought can build on, question, or revise previous insights as understandin
     readOnlyHint: true,
   },
 };
-
-/* -------------------------------------------------------------------------- */
-/*                        STDIO TRANSPORT WITH FILTERING                      */
-/* -------------------------------------------------------------------------- */
-
-class FilteredStdioServerTransport extends StdioServerTransport {
-  private originalStdoutWrite: typeof process.stdout.write;
-
-  constructor() {
-    super();
-
-    // Store the original implementation before making any changes
-    this.originalStdoutWrite = process.stdout.write;
-
-    // Create a bound version that preserves the original context
-    const boundOriginalWrite = this.originalStdoutWrite.bind(process.stdout);
-
-    // Override with a new function that avoids recursion
-    process.stdout.write = ((data: string | Uint8Array): boolean => {
-      if (typeof data === 'string') {
-        const s = data.trimStart();
-        if (s.startsWith('{') || s.startsWith('[')) {
-          // Call the bound function directly to avoid circular reference
-          return boundOriginalWrite(data);
-        }
-        // Silent handling of non-JSON strings
-        return true;
-      }
-      // For non-string data, use the original implementation
-      return boundOriginalWrite(data);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
-  }
-
-  // Add cleanup to restore the original when the transport is closed
-  async close(): Promise<void> {
-    // Restore the original stdout.write before closing
-    if (this.originalStdoutWrite) {
-      process.stdout.write = this.originalStdoutWrite;
-    }
-
-    // Call the parent class's close method
-    await super.close();
-  }
-}
 
 /* -------------------------------------------------------------------------- */
 /*                              SERVER IMPLEMENTATION                         */
@@ -410,14 +366,7 @@ class CodeReasoningServer {
 /* -------------------------------------------------------------------------- */
 
 export async function runServer(debugFlag = false): Promise<void> {
-  // Initialize config manager and get config
-  await configManager.init();
-  const config = await configManager.getConfig();
-
-  // Apply debug flag if specified
-  if (debugFlag) {
-    await configManager.setValue('debug', true);
-  }
+  const config = buildConfig(debugFlag ? { debug: true } : undefined);
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.7.0' } as const;
 
@@ -563,7 +512,7 @@ export async function runServer(debugFlag = false): Promise<void> {
         })
   );
 
-  const transport = new FilteredStdioServerTransport();
+  const transport = new StdioServerTransport();
   await srv.connect(transport);
   console.error('🚀 Code-Reasoning MCP Server ready.');
 
