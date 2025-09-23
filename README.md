@@ -90,54 +90,8 @@ Detailed documentation available in the docs directory:
 ```
 ├── index.ts                  # Entry point
 ├── src/                      # Implementation source files
-└── test/                     # Testing framework
+└── test/                     # Placeholder for future test utilities
 ```
-
-## Prompt Evaluation
-
-The Code Reasoning MCP Server includes a prompt evaluation system that assesses Claude's ability to follow the code reasoning prompts. This system allows:
-
-- Testing different prompt variations against scenario problems
-- Verifying parameter format adherence
-- Scoring solution quality
-
-To use the prompt evaluation system, run:
-
-```bash
-npm run eval
-```
-
-### Prompt Comparison and Development
-
-Significant effort went into developing the optimal prompt for the Code Reasoning server. The current implementation uses the HYBRID_DESIGN prompt, which emerged as the winner from our evaluation process.
-
-We compared four different prompt designs:
-
-| Prompt Design       | Description                                                          |
-| ------------------- | -------------------------------------------------------------------- |
-| SEQUENTIAL          | The original sequential thinking prompt design                       |
-| DEFAULT             | The baseline prompt previously used in the server                    |
-| CODE_REASONING_0_30 | An experimental variant focusing on code-specific reasoning          |
-| HYBRID_DESIGN       | A refined design incorporating the best elements of other approaches |
-
-Our evaluation across seven diverse programming scenarios showed that HYBRID_DESIGN outperformed other prompts:
-
-| Scenario                   | HYBRID_DESIGN | CODE_REASONING_0_30 | DEFAULT | SEQUENTIAL |
-| -------------------------- | ------------- | ------------------- | ------- | ---------- |
-| Algorithm Selection        | 89%           | 82%                 | 92%     | 88%        |
-| Bug Identification         | 92%           | 91%                 | 88%     | 94%        |
-| Multi-Stage Implementation | 87%           | 67%                 | 82%     | 87%        |
-| System Design Analysis     | 87%           | 87%                 | 83%     | 82%        |
-| Code Debugging Task        | 96%           | 87%                 | 91%     | 93%        |
-| Compiler Optimization      | 83%           | 78%                 | 72%     | 78%        |
-| Cache Strategy             | 87%           | 88%                 | 89%     | 87%        |
-| **Average**                | **89%**       | **83%**             | **85%** | **87%**    |
-
-The HYBRID_DESIGN prompt demonstrates the highest average solution quality (89%) and the most consistent performance across all scenarios, with no scores below 80%. It also produces the most thoughts. The `src/server.ts` file has been updated to use this optimal prompt design.
-
-Personally, I think the biggest improvement was adding this to the end of the prompt: "✍️ End each thought by asking: "What am I missing or need to reconsider?"
-
-See [Testing Framework](./docs/testing.md) for more details on the prompt evaluation system.
 
 ## License
 
