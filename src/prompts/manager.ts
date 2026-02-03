@@ -45,18 +45,18 @@ export class PromptManager {
 
     this.ensureDirectoryExists(resolvedConfigDir, 'main config directory');
 
-    console.info(`Using config directory: ${resolvedConfigDir}`);
+    console.error(`Using config directory: ${resolvedConfigDir}`);
 
     this.initializeValueStorage(resolvedConfigDir);
 
-    console.info('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
+    console.error('PromptManager initialized with', Object.keys(this.prompts).length, 'prompts');
   }
 
   private ensureDirectoryExists(directoryPath: string, description: string): void {
     try {
       const createdPath = fs.mkdirSync(directoryPath, { recursive: true });
       if (createdPath) {
-        console.info(`Created ${description}: ${directoryPath}`);
+        console.error(`Created ${description}: ${directoryPath}`);
       }
     } catch (err) {
       const error = err as Error;
