@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/mettamatt-code-reasoning-badge.png)](https://mseep.ai/app/mettamatt-code-reasoning)
+
 # Code Reasoning MCP Server
 
 A Model Context Protocol (MCP) server that enhances Claude's ability to solve complex programming tasks through structured, step-by-step thinking.
