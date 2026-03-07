@@ -66,6 +66,7 @@ test('does not emit stdout before MCP handshake', { concurrency: false }, async 
     stdio: ['pipe', 'pipe', 'pipe'],
     env: serverEnv,
   });
+  const childExit = once(child, 'exit');
 
   let stdoutLog = '';
   let stderrLog = '';
@@ -81,8 +82,10 @@ test('does not emit stdout before MCP handshake', { concurrency: false }, async 
   try {
     await delay(250);
   } finally {
-    child.kill('SIGTERM');
-    await once(child, 'exit');
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+    }
+    await childExit;
   }
 
   assert.strictEqual(
