@@ -1,14 +1,19 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import type { Readable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { ContentBlock, PromptMessage } from '@modelcontextprotocol/sdk/types.js';
 
 const serverEntry = path.resolve(process.cwd(), 'dist', 'index.js');
+const testHomeDir = fs.mkdtempSync(path.join(process.cwd(), '.tmp-test-home-'));
+const serverEnv = { ...process.env, HOME: testHomeDir };
 
 if (!fs.existsSync(serverEntry)) {
   throw new Error(
@@ -20,6 +25,7 @@ const transport = new StdioClientTransport({
   command: process.execPath,
   args: [serverEntry],
   stderr: 'pipe',
+  env: serverEnv,
 });
 
 const client = new Client({
@@ -52,6 +58,72 @@ before(async () => {
 after(async () => {
   await client.close();
   await transport.close();
+  fs.rmSync(testHomeDir, { recursive: true, force: true });
+});
+
+test('does not emit stdout before MCP handshake', { concurrency: false }, async () => {
+  const child = spawn(process.execPath, [serverEntry], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: serverEnv,
+  });
+
+  let stdoutLog = '';
+  let stderrLog = '';
+  child.stdout?.setEncoding('utf8');
+  child.stderr?.setEncoding('utf8');
+  child.stdout?.on('data', chunk => {
+    stdoutLog += String(chunk);
+  });
+  child.stderr?.on('data', chunk => {
+    stderrLog += String(chunk);
+  });
+
+  try {
+    await delay(250);
+  } finally {
+    child.kill('SIGTERM');
+    await once(child, 'exit');
+  }
+
+  assert.strictEqual(
+    stdoutLog.trim(),
+    '',
+    `Expected no stdout before handshake. stdout=${JSON.stringify(stdoutLog)} stderr=${JSON.stringify(stderrLog)}`
+  );
+});
+
+test('connects successfully with --remote-logging enabled', { concurrency: false }, async () => {
+  const remoteTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [serverEntry, '--remote-logging'],
+    stderr: 'pipe',
+    env: serverEnv,
+  });
+  const remoteClient = new Client({
+    name: 'mcp-regression-suite-remote-logging',
+    version: '0.1.0',
+  });
+
+  let remoteServerLog = '';
+  const remoteStderr = remoteTransport.stderr as Readable | null;
+  if (remoteStderr) {
+    remoteStderr.on('data', chunk => {
+      remoteServerLog += chunk.toString();
+    });
+  }
+
+  try {
+    await remoteClient.connect(remoteTransport);
+    const { tools } = await remoteClient.listTools();
+    const tool = tools.find(entry => entry.name === 'code-reasoning');
+    assert.ok(
+      tool,
+      `expected code-reasoning tool with --remote-logging. stderr=${remoteServerLog}`
+    );
+  } finally {
+    await remoteClient.close();
+    await remoteTransport.close();
+  }
 });
 
 test('lists the code-reasoning tool', { concurrency: false }, async () => {

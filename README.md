@@ -65,6 +65,7 @@ See the [Prompts Guide](./docs/prompts.md) for details on using the prompt templ
 ## Command Line Options
 
 - `--debug`: Enable detailed logging
+- `--remote-logging`: Enable MCP `notifications/message` logging (disabled by default for strict stdio compatibility)
 - `--help` or `-h`: Show help information
 
 ## Key Features

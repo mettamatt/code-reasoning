@@ -77,16 +77,28 @@ const MAX_THOUGHTS = 20;
 interface CodeReasoningConfig {
   debug: boolean;
   promptsEnabled: boolean;
+  remoteLoggingEnabled: boolean;
 }
 
 const DEFAULT_CONFIG: Readonly<CodeReasoningConfig> = Object.freeze({
   debug: false,
   promptsEnabled: true,
+  remoteLoggingEnabled: false,
 });
 
 const createConfig = (overrides: Partial<CodeReasoningConfig> = {}): CodeReasoningConfig => ({
   ...DEFAULT_CONFIG,
   ...overrides,
+});
+
+interface CliFlags {
+  debug: boolean;
+  remote_logging: boolean;
+}
+
+const parseCliFlags = (argv: string[]): CliFlags => ({
+  debug: argv.includes('--debug'),
+  remote_logging: argv.includes('--remote-logging'),
 });
 
 /* -------------------------------------------------------------------------- */
@@ -436,8 +448,13 @@ const createThoughtProcessor = (cfg: Readonly<CodeReasoningConfig>, logger: Serv
 /*                                BOOTSTRAP                                   */
 /* -------------------------------------------------------------------------- */
 
-export async function runServer(debugFlag = false): Promise<void> {
-  const config = createConfig(debugFlag ? { debug: true } : undefined);
+export async function runServer(
+  options: boolean | Partial<CodeReasoningConfig> = false
+): Promise<void> {
+  const config =
+    typeof options === 'boolean'
+      ? createConfig(options ? { debug: true } : undefined)
+      : createConfig(options);
 
   const serverMeta = { name: 'code-reasoning-server', version: '0.7.0' } as const;
 
@@ -455,6 +472,7 @@ export async function runServer(debugFlag = false): Promise<void> {
   logger.info('Server initialized', {
     version: serverMeta.version,
     promptsEnabled: config.promptsEnabled,
+    remoteLoggingEnabled: config.remoteLoggingEnabled,
   });
 
   // Register tool with MCP helper APIs
@@ -580,8 +598,12 @@ export async function runServer(debugFlag = false): Promise<void> {
 
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
-  logger.enableRemoteLogging();
-  logger.notice('🚀 Code-Reasoning MCP Server ready.');
+  if (config.remoteLoggingEnabled) {
+    logger.enableRemoteLogging();
+    logger.notice('🚀 Code-Reasoning MCP Server ready.');
+  } else {
+    logger.info('Code-Reasoning MCP Server ready (stderr-only logging mode).');
+  }
 
   const shutdown = async (signal_name: string, exit_code = 0) => {
     logger.info('Shutdown signal received', { signal: signal_name, exit_code });
@@ -623,7 +645,11 @@ export async function runServer(debugFlag = false): Promise<void> {
 
 // Self-execute when run directly ------------------------------------------------
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runServer(process.argv.includes('--debug')).catch(err => {
+  const cliFlags = parseCliFlags(process.argv);
+  runServer({
+    debug: cliFlags.debug,
+    remoteLoggingEnabled: cliFlags.remote_logging,
+  }).catch(err => {
     console.error('FATAL: failed to start', err);
     process.exit(1);
   });

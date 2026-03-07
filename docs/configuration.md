@@ -17,11 +17,12 @@ This document provides detailed information about all configuration options avai
 
 The Code-Reasoning MCP Server supports the following command-line options:
 
-| Option         | Description                                   | Default  | Example                                       |
-| -------------- | --------------------------------------------- | -------- | --------------------------------------------- |
-| `--debug`      | Enable debug logging with more verbose output | `false`  | `code-reasoning --debug`                      |
-| `--help`, `-h` | Show help information                         | -        | `code-reasoning --help`                       |
-| `--config-dir` | Specify the configuration directory           | `config` | `code-reasoning --config-dir=/path/to/config` |
+| Option             | Description                                                     | Default  | Example                                       |
+| ------------------ | --------------------------------------------------------------- | -------- | --------------------------------------------- |
+| `--debug`          | Enable debug logging with more verbose output                   | `false`  | `code-reasoning --debug`                      |
+| `--remote-logging` | Enable MCP `notifications/message` logging for tolerant clients | `false`  | `code-reasoning --remote-logging`             |
+| `--help`, `-h`     | Show help information                                           | -        | `code-reasoning --help`                       |
+| `--config-dir`     | Specify the configuration directory                             | `config` | `code-reasoning --config-dir=/path/to/config` |
 
 ### Usage Examples
 
@@ -35,6 +36,12 @@ Debug mode:
 
 ```bash
 code-reasoning --debug
+```
+
+Enable remote MCP logging:
+
+```bash
+code-reasoning --remote-logging
 ```
 
 Help information:
@@ -131,6 +138,8 @@ The server uses the following streamlined approach:
 
 - All logs are written to stderr using `console.error()`
 - Debug logs are only shown when the `--debug` flag is enabled
+- Strict stdio compatibility is the default behavior
+- Remote MCP logging notifications are only emitted when `--remote-logging` is passed
 - The LogLevel enum is still used for compatibility but with simplified implementation
 - No log file rotation or custom log directories are supported
 

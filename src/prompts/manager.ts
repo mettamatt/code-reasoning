@@ -216,8 +216,7 @@ export class PromptManager {
 
     const filteredStoredValues: Record<string, string> = {};
     Object.entries(storedValues).forEach(([key, value]) => {
-      const isGlobalKey = Object.prototype.hasOwnProperty.call(this.storedValues.global, key);
-      if (isGlobalKey && !validArgNames.has(key)) {
+      if (!validArgNames.has(key)) {
         return;
       }
       filteredStoredValues[key] = value;
