@@ -14,7 +14,15 @@
 // Import and run the server
 import('./src/server.js')
   .then(module => {
-    module.runServer();
+    const cliFlags = {
+      debug: process.argv.includes('--debug'),
+      remote_logging: process.argv.includes('--remote-logging'),
+    };
+
+    module.runServer({
+      debug: cliFlags.debug,
+      remoteLoggingEnabled: cliFlags.remote_logging,
+    });
   })
   .catch(error => {
     console.error('Error starting server:', error);
